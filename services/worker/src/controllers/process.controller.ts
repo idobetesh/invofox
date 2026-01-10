@@ -7,7 +7,8 @@ import { getRetryCount, getMaxRetries } from '../middlewares/cloudTasks';
 import * as invoiceService from '../services/invoice.service';
 import * as storeService from '../services/store.service';
 import logger from '../logger';
-import type { TaskPayload, PipelineStep } from '../../../../shared/types';
+import type { TaskPayload, PipelineStep, CallbackPayload, DuplicateAction } from '../../../../shared/types';
+import * as telegramService from '../services/telegram.service';
 
 /**
  * Process an invoice image
@@ -112,5 +113,72 @@ export async function notifyFailure(req: Request, res: Response): Promise<void> 
   } catch (err) {
     const errMessage = err instanceof Error ? err.message : 'Unknown error';
     res.status(500).json({ error: errMessage });
+  }
+}
+
+/**
+ * Handle callback query from Telegram inline buttons
+ * Used for duplicate invoice decisions
+ */
+export async function handleCallback(req: Request, res: Response): Promise<void> {
+  const { callbackQueryId, data, botMessageChatId, botMessageId } = req.body as {
+    callbackQueryId: string;
+    data: string;
+    botMessageChatId: number;
+    botMessageId: number;
+  };
+
+  if (!callbackQueryId || !data) {
+    res.status(400).json({ error: 'Missing callback data' });
+    return;
+  }
+
+  const log = logger.child({ callbackQueryId });
+  log.info({ data }, 'Processing callback query');
+
+  try {
+    // Parse callback data
+    const payload = JSON.parse(data) as CallbackPayload;
+    const { action, chatId, messageId } = payload;
+
+    if (!action || !chatId || !messageId) {
+      throw new Error('Invalid callback payload');
+    }
+
+    // Answer callback immediately to remove loading state
+    await telegramService.answerCallbackQuery(callbackQueryId, {
+      text: action === 'keep_both' ? 'Keeping both...' : 'Deleting...',
+    });
+
+    // Process the decision
+    const result = await invoiceService.handleDuplicateDecision(
+      chatId,
+      messageId,
+      action as DuplicateAction,
+      botMessageId
+    );
+
+    if (result.success) {
+      log.info({ action, chatId, messageId }, 'Callback processed successfully');
+      res.status(200).json({ ok: true, action });
+    } else {
+      log.warn({ error: result.error }, 'Callback processing failed');
+      res.status(200).json({ ok: false, error: result.error });
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    log.error({ error: errorMessage }, 'Failed to process callback');
+
+    // Try to answer callback with error
+    try {
+      await telegramService.answerCallbackQuery(callbackQueryId, {
+        text: 'Error processing request',
+        showAlert: true,
+      });
+    } catch {
+      // Ignore answer errors
+    }
+
+    res.status(500).json({ error: errorMessage });
   }
 }

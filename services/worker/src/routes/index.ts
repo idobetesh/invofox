@@ -15,6 +15,9 @@ router.get('/health', healthController.getHealth);
 // Invoice processing (Cloud Tasks validated)
 router.post('/process', validateCloudTasks, processController.processInvoice);
 
+// Callback query handling (from webhook-handler)
+router.post('/callback', processController.handleCallback);
+
 // Manual failure notification (for testing)
 router.post('/notify-failure', processController.notifyFailure);
 

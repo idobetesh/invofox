@@ -4,7 +4,7 @@
  * Pipeline: Telegram → Cloud Storage → LLM Vision → Sheets → ACK
  */
 
-import type { TaskPayload, PipelineStep } from '../../../../shared/types';
+import type { TaskPayload, PipelineStep, DuplicateAction, InvoiceJob } from '../../../../shared/types';
 import * as storeService from './store.service';
 import * as telegramService from './telegram.service';
 import * as storageService from './storage.service';
@@ -18,6 +18,7 @@ export interface ProcessingResult {
   step?: PipelineStep;
   error?: string;
   driveLink?: string;
+  isDuplicate?: boolean;
 }
 
 /**
@@ -99,6 +100,51 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
       'LLM Vision extraction completed'
     );
 
+    // Store extraction data for future duplicate checks
+    await storeService.storeExtraction(chatId, messageId, extraction);
+
+    // Check for duplicate invoices
+    const jobId = storeService.getJobId(chatId, messageId);
+    const duplicate = await storeService.findDuplicateInvoice(extraction, jobId);
+
+    // If duplicate found, pause for user decision
+    if (duplicate) {
+      log.info({ duplicateJobId: duplicate.jobId }, 'Duplicate detected, waiting for user decision');
+      
+      // Store pending decision state with all data needed to resume
+      await storeService.markJobPendingDecision(chatId, messageId, {
+        duplicateOfJobId: duplicate.jobId,
+        llmProvider: usage.provider,
+        totalTokens: usage.totalTokens,
+        costUSD: usage.costUSD,
+        currency: extraction.currency,
+      });
+
+      // Send message with inline buttons
+      const { text, keyboard } = telegramService.formatDuplicateWarning(
+        duplicate,
+        driveLink,
+        chatId,
+        messageId
+      );
+
+      await telegramService.sendMessage(chatId, text, {
+        parseMode: 'Markdown',
+        replyToMessageId: messageId,
+        disableWebPagePreview: true,
+        replyMarkup: keyboard,
+      });
+
+      log.info('Duplicate warning sent with buttons, awaiting user decision');
+
+      return {
+        success: true,
+        alreadyProcessed: false,
+        driveLink,
+        isDuplicate: true,
+      };
+    }
+
     // Step 4: Append to Google Sheets (ATOMIC - rollback Drive on failure)
     currentStep = 'sheets';
     log.info('Step 4: Appending to Google Sheets');
@@ -158,12 +204,13 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
       sheetRowId,
     });
 
-    log.info('Invoice processing completed successfully');
+    log.info({ isDuplicate: !!duplicate }, 'Invoice processing completed successfully');
 
     return {
       success: true,
       alreadyProcessed: false,
       driveLink,
+      isDuplicate: !!duplicate,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -194,5 +241,122 @@ export async function sendFailureNotification(
     log.info({ lastStep }, 'Failure notification sent');
   } catch (notifyError) {
     log.error({ notifyError }, 'Failed to send failure notification');
+  }
+}
+
+/**
+ * Handle user decision on duplicate invoice
+ * Called when user clicks "Keep Both" or "Delete New" button
+ */
+export async function handleDuplicateDecision(
+  chatId: number,
+  messageId: number,
+  action: DuplicateAction,
+  botMessageId: number // The message with buttons, to edit it
+): Promise<{ success: boolean; error?: string }> {
+  const log = logger.child({ chatId, messageId, action });
+  log.info('Processing duplicate decision');
+
+  try {
+    // Get the pending decision job
+    const job = await storeService.getPendingDecisionJob(chatId, messageId);
+    
+    if (!job) {
+      log.warn('No pending decision job found');
+      return { success: false, error: 'Decision already processed or expired' };
+    }
+
+    // Get the duplicate job for its drive link
+    const duplicateJob = job.duplicateOfJobId 
+      ? await storeService.getJob(
+          parseInt(job.duplicateOfJobId.split('_')[0]), 
+          parseInt(job.duplicateOfJobId.split('_')[1])
+        )
+      : null;
+
+    const existingLink = duplicateJob?.driveLink || '';
+
+    if (action === 'delete_new') {
+      // User chose to delete the new upload
+      log.info('User chose to delete new upload');
+      
+      // Delete from Cloud Storage
+      if (job.driveFileId) {
+        await storageService.deleteFile(job.driveFileId);
+        log.info({ fileId: job.driveFileId }, 'Deleted from Cloud Storage');
+      }
+
+      // Mark job as processed (duplicate deleted)
+      await storeService.markJobCompleted(chatId, messageId, {
+        driveFileId: job.driveFileId || '',
+        driveLink: job.driveLink || '',
+      });
+
+      // Edit the button message to show result
+      const resultMessage = telegramService.formatDuplicateResolved(
+        action,
+        job.driveLink || '',
+        existingLink
+      );
+
+      await telegramService.editMessageText(chatId, botMessageId, resultMessage, {
+        parseMode: 'Markdown',
+        disableWebPagePreview: true,
+      });
+
+      return { success: true };
+    }
+
+    // User chose to keep both - continue with sheets append
+    log.info('User chose to keep both, appending to sheets');
+
+    const status = 'processed'; // Already checked confidence earlier
+    const sheetRow = sheetsService.buildSheetRow({
+      receivedAt: job.receivedAt,
+      uploaderUsername: job.uploaderUsername,
+      chatTitle: job.chatTitle,
+      driveLink: job.driveLink || '',
+      extraction: {
+        vendor_name: job.vendorName || null,
+        invoice_number: null,
+        invoice_date: job.invoiceDate || null,
+        total_amount: job.totalAmount || null,
+        currency: (job as InvoiceJob & { currency?: string }).currency || null,
+        vat_amount: null,
+        confidence: 0.8,
+      },
+      status,
+      llmProvider: (job as InvoiceJob & { llmProvider?: 'gemini' | 'openai' }).llmProvider || 'openai',
+      totalTokens: (job as InvoiceJob & { totalTokens?: number }).totalTokens || 0,
+      costUSD: (job as InvoiceJob & { costUSD?: number }).costUSD || 0,
+    });
+
+    const sheetRowId = await sheetsService.appendRow(sheetRow);
+    log.info({ sheetRowId }, 'Appended to sheet after user decision');
+
+    // Mark job as completed
+    await storeService.markJobCompleted(chatId, messageId, {
+      driveFileId: job.driveFileId || '',
+      driveLink: job.driveLink || '',
+      sheetRowId,
+    });
+
+    // Edit the button message to show result
+    const resultMessage = telegramService.formatDuplicateResolved(
+      action,
+      job.driveLink || '',
+      existingLink
+    );
+
+    await telegramService.editMessageText(chatId, botMessageId, resultMessage, {
+      parseMode: 'Markdown',
+      disableWebPagePreview: true,
+    });
+
+    return { success: true };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    log.error({ error: errorMessage }, 'Failed to process duplicate decision');
+    return { success: false, error: errorMessage };
   }
 }
