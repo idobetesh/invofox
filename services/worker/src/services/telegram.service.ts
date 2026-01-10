@@ -2,7 +2,13 @@
  * Telegram API service for downloading files and sending messages
  */
 
-import type { TelegramFile, TelegramApiResponse } from '../../../../shared/types';
+import type { 
+  TelegramFile, 
+  TelegramApiResponse, 
+  DuplicateMatch,
+  TelegramInlineKeyboardMarkup,
+  CallbackPayload,
+} from '../../../../shared/types';
 import { getConfig } from '../config';
 
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
@@ -80,6 +86,7 @@ export async function sendMessage(
     parseMode?: 'HTML' | 'Markdown' | 'MarkdownV2';
     replyToMessageId?: number;
     disableWebPagePreview?: boolean;
+    replyMarkup?: TelegramInlineKeyboardMarkup;
   }
 ): Promise<void> {
   const config = getConfig();
@@ -102,6 +109,10 @@ export async function sendMessage(
     body.disable_web_page_preview = options.disableWebPagePreview;
   }
 
+  if (options?.replyMarkup) {
+    body.reply_markup = options.replyMarkup;
+  }
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -114,6 +125,90 @@ export async function sendMessage(
 
   if (!data.ok) {
     throw new Error(`Failed to send message: ${data.description || 'Unknown error'}`);
+  }
+}
+
+/**
+ * Answer a callback query (required to stop loading indicator on button)
+ */
+export async function answerCallbackQuery(
+  callbackQueryId: string,
+  options?: {
+    text?: string;
+    showAlert?: boolean;
+  }
+): Promise<void> {
+  const config = getConfig();
+  const url = `${TELEGRAM_API_BASE}/bot${config.telegramBotToken}/answerCallbackQuery`;
+
+  const body: Record<string, unknown> = {
+    callback_query_id: callbackQueryId,
+  };
+
+  if (options?.text) {
+    body.text = options.text;
+  }
+
+  if (options?.showAlert) {
+    body.show_alert = options.showAlert;
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = (await response.json()) as TelegramApiResponse<unknown>;
+
+  if (!data.ok) {
+    throw new Error(`Failed to answer callback: ${data.description || 'Unknown error'}`);
+  }
+}
+
+/**
+ * Edit a message (to remove buttons after user decision)
+ */
+export async function editMessageText(
+  chatId: number,
+  messageId: number,
+  text: string,
+  options?: {
+    parseMode?: 'HTML' | 'Markdown' | 'MarkdownV2';
+    disableWebPagePreview?: boolean;
+  }
+): Promise<void> {
+  const config = getConfig();
+  const url = `${TELEGRAM_API_BASE}/bot${config.telegramBotToken}/editMessageText`;
+
+  const body: Record<string, unknown> = {
+    chat_id: chatId,
+    message_id: messageId,
+    text,
+  };
+
+  if (options?.parseMode) {
+    body.parse_mode = options.parseMode;
+  }
+
+  if (options?.disableWebPagePreview) {
+    body.disable_web_page_preview = options.disableWebPagePreview;
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = (await response.json()) as TelegramApiResponse<unknown>;
+
+  if (!data.ok) {
+    throw new Error(`Failed to edit message: ${data.description || 'Unknown error'}`);
   }
 }
 
@@ -172,4 +267,58 @@ Msg: ${messageId}
 Last step: ${lastStep}
 Error: ${shortError}
 (Try sending a clearer screenshot)`;
+}
+
+/**
+ * Format duplicate warning message with inline buttons
+ */
+export function formatDuplicateWarning(
+  duplicate: DuplicateMatch,
+  newDriveLink: string,
+  chatId: number,
+  messageId: number
+): { text: string; keyboard: TelegramInlineKeyboardMarkup } {
+  const date = formatDateForDisplay(duplicate.invoiceDate);
+  const amount = duplicate.totalAmount !== null ? duplicate.totalAmount.toString() : '?';
+  const vendor = duplicate.vendorName || 'Unknown';
+  const matchLabel = duplicate.matchType === 'exact' ? 'Exact duplicate' : 'Similar invoice';
+
+  const text = `⚠️ ${matchLabel} detected!
+📅 ${date} | 💰 ${amount}
+🏢 ${vendor}
+📎 [Existing](${duplicate.driveLink})
+
+New upload pending - choose action:`;
+
+  // Encode callback data as JSON
+  const keepBothData: CallbackPayload = { action: 'keep_both', chatId, messageId };
+  const deleteNewData: CallbackPayload = { action: 'delete_new', chatId, messageId };
+
+  const keyboard: TelegramInlineKeyboardMarkup = {
+    inline_keyboard: [
+      [
+        { text: '✅ Keep Both', callback_data: JSON.stringify(keepBothData) },
+        { text: '🗑️ Delete New', callback_data: JSON.stringify(deleteNewData) },
+      ],
+    ],
+  };
+
+  return { text, keyboard };
+}
+
+/**
+ * Format message after user decides on duplicate
+ */
+export function formatDuplicateResolved(
+  action: 'keep_both' | 'delete_new',
+  driveLink: string,
+  existingLink: string
+): string {
+  if (action === 'keep_both') {
+    return `✅ Both invoices kept
+📎 [New](${driveLink}) | [Existing](${existingLink})`;
+  } else {
+    return `🗑️ Duplicate deleted
+📎 [Existing](${existingLink}) kept`;
+  }
 }
