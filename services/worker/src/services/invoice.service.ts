@@ -311,6 +311,17 @@ export async function handleDuplicateDecision(
     log.info('User chose to keep both, appending to sheets');
 
     const status = 'processed'; // Already checked confidence earlier
+    // Cast job to include all stored extraction fields
+    const jobWithExtraction = job as InvoiceJob & {
+      invoiceNumber?: string;
+      currency?: string;
+      vatAmount?: number;
+      confidence?: number;
+      llmProvider?: 'gemini' | 'openai';
+      totalTokens?: number;
+      costUSD?: number;
+    };
+
     const sheetRow = sheetsService.buildSheetRow({
       receivedAt: job.receivedAt,
       uploaderUsername: job.uploaderUsername,
@@ -318,17 +329,17 @@ export async function handleDuplicateDecision(
       driveLink: job.driveLink || '',
       extraction: {
         vendor_name: job.vendorName || null,
-        invoice_number: null,
+        invoice_number: jobWithExtraction.invoiceNumber || null,
         invoice_date: job.invoiceDate || null,
         total_amount: job.totalAmount || null,
-        currency: (job as InvoiceJob & { currency?: string }).currency || null,
-        vat_amount: null,
-        confidence: 0.8,
+        currency: jobWithExtraction.currency || null,
+        vat_amount: jobWithExtraction.vatAmount || null,
+        confidence: jobWithExtraction.confidence || 0.8,
       },
       status,
-      llmProvider: (job as InvoiceJob & { llmProvider?: 'gemini' | 'openai' }).llmProvider || 'openai',
-      totalTokens: (job as InvoiceJob & { totalTokens?: number }).totalTokens || 0,
-      costUSD: (job as InvoiceJob & { costUSD?: number }).costUSD || 0,
+      llmProvider: jobWithExtraction.llmProvider || 'openai',
+      totalTokens: jobWithExtraction.totalTokens || 0,
+      costUSD: jobWithExtraction.costUSD || 0,
     });
 
     const sheetRowId = await sheetsService.appendRow(sheetRow);
