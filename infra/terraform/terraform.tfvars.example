@@ -1,0 +1,42 @@
+# Terraform Variables Example
+# Copy this file to terraform.tfvars and fill in your values
+# DO NOT commit terraform.tfvars to version control!
+
+# GCP Configuration
+project_id  = "your-gcp-project-id"
+region      = "us-central1"
+environment = "prod"
+
+# Telegram Configuration (from BotFather)
+telegram_bot_token  = "123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+webhook_secret_path = "your-random-secret-path-here"
+
+# OpenAI Configuration
+openai_api_key = "sk-..."
+
+# Google Sheets Configuration
+# Get sheet ID from Sheets URL: https://docs.google.com/spreadsheets/d/SHEET_ID/edit
+sheet_id = "1AbCdEfGhIjKlMnOpQrStUvWxYz"
+
+# Note: Cloud Storage bucket is auto-created by Terraform as {project_id}-invoices
+
+# Container Images (leave empty for initial setup, fill after first build)
+webhook_handler_image = ""
+worker_image          = ""
+
+# Optional: Adjust resources
+webhook_handler_memory = "256Mi"
+worker_memory          = "512Mi"
+worker_timeout         = 300
+
+# Cloud Tasks Configuration
+queue_max_dispatches_per_second = 5
+queue_max_concurrent_dispatches = 10
+queue_max_attempts              = 6
+queue_min_backoff               = "30s"
+queue_max_backoff               = "1800s"
+
+# Budget Alert (optional but recommended)
+# Get billing account ID: gcloud billing accounts list
+billing_account_id = ""  # e.g., "012345-6789AB-CDEF01"
+monthly_budget_usd = 5   # Alert at $2.50, $4, and $5
