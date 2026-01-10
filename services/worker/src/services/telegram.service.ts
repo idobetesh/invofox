@@ -7,7 +7,7 @@ import type {
   TelegramApiResponse, 
   DuplicateMatch,
   TelegramInlineKeyboardMarkup,
-  CallbackPayload,
+  DuplicateDecision,
 } from '../../../../shared/types';
 import { getConfig } from '../config';
 
@@ -291,8 +291,8 @@ export function formatDuplicateWarning(
 New upload pending - choose action:`;
 
   // Encode callback data as JSON
-  const keepBothData: CallbackPayload = { action: 'keep_both', chatId, messageId };
-  const deleteNewData: CallbackPayload = { action: 'delete_new', chatId, messageId };
+  const keepBothData: DuplicateDecision = { action: 'keep_both', chatId, messageId };
+  const deleteNewData: DuplicateDecision = { action: 'delete_new', chatId, messageId };
 
   const keyboard: TelegramInlineKeyboardMarkup = {
     inline_keyboard: [

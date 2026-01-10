@@ -196,7 +196,20 @@ export interface DuplicateMatch {
 
 export type DuplicateAction = 'keep_both' | 'delete_new';
 
+/**
+ * Raw callback payload from Telegram webhook
+ */
 export interface CallbackPayload {
+  callbackQueryId: string;
+  data: string;
+  botMessageChatId: number;
+  botMessageId: number;
+}
+
+/**
+ * Parsed duplicate decision from callback data
+ */
+export interface DuplicateDecision {
   action: DuplicateAction;
   chatId: number;
   messageId: number;

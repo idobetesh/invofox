@@ -82,7 +82,7 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
 }
 
 /**
- * Handle callback query by forwarding to worker
+ * Handle callback query by enqueueing task for worker
  */
 async function handleCallbackQuery(
   update: ReturnType<typeof telegramService.parseUpdate>,
@@ -103,31 +103,20 @@ async function handleCallbackQuery(
 
   logger.info(
     { callbackQueryId: callbackPayload.callbackQueryId },
-    'Forwarding callback query to worker'
+    'Enqueueing callback query for worker'
   );
 
   try {
-    // Forward to worker directly (callbacks need immediate response)
-    const workerUrl = `${config.workerUrl}/callback`;
-    const response = await fetch(workerUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(callbackPayload),
-    });
+    const taskName = await tasksService.enqueueCallbackTask(callbackPayload, config);
+    logger.info({ taskName }, 'Callback task enqueued successfully');
 
-    const result = await response.json();
-    
-    if (response.ok) {
-      logger.info('Callback processed successfully');
-      res.status(200).json({ ok: true, action: 'callback_processed', result });
-    } else {
-      logger.error({ result }, 'Worker failed to process callback');
-      res.status(200).json({ ok: false, action: 'callback_failed', result });
-    }
+    res.status(200).json({
+      ok: true,
+      action: 'callback_enqueued',
+      task: taskName,
+    });
   } catch (error) {
-    logger.error({ error }, 'Failed to forward callback to worker');
-    res.status(500).json({ error: 'Failed to forward callback' });
+    logger.error({ error }, 'Failed to enqueue callback task');
+    res.status(500).json({ error: 'Failed to enqueue callback task' });
   }
 }

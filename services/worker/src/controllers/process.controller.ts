@@ -7,7 +7,7 @@ import { getRetryCount, getMaxRetries } from '../middlewares/cloudTasks';
 import * as invoiceService from '../services/invoice.service';
 import * as storeService from '../services/store.service';
 import logger from '../logger';
-import type { TaskPayload, PipelineStep, CallbackPayload, DuplicateAction } from '../../../../shared/types';
+import type { TaskPayload, PipelineStep, DuplicateDecision, DuplicateAction } from '../../../../shared/types';
 import * as telegramService from '../services/telegram.service';
 
 /**
@@ -137,9 +137,9 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
   log.info({ data }, 'Processing callback query');
 
   try {
-    // Parse callback data
-    const payload = JSON.parse(data) as CallbackPayload;
-    const { action, chatId, messageId } = payload;
+    // Parse callback data (contains DuplicateDecision)
+    const decision = JSON.parse(data) as DuplicateDecision;
+    const { action, chatId, messageId } = decision;
 
     if (!action || !chatId || !messageId) {
       throw new Error('Invalid callback payload');
