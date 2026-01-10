@@ -10,15 +10,15 @@ import { z } from 'zod';
  */
 const envSchema = z.object({
   PORT: z.string().default('8080').transform(Number),
-  GCP_PROJECT_ID: z.string().min(1, 'GCP project ID is required'),
+  GCP_PROJECT_ID: z.string().min(1, { message: 'GCP project ID is required' }),
   TELEGRAM_BOT_TOKEN: z.string().regex(
     /^\d+:[A-Za-z0-9_-]+$/,
-    'Invalid Telegram bot token format. Get one from @BotFather on Telegram'
+    { message: 'Invalid Telegram bot token format. Get one from @BotFather on Telegram' }
   ),
-  OPENAI_API_KEY: z.string().startsWith('sk-', 'OpenAI API key must start with sk-'),
+  OPENAI_API_KEY: z.string().startsWith('sk-', { message: 'OpenAI API key must start with sk-' }),
   GEMINI_API_KEY: z.string().optional(), // Optional - if not provided, only OpenAI is used
-  STORAGE_BUCKET: z.string().min(3, 'Cloud Storage bucket name is required'),
-  SHEET_ID: z.string().min(10, 'Google Sheets ID is required. Get from URL: docs.google.com/spreadsheets/d/SHEET_ID'),
+  STORAGE_BUCKET: z.string().min(3, { message: 'Cloud Storage bucket name is required' }),
+  SHEET_ID: z.string().min(10, { message: 'Google Sheets ID is required. Get from URL: docs.google.com/spreadsheets/d/SHEET_ID' }),
   MAX_RETRIES: z.string().default('6').transform(Number),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
 });
