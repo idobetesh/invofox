@@ -121,7 +121,7 @@ export async function notifyFailure(req: Request, res: Response): Promise<void> 
  * Used for duplicate invoice decisions
  */
 export async function handleCallback(req: Request, res: Response): Promise<void> {
-  const { callbackQueryId, data, botMessageChatId, botMessageId } = req.body as {
+  const { callbackQueryId, data, botMessageId } = req.body as {
     callbackQueryId: string;
     data: string;
     botMessageChatId: number;

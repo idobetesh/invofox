@@ -304,19 +304,27 @@ export async function findDuplicateInvoice(
 
     for (const doc of snapshot.docs) {
       // Skip current job
-      if (doc.id === currentJobId) continue;
+      if (doc.id === currentJobId) {
+        continue;
+      }
 
       const job = doc.data() as InvoiceJob & StoredExtraction;
       
       // Skip if no extraction data
-      if (!job.vendorName || job.totalAmount === null) continue;
+      if (!job.vendorName || job.totalAmount === null) {
+        continue;
+      }
 
       // Check vendor match (case-insensitive)
       const storedVendorLower = job.vendorName.toLowerCase().trim();
-      if (storedVendorLower !== vendorLower) continue;
+      if (storedVendorLower !== vendorLower) {
+        continue;
+      }
 
       // Check amount match (exact)
-      if (job.totalAmount !== extraction.total_amount) continue;
+      if (job.totalAmount !== extraction.total_amount) {
+        continue;
+      }
 
       // Check date match (if both have dates)
       let matchType: 'exact' | 'similar' = 'similar';
