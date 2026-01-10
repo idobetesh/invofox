@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  lint-and-test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            services/webhook-handler/package-lock.json
+            services/worker/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install webhook-handler dependencies
+        run: cd services/webhook-handler && npm ci
+
+      - name: Install worker dependencies
+        run: cd services/worker && npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Test webhook-handler
+        run: cd services/webhook-handler && npm test
+
+      - name: Test worker
+        run: cd services/worker && npm test
+
+  typecheck:
+    name: TypeScript Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            services/webhook-handler/package-lock.json
+            services/worker/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd services/webhook-handler && npm ci
+          cd ../worker && npm ci
+
+      - name: TypeScript check webhook-handler
+        run: cd services/webhook-handler && npx tsc --noEmit
+
+      - name: TypeScript check worker
+        run: cd services/worker && npx tsc --noEmit

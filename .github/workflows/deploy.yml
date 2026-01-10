@@ -1,0 +1,105 @@
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'services/**'
+      - 'shared/**'
+      - 'infra/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch: # Manual trigger (bypasses path filter)
+
+env:
+  PROJECT_ID: papertrail-invoice
+  REGION: us-central1
+  REGISTRY: us-central1-docker.pkg.dev/papertrail-invoice/papertrail-containers
+
+jobs:
+  # Run tests first
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: |
+            services/webhook-handler/package-lock.json
+            services/worker/package-lock.json
+
+      - name: Install & Test
+        run: |
+          npm ci
+          cd services/webhook-handler && npm ci && npm test
+          cd ../worker && npm ci && npm test
+
+  # Build and deploy
+  deploy:
+    name: Deploy
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # For Workload Identity Federation
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push webhook-handler
+        run: |
+          docker build --platform linux/amd64 \
+            --build-arg APP_VERSION=${{ github.sha }} \
+            -f services/webhook-handler/Dockerfile \
+            -t ${{ env.REGISTRY }}/webhook-handler:${{ github.sha }} \
+            -t ${{ env.REGISTRY }}/webhook-handler:latest .
+          docker push ${{ env.REGISTRY }}/webhook-handler:${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/webhook-handler:latest
+
+      - name: Build and push worker
+        run: |
+          docker build --platform linux/amd64 \
+            --build-arg APP_VERSION=${{ github.sha }} \
+            -f services/worker/Dockerfile \
+            -t ${{ env.REGISTRY }}/worker:${{ github.sha }} \
+            -t ${{ env.REGISTRY }}/worker:latest .
+          docker push ${{ env.REGISTRY }}/worker:${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/worker:latest
+
+      - name: Deploy webhook-handler
+        run: |
+          gcloud run services update webhook-handler \
+            --image ${{ env.REGISTRY }}/webhook-handler:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }}
+
+      - name: Deploy worker
+        run: |
+          gcloud run services update worker \
+            --image ${{ env.REGISTRY }}/worker:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }}
+
+      - name: Deployment complete
+        run: |
+          echo "✅ Deployed successfully!"
+          echo "Webhook: https://webhook-handler-695175335266.${{ env.REGION }}.run.app"
+          echo "Worker: https://worker-695175335266.${{ env.REGION }}.run.app"
