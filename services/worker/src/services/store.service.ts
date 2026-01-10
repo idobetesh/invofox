@@ -219,8 +219,12 @@ export async function storeExtraction(
 
   await docRef.update({
     vendorName: extraction.vendor_name,
+    invoiceNumber: extraction.invoice_number,
     totalAmount: extraction.total_amount,
     invoiceDate: extraction.invoice_date,
+    currency: extraction.currency,
+    vatAmount: extraction.vat_amount,
+    confidence: extraction.confidence,
     updatedAt: FieldValue.serverTimestamp(),
   });
 }
