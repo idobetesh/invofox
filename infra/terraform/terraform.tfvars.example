@@ -11,7 +11,9 @@ environment = "prod"
 telegram_bot_token  = "123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
 webhook_secret_path = "your-random-secret-path-here"
 
-# OpenAI Configuration
+# LLM Configuration
+# Gemini is primary (free tier), OpenAI is fallback
+gemini_api_key = ""  # Optional: from https://aistudio.google.com/apikey
 openai_api_key = "sk-..."
 
 # Google Sheets Configuration
