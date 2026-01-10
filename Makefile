@@ -281,12 +281,11 @@ logs-worker:
 # =============================================================================
 
 version:
-	@echo "=== Production Version ==="
-	@echo ""
 	@WEBHOOK_URL=$$(gcloud run services describe webhook-handler --region $(REGION) --format='value(status.url)' 2>/dev/null) && \
-	curl -s "$$WEBHOOK_URL/health" | jq . || echo "(service not accessible)"
-	@echo ""
-	@echo "(Worker uses same version - deployed together)"
+	HEALTH=$$(curl -s "$$WEBHOOK_URL/health") && \
+	WEBHOOK_REV=$$(gcloud run services describe webhook-handler --region $(REGION) --format='value(status.latestReadyRevisionName)' 2>/dev/null) && \
+	WORKER_REV=$$(gcloud run services describe worker --region $(REGION) --format='value(status.latestReadyRevisionName)' 2>/dev/null) && \
+	echo "$$HEALTH" | jq --arg wh "$$WEBHOOK_REV" --arg wk "$$WORKER_REV" '. + {services: {"webhook-handler": $$wh, "worker": $$wk}}'
 
 revisions:
 	@echo "=== Webhook Handler Revisions ==="
