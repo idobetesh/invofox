@@ -12,9 +12,12 @@ import { getConfig } from '../../config';
 import logger from '../../logger';
 import { normalizeExtraction, getMimeType } from './utils';
 
-// Gemini 2.0 Flash pricing (free tier available)
-const PRICE_PER_INPUT_TOKEN = 0.0000001; // $0.10 per 1M tokens
-const PRICE_PER_OUTPUT_TOKEN = 0.0000004; // $0.40 per 1M tokens
+// Gemini 2.0 Flash pricing
+// Free tier: 1M tokens/min, 1.5K requests/day (shows $0 effective cost)
+// Paid tier: $0.10/1M input, $0.40/1M output
+// We calculate actual cost for tracking (useful if you exceed free tier)
+const PRICE_PER_INPUT_TOKEN = 0.0000001;
+const PRICE_PER_OUTPUT_TOKEN = 0.0000004;
 
 let geminiClient: GoogleGenerativeAI | null = null;
 

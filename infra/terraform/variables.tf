@@ -30,11 +30,19 @@ variable "webhook_secret_path" {
   sensitive   = true
 }
 
-# OpenAI Configuration
+# OpenAI Configuration (fallback LLM)
 variable "openai_api_key" {
-  description = "OpenAI API Key"
+  description = "OpenAI API Key (fallback when Gemini fails)"
   type        = string
   sensitive   = true
+}
+
+# Gemini Configuration (primary LLM - free tier)
+variable "gemini_api_key" {
+  description = "Gemini API Key (primary, optional if created manually)"
+  type        = string
+  sensitive   = true
+  default     = ""
 }
 
 # Google Sheets Configuration

@@ -209,6 +209,12 @@ resource "google_secret_manager_secret" "sheet_id" {
   depends_on = [google_project_service.apis]
 }
 
+# Reference existing Gemini secret (created manually via gcloud)
+data "google_secret_manager_secret" "gemini_api_key" {
+  secret_id = "GEMINI_API_KEY"
+  depends_on = [google_project_service.apis]
+}
+
 resource "google_secret_manager_secret_version" "sheet_id" {
   secret      = google_secret_manager_secret.sheet_id.id
   secret_data = var.sheet_id
@@ -248,6 +254,12 @@ resource "google_secret_manager_secret_iam_member" "worker_telegram_token" {
 
 resource "google_secret_manager_secret_iam_member" "worker_openai_key" {
   secret_id = google_secret_manager_secret.openai_api_key.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.worker.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "worker_gemini_key" {
+  secret_id = data.google_secret_manager_secret.gemini_api_key.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.worker.email}"
 }
@@ -426,6 +438,16 @@ resource "google_cloud_run_v2_service" "worker" {
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.openai_api_key.secret_id
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "GEMINI_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = data.google_secret_manager_secret.gemini_api_key.secret_id
             version = "latest"
           }
         }
