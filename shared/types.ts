@@ -48,6 +48,25 @@ export interface TelegramUpdate {
   edited_message?: TelegramMessage;
   channel_post?: TelegramMessage;
   edited_channel_post?: TelegramMessage;
+  callback_query?: TelegramCallbackQuery;
+}
+
+export interface TelegramCallbackQuery {
+  id: string;
+  from: TelegramUser;
+  message?: TelegramMessage;
+  chat_instance: string;
+  data?: string; // Callback data from button
+}
+
+export interface TelegramInlineKeyboardButton {
+  text: string;
+  callback_data?: string;
+  url?: string;
+}
+
+export interface TelegramInlineKeyboardMarkup {
+  inline_keyboard: TelegramInlineKeyboardButton[][];
 }
 
 export interface TelegramFile {
@@ -82,7 +101,7 @@ export interface TaskPayload {
 // Firestore Job Schema
 // ============================================================================
 
-export type JobStatus = 'pending' | 'processing' | 'processed' | 'failed';
+export type JobStatus = 'pending' | 'processing' | 'processed' | 'failed' | 'pending_decision';
 export type PipelineStep = 'download' | 'drive' | 'llm' | 'sheets' | 'ack';
 
 export interface InvoiceJob {
@@ -102,6 +121,16 @@ export interface InvoiceJob {
   sheetRowId?: number;
   lastStep?: PipelineStep;
   lastError?: string;
+  // Extraction data for duplicate detection
+  vendorName?: string | null;
+  totalAmount?: number | null;
+  invoiceDate?: string | null;
+  currency?: string | null;
+  // Pending decision data
+  duplicateOfJobId?: string;
+  llmProvider?: 'gemini' | 'openai';
+  totalTokens?: number;
+  costUSD?: number;
 }
 
 // ============================================================================
@@ -149,6 +178,28 @@ export interface SheetRow {
   llm_provider: 'gemini' | 'openai'; // Which LLM was used
   total_tokens: number; // LLM input + output tokens
   cost_usd: number; // Cost in USD (numeric for SUM)
+}
+
+// ============================================================================
+// Duplicate Detection
+// ============================================================================
+
+export interface DuplicateMatch {
+  jobId: string;
+  vendorName: string | null;
+  totalAmount: number | null;
+  invoiceDate: string | null;
+  driveLink: string;
+  receivedAt: string;
+  matchType: 'exact' | 'similar';
+}
+
+export type DuplicateAction = 'keep_both' | 'delete_new';
+
+export interface CallbackPayload {
+  action: DuplicateAction;
+  chatId: number;
+  messageId: number;
 }
 
 // ============================================================================
