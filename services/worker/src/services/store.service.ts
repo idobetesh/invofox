@@ -148,14 +148,20 @@ export async function markJobCompleted(
   const docId = getJobId(chatId, messageId);
   const docRef = db.collection(COLLECTION_NAME).doc(docId);
 
-  await docRef.update({
+  const updateData: Record<string, unknown> = {
     status: 'processed' as JobStatus,
     updatedAt: FieldValue.serverTimestamp(),
     driveFileId: data.driveFileId,
     driveLink: data.driveLink,
-    sheetRowId: data.sheetRowId,
     lastError: FieldValue.delete(),
-  });
+  };
+
+  // Only include sheetRowId if defined (not set for deleted duplicates)
+  if (data.sheetRowId !== undefined) {
+    updateData.sheetRowId = data.sheetRowId;
+  }
+
+  await docRef.update(updateData);
 }
 
 /**
