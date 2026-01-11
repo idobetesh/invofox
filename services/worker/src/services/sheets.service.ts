@@ -6,6 +6,7 @@ import { google, sheets_v4 } from 'googleapis';
 import type { SheetRow, InvoiceExtraction } from '../../../../shared/types';
 import { getConfig } from '../config';
 import logger from '../logger';
+import { DEFAULT_CATEGORY } from './llms/utils';
 
 let sheetsClient: sheets_v4.Sheets | null = null;
 
@@ -20,7 +21,7 @@ function getSheets(): sheets_v4.Sheets {
 }
 
 /**
- * Column headers for the invoice sheet (13 columns)
+ * Column headers for the invoice sheet (14 columns)
  */
 export const SHEET_HEADERS = [
   'Received At',
@@ -29,6 +30,7 @@ export const SHEET_HEADERS = [
   'Currency',
   'Invoice Number',
   'Vendor Name',
+  'Category',
   'Uploader',
   'Chat Name',
   'Link',
@@ -89,7 +91,7 @@ async function ensureHeaders(): Promise<void> {
   // Check if sheet has data in first row
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: config.sheetId,
-    range: 'Sheet1!A1:M1',
+    range: 'Sheet1!A1:N1',
   });
 
   if (response.data.values && response.data.values.length > 0 && response.data.values[0].length > 0) {
@@ -100,7 +102,7 @@ async function ensureHeaders(): Promise<void> {
   // Add headers
   await sheets.spreadsheets.values.update({
     spreadsheetId: config.sheetId,
-    range: 'Sheet1!A1:M1',
+    range: 'Sheet1!A1:N1',
     valueInputOption: 'RAW',
     requestBody: {
       values: [SHEET_HEADERS],
@@ -128,6 +130,7 @@ export async function appendRow(row: SheetRow): Promise<number | undefined> {
       row.currency,
       row.invoice_number,
       row.vendor_name,
+      row.category,
       row.uploader,
       row.chat_name,
       row.drive_link,
@@ -142,7 +145,7 @@ export async function appendRow(row: SheetRow): Promise<number | undefined> {
 
   const response = await sheets.spreadsheets.values.append({
     spreadsheetId: config.sheetId,
-    range: 'Sheet1!A:M', // Columns A through M (13 columns)
+    range: 'Sheet1!A:N', // Columns A through N (14 columns)
     valueInputOption: 'USER_ENTERED',
     insertDataOption: 'INSERT_ROWS',
     requestBody: {
@@ -185,6 +188,7 @@ export function buildSheetRow(params: {
     currency: params.extraction.currency || '?',
     invoice_number: params.extraction.invoice_number || '?',
     vendor_name: params.extraction.vendor_name || '?',
+    category: params.extraction.category || DEFAULT_CATEGORY,
     uploader: params.uploaderUsername || 'unknown',
     chat_name: params.chatTitle || 'private',
     drive_link: params.driveLink,

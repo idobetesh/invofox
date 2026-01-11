@@ -110,6 +110,7 @@ describe('Duplicate Detection', () => {
       currency: 'ILS',
       vat_amount: 17.00,
       confidence: 0.9,
+      category: null,
       ...overrides,
     });
 

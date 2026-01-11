@@ -317,6 +317,7 @@ export async function handleDuplicateDecision(
       currency?: string;
       vatAmount?: number;
       confidence?: number;
+      category?: string;
       llmProvider?: 'gemini' | 'openai';
       totalTokens?: number;
       costUSD?: number;
@@ -335,6 +336,7 @@ export async function handleDuplicateDecision(
         currency: jobWithExtraction.currency || null,
         vat_amount: jobWithExtraction.vatAmount || null,
         confidence: jobWithExtraction.confidence || 0.8,
+        category: jobWithExtraction.category || null,
       },
       status,
       llmProvider: jobWithExtraction.llmProvider || 'openai',

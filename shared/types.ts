@@ -126,6 +126,7 @@ export interface InvoiceJob {
   totalAmount?: number | null;
   invoiceDate?: string | null;
   currency?: string | null;
+  category?: string | null;
   // Pending decision data
   duplicateOfJobId?: string;
   llmProvider?: 'gemini' | 'openai';
@@ -145,6 +146,7 @@ export interface InvoiceExtraction {
   currency: string | null;
   vat_amount: number | null;
   confidence: number; // 0-1
+  category: string | null; // Business expense category
 }
 
 export interface LLMUsage {
@@ -171,6 +173,7 @@ export interface SheetRow {
   currency: string; // ILS/USD/EUR or ?
   invoice_number: string; // or ?
   vendor_name: string; // or ?
+  category: string; // Business expense category
   uploader: string; // Telegram username
   chat_name: string; // group/chat name
   drive_link: string; // clickable URL

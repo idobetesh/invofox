@@ -12,6 +12,7 @@ describe('LLM Utilities', () => {
         currency: 'ILS',
         vat_amount: 17.00,
         confidence: 0.9,
+        category: null,
       };
       expect(needsReview(extraction)).toBe(false);
     });
@@ -25,6 +26,7 @@ describe('LLM Utilities', () => {
         currency: 'ILS',
         vat_amount: 17.00,
         confidence: 0.5,
+        category: null,
       };
       expect(needsReview(extraction)).toBe(true);
     });
@@ -38,6 +40,7 @@ describe('LLM Utilities', () => {
         currency: 'ILS',
         vat_amount: 17.00,
         confidence: 0.9,
+        category: null,
       };
       // vendor_name is not critical - we still have amount and date
       expect(needsReview(extraction)).toBe(false);
@@ -52,6 +55,7 @@ describe('LLM Utilities', () => {
         currency: 'ILS',
         vat_amount: 17.00,
         confidence: 0.9,
+        category: null,
       };
       expect(needsReview(extraction)).toBe(true);
     });
@@ -65,6 +69,7 @@ describe('LLM Utilities', () => {
         currency: null,
         vat_amount: null,
         confidence: 0.6,
+        category: null,
       };
       expect(needsReview(extraction)).toBe(false);
     });

@@ -6,6 +6,27 @@ import type { InvoiceExtraction } from '../../../../../shared/types';
 import logger from '../../logger';
 
 /**
+ * Valid business expense categories
+ */
+export const VALID_CATEGORIES = [
+  'Food',
+  'Transport',
+  'Office Supplies',
+  'Utilities',
+  'Professional Services',
+  'Marketing',
+  'Technology',
+  'Travel',
+  'Entertainment',
+  'Miscellaneous',
+] as const;
+
+/**
+ * Default category when extraction fails or returns invalid value
+ */
+export const DEFAULT_CATEGORY = 'Miscellaneous' as const;
+
+/**
  * Get MIME type from file extension
  */
 export function getMimeType(extension: string): string {
@@ -31,7 +52,27 @@ export function normalizeExtraction(raw: Partial<InvoiceExtraction>): InvoiceExt
     currency: typeof raw.currency === 'string' ? raw.currency.toUpperCase() : null,
     vat_amount: typeof raw.vat_amount === 'number' ? raw.vat_amount : null,
     confidence: typeof raw.confidence === 'number' ? Math.min(1, Math.max(0, raw.confidence)) : 0.5,
+    category: normalizeCategory(raw.category),
   };
+}
+
+/**
+ * Normalize and validate category
+ * Always returns a valid category - defaults to DEFAULT_CATEGORY for null/invalid input
+ */
+function normalizeCategory(category: unknown): string {
+  if (typeof category !== 'string' || !category) {
+    return DEFAULT_CATEGORY;
+  }
+
+  const categoryTrimmed = category.trim();
+
+  // Case-insensitive match to handle LLM variations
+  const matchedCategory = VALID_CATEGORIES.find(
+    (cat) => cat.toLowerCase() === categoryTrimmed.toLowerCase()
+  );
+
+  return matchedCategory || DEFAULT_CATEGORY;
 }
 
 /**

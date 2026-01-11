@@ -208,6 +208,7 @@ interface StoredExtraction {
   vendorName?: string | null;
   totalAmount?: number | null;
   invoiceDate?: string | null;
+  category?: string | null;
 }
 
 /**
@@ -231,6 +232,7 @@ export async function storeExtraction(
     currency: extraction.currency,
     vatAmount: extraction.vat_amount,
     confidence: extraction.confidence,
+    category: extraction.category,
     updatedAt: FieldValue.serverTimestamp(),
   });
 }
