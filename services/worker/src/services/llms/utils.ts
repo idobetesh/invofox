@@ -8,7 +8,7 @@ import logger from '../../logger';
 /**
  * Valid business expense categories
  */
-const VALID_CATEGORIES = [
+export const VALID_CATEGORIES = [
   'Food',
   'Transport',
   'Office Supplies',
@@ -20,6 +20,11 @@ const VALID_CATEGORIES = [
   'Entertainment',
   'Miscellaneous',
 ] as const;
+
+/**
+ * Default category when extraction fails or returns invalid value
+ */
+export const DEFAULT_CATEGORY = 'Miscellaneous' as const;
 
 /**
  * Get MIME type from file extension
@@ -53,10 +58,11 @@ export function normalizeExtraction(raw: Partial<InvoiceExtraction>): InvoiceExt
 
 /**
  * Normalize and validate category
+ * Always returns a valid category - defaults to DEFAULT_CATEGORY for null/invalid input
  */
-function normalizeCategory(category: unknown): string | null {
+function normalizeCategory(category: unknown): string {
   if (typeof category !== 'string' || !category) {
-    return null;
+    return DEFAULT_CATEGORY;
   }
 
   const categoryTrimmed = category.trim();
@@ -66,8 +72,7 @@ function normalizeCategory(category: unknown): string | null {
     (cat) => cat.toLowerCase() === categoryTrimmed.toLowerCase()
   );
 
-  // Default to Miscellaneous if category is invalid
-  return matchedCategory || 'Miscellaneous';
+  return matchedCategory || DEFAULT_CATEGORY;
 }
 
 /**

@@ -6,6 +6,7 @@ import { google, sheets_v4 } from 'googleapis';
 import type { SheetRow, InvoiceExtraction } from '../../../../shared/types';
 import { getConfig } from '../config';
 import logger from '../logger';
+import { DEFAULT_CATEGORY } from './llms/utils';
 
 let sheetsClient: sheets_v4.Sheets | null = null;
 
@@ -187,7 +188,7 @@ export function buildSheetRow(params: {
     currency: params.extraction.currency || '?',
     invoice_number: params.extraction.invoice_number || '?',
     vendor_name: params.extraction.vendor_name || '?',
-    category: params.extraction.category || 'Miscellaneous',
+    category: params.extraction.category || DEFAULT_CATEGORY,
     uploader: params.uploaderUsername || 'unknown',
     chat_name: params.chatTitle || 'private',
     drive_link: params.driveLink,
