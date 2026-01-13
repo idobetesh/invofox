@@ -41,7 +41,8 @@ export async function uploadInvoiceImage(
   fileExtension: string,
   chatId: number,
   messageId: number,
-  receivedAt: string
+  receivedAt: string,
+  filenameSuffix?: string
 ): Promise<{ fileId: string; webViewLink: string }> {
   const config = getConfig();
   const storage = getStorage();
@@ -51,8 +52,10 @@ export async function uploadInvoiceImage(
   const year = date.getFullYear();
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
 
-  // Create path: invoices/2026/01/invoice_chatId_msgId_timestamp.jpg
-  const fileName = `invoices/${year}/${month}/invoice_${chatId}_${messageId}_${date.getTime()}.${fileExtension}`;
+  // Create path with optional suffix: invoices/2026/01/invoice_chatId_msgId_timestamp_page_1_of_3.jpg
+  const baseName = `invoice_${chatId}_${messageId}_${date.getTime()}`;
+  const fullName = filenameSuffix ? `${baseName}_${filenameSuffix}` : baseName;
+  const fileName = `invoices/${year}/${month}/${fullName}.${fileExtension}`;
   const mimeType = getMimeType(fileExtension);
 
   const file = bucket.file(fileName);
