@@ -43,6 +43,12 @@ FROM node:24-slim
 
 ARG APP_VERSION=development
 
+# Install GraphicsMagick for PDF processing
+RUN apt-get update && \
+    apt-get install -y graphicsmagick && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 # Add security: run as non-root user
 RUN groupadd -r nodejs && useradd -r -g nodejs nodejs
 
