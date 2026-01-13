@@ -46,39 +46,87 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
     return;
   }
 
-  // Only process photo messages
-  if (!telegramService.isPhotoMessage(update)) {
-    logger.debug('Ignoring non-photo message');
-    res.status(200).json({ ok: true, action: 'ignored_non_photo' });
+  // Process photo messages
+  if (telegramService.isPhotoMessage(update)) {
+    // Extract payload for worker
+    const payload = telegramService.extractTaskPayload(update);
+    if (!payload) {
+      logger.error('Failed to extract payload from photo message');
+      res.status(400).json({ error: 'Failed to extract payload' });
+      return;
+    }
+
+    logger.info(
+      { chatId: payload.chatId, messageId: payload.messageId, uploader: payload.uploaderUsername },
+      'Processing photo message'
+    );
+
+    try {
+      const taskName = await tasksService.enqueueProcessingTask(payload, config);
+      logger.info({ taskName }, 'Task enqueued successfully');
+
+      res.status(200).json({
+        ok: true,
+        action: 'enqueued',
+        task: taskName,
+      });
+    } catch (error) {
+      logger.error({ error }, 'Failed to enqueue task');
+      res.status(500).json({ error: 'Failed to enqueue task' });
+    }
     return;
   }
 
-  // Extract payload for worker
-  const payload = telegramService.extractTaskPayload(update);
-  if (!payload) {
-    logger.error('Failed to extract payload from photo message');
-    res.status(400).json({ error: 'Failed to extract payload' });
+  // Process PDF documents
+  if (telegramService.isDocumentMessage(update)) {
+    if (!telegramService.isPdfDocument(update)) {
+      logger.debug('Ignoring non-PDF document');
+      res.status(200).json({ ok: true, action: 'ignored_non_pdf' });
+      return;
+    }
+
+    // Extract document info for validation
+    const message = update.message || update.channel_post;
+    const document = message?.document;
+
+    if (!document || !telegramService.isFileSizeValid(document)) {
+      logger.warn({ fileSize: document?.file_size }, 'PDF exceeds size limit (5 MB)');
+      res.status(200).json({ ok: true, action: 'rejected_size_limit' });
+      return;
+    }
+
+    // Extract payload for worker
+    const payload = telegramService.extractDocumentTaskPayload(update);
+    if (!payload) {
+      logger.error('Failed to extract document payload');
+      res.status(400).json({ error: 'Failed to extract payload' });
+      return;
+    }
+
+    logger.info(
+      { chatId: payload.chatId, messageId: payload.messageId, uploader: payload.uploaderUsername, fileName: document.file_name },
+      'Processing PDF document'
+    );
+
+    try {
+      const taskName = await tasksService.enqueueProcessingTask(payload, config);
+      logger.info({ taskName }, 'PDF task enqueued successfully');
+
+      res.status(200).json({
+        ok: true,
+        action: 'enqueued',
+        task: taskName,
+      });
+    } catch (error) {
+      logger.error({ error }, 'Failed to enqueue PDF task');
+      res.status(500).json({ error: 'Failed to enqueue task' });
+    }
     return;
   }
 
-  logger.info(
-    { chatId: payload.chatId, messageId: payload.messageId, uploader: payload.uploaderUsername },
-    'Processing photo message'
-  );
-
-  try {
-    const taskName = await tasksService.enqueueProcessingTask(payload, config);
-    logger.info({ taskName }, 'Task enqueued successfully');
-
-    res.status(200).json({
-      ok: true,
-      action: 'enqueued',
-      task: taskName,
-    });
-  } catch (error) {
-    logger.error({ error }, 'Failed to enqueue task');
-    res.status(500).json({ error: 'Failed to enqueue task' });
-  }
+  // Ignore all other message types
+  logger.debug('Ignoring non-photo, non-PDF message');
+  res.status(200).json({ ok: true, action: 'ignored' });
 }
 
 /**

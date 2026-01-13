@@ -35,6 +35,14 @@ const TelegramPhotoSizeSchema = z.object({
   file_size: z.number().optional(),
 });
 
+const TelegramDocumentSchema = z.object({
+  file_id: z.string(),
+  file_unique_id: z.string(),
+  file_name: z.string(),
+  mime_type: z.string().optional(),
+  file_size: z.number().optional(),
+});
+
 const TelegramMessageSchema = z.object({
   message_id: z.number(),
   from: TelegramUserSchema.optional(),
@@ -42,6 +50,7 @@ const TelegramMessageSchema = z.object({
   date: z.number(),
   text: z.string().optional(),
   photo: z.array(TelegramPhotoSizeSchema).optional(),
+  document: TelegramDocumentSchema.optional(),
   caption: z.string().optional(),
 });
 
@@ -65,6 +74,7 @@ const TelegramUpdateSchema = z.object({
 export type TelegramUpdate = z.infer<typeof TelegramUpdateSchema>;
 export type TelegramMessage = z.infer<typeof TelegramMessageSchema>;
 export type TelegramPhotoSize = z.infer<typeof TelegramPhotoSizeSchema>;
+export type TelegramDocument = z.infer<typeof TelegramDocumentSchema>;
 export type TelegramCallbackQuery = z.infer<typeof TelegramCallbackQuerySchema>;
 
 /**
@@ -93,6 +103,49 @@ export function isCommand(update: TelegramUpdate): boolean {
 }
 
 /**
+ * Check if the update contains a document message
+ */
+export function isDocumentMessage(update: TelegramUpdate): boolean {
+  const message = update.message || update.channel_post;
+  return Boolean(message?.document);
+}
+
+/**
+ * Check if the document is a PDF file
+ */
+export function isPdfDocument(update: TelegramUpdate): boolean {
+  const message = update.message || update.channel_post;
+  const document = message?.document;
+  if (!document) {return false;}
+
+  // Check MIME type
+  if (document.mime_type === 'application/pdf') {return true;}
+
+  // Fallback: check file extension
+  if (document.file_name) {
+    const lowerName = document.file_name.toLowerCase();
+    return lowerName.endsWith('.pdf');
+  }
+
+  return false;
+}
+
+/**
+ * Validate if document file size is within limits
+ * Maximum: 5 MB
+ */
+export function isFileSizeValid(document: TelegramDocument): boolean {
+  const MAX_FILE_SIZE_MB = 5;
+  const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
+  if (!document.file_size) {
+    // If size not available, allow (will be checked after download)
+    return true;
+  }
+  return document.file_size <= MAX_FILE_SIZE_BYTES;
+}
+
+/**
  * Get the best quality photo from the array
  * Telegram sends multiple sizes, we want the largest one
  */
@@ -111,6 +164,13 @@ export function getBestPhoto(photos: TelegramPhotoSize[]): TelegramPhotoSize {
 
 /**
  * Extract task payload from a photo message update
+ *
+ * Note: Telegram sends multiple resolutions of the same photo in message.photo array.
+ * This function selects the best quality version.
+ *
+ * Batch processing: When users send multiple photos as an album, each photo arrives
+ * as a separate webhook call with unique message_id. Each creates its own Cloud Task
+ * and is processed in parallel by workers. No special handling needed.
  */
 export function extractTaskPayload(update: TelegramUpdate): TaskPayload | null {
   const message: TelegramMessage | undefined =
@@ -120,10 +180,11 @@ export function extractTaskPayload(update: TelegramUpdate): TaskPayload | null {
     return null;
   }
 
+  // Select the best quality photo from available resolutions
   const bestPhoto = getBestPhoto(message.photo);
 
   // Build uploader display name: prefer username, fallback to full name
-  const uploaderName = message.from?.username 
+  const uploaderName = message.from?.username
     || [message.from?.first_name, message.from?.last_name].filter(Boolean).join(' ')
     || 'unknown';
 
@@ -131,6 +192,40 @@ export function extractTaskPayload(update: TelegramUpdate): TaskPayload | null {
     chatId: message.chat.id,
     messageId: message.message_id,
     fileId: bestPhoto.file_id,
+    uploaderUsername: uploaderName,
+    uploaderFirstName: message.from?.first_name || 'Unknown',
+    chatTitle: message.chat.title || message.chat.first_name || 'Private Chat',
+    receivedAt: new Date(message.date * 1000).toISOString(),
+  };
+}
+
+/**
+ * Extract task payload from a document message update (PDF files)
+ *
+ * Note: PDF documents arrive as a single file object with metadata.
+ * Batch processing: When users send multiple PDFs as an album, each PDF arrives
+ * as a separate webhook call with unique message_id. Each creates its own Cloud Task
+ * and is processed in parallel by workers. No special handling needed.
+ */
+export function extractDocumentTaskPayload(update: TelegramUpdate): TaskPayload | null {
+  const message: TelegramMessage | undefined =
+    update.message || update.channel_post;
+
+  if (!message || !message.document) {
+    return null;
+  }
+
+  const document = message.document;
+
+  // Build uploader display name: prefer username, fallback to full name
+  const uploaderName = message.from?.username
+    || [message.from?.first_name, message.from?.last_name].filter(Boolean).join(' ')
+    || 'unknown';
+
+  return {
+    chatId: message.chat.id,
+    messageId: message.message_id,
+    fileId: document.file_id,
     uploaderUsername: uploaderName,
     uploaderFirstName: message.from?.first_name || 'Unknown',
     chatTitle: message.chat.title || message.chat.first_name || 'Private Chat',
