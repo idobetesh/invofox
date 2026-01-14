@@ -41,7 +41,13 @@ export async function extractInvoiceData(
   fileExtension: string
 ): Promise<ExtractionResult> {
   const genAI = getClient();
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.0-flash',
+    generationConfig: {
+      responseMimeType: 'application/json',
+      temperature: 0.1,
+    },
+  });
   const mimeType = getMimeType(fileExtension);
 
   logger.debug('Sending image to Gemini for extraction');
@@ -89,7 +95,10 @@ export async function extractInvoiceData(
     }
 
     // Gemini sometimes wraps JSON in markdown code blocks
-    const jsonText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const jsonText = text
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
     const parsed = JSON.parse(jsonText) as InvoiceExtraction;
 
     return {
@@ -103,7 +112,11 @@ export async function extractInvoiceData(
       if (message.includes('429') || message.includes('quota') || message.includes('rate')) {
         throw new RateLimitError('Gemini rate limit exceeded', 'gemini');
       }
-      if (message.includes('401') || message.includes('api key') || message.includes('unauthorized')) {
+      if (
+        message.includes('401') ||
+        message.includes('api key') ||
+        message.includes('unauthorized')
+      ) {
         throw new AuthError('Gemini authentication failed', 'gemini');
       }
     }
@@ -129,7 +142,13 @@ export async function extractInvoiceDataMulti(
   fileExtension: string
 ): Promise<ExtractionResult> {
   const genAI = getClient();
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.0-flash',
+    generationConfig: {
+      responseMimeType: 'application/json',
+      temperature: 0.1,
+    },
+  });
   const mimeType = getMimeType(fileExtension);
 
   logger.debug({ imageCount: imageBuffers.length }, 'Sending multiple images to Gemini');
@@ -174,7 +193,13 @@ export async function extractInvoiceDataMulti(
     };
 
     logger.info(
-      { provider: 'gemini', imageCount: imageBuffers.length, durationMs: duration, totalTokens, costUSD: costUSD.toFixed(6) },
+      {
+        provider: 'gemini',
+        imageCount: imageBuffers.length,
+        durationMs: duration,
+        totalTokens,
+        costUSD: costUSD.toFixed(6),
+      },
       'Gemini multi-image extraction completed'
     );
 
@@ -185,7 +210,10 @@ export async function extractInvoiceDataMulti(
     }
 
     // Gemini sometimes wraps JSON in markdown code blocks
-    const jsonText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const jsonText = text
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
     const parsed = JSON.parse(jsonText) as InvoiceExtraction;
 
     return {
@@ -199,7 +227,11 @@ export async function extractInvoiceDataMulti(
       if (message.includes('429') || message.includes('quota') || message.includes('rate')) {
         throw new RateLimitError('Gemini rate limit exceeded', 'gemini');
       }
-      if (message.includes('401') || message.includes('api key') || message.includes('unauthorized')) {
+      if (
+        message.includes('401') ||
+        message.includes('api key') ||
+        message.includes('unauthorized')
+      ) {
         throw new AuthError('Gemini authentication failed', 'gemini');
       }
     }
