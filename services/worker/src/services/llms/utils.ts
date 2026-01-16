@@ -1,5 +1,6 @@
 /**
  * Shared utilities for LLM providers
+ * Includes prompt injection detection and field sanitization
  */
 
 import type { InvoiceExtraction } from '../../../../../shared/types';
@@ -27,6 +28,46 @@ export const VALID_CATEGORIES = [
 export const DEFAULT_CATEGORY = 'Miscellaneous' as const;
 
 /**
+ * Maximum field lengths to prevent payload attacks
+ */
+const MAX_FIELD_LENGTHS = {
+  vendor_name: 200,
+  invoice_number: 100,
+  currency: 10,
+  rejection_reason: 500,
+} as const;
+
+/**
+ * Suspicious patterns that indicate prompt injection attempts
+ */
+const SUSPICIOUS_PATTERNS = [
+  /ignore\s+(all\s+)?(previous|prior|above)/i,
+  /you\s+are\s+now/i,
+  /^system:/i,
+  /^assistant:/i,
+  /^user:/i,
+  /forget\s+(all|your|previous)/i,
+  /new\s+instructions?:/i,
+  /disregard\s+(all|previous)/i,
+  /override\s+(all|previous)/i,
+  /reveal\s+(your|the)\s+(prompt|instructions|system)/i,
+  /what\s+(is|are)\s+your\s+(instructions|prompt)/i,
+  /<script/i,
+  /javascript:/i,
+  /data:text\/html/i,
+  /\$\{.*\}/, // Template injection
+  /\{\{.*\}\}/, // Template injection
+  /on\w+\s*=/i, // Event handlers like onclick=
+];
+
+/**
+ * Check if text contains suspicious content (potential prompt injection)
+ */
+export function containsSuspiciousContent(text: string): boolean {
+  return SUSPICIOUS_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+/**
  * Get MIME type from file extension
  */
 export function getMimeType(extension: string): string {
@@ -41,17 +82,86 @@ export function getMimeType(extension: string): string {
 }
 
 /**
+ * Sanitize a string field - check for injection and truncate if needed
+ */
+function sanitizeStringField(
+  value: unknown,
+  fieldName: keyof typeof MAX_FIELD_LENGTHS | 'other',
+  logContext: Record<string, unknown> = {}
+): string | null {
+  if (typeof value !== 'string' || !value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  // Check for suspicious content
+  if (containsSuspiciousContent(trimmed)) {
+    logger.warn(
+      { fieldName, valuePreview: trimmed.slice(0, 50), ...logContext },
+      'Suspicious content detected in extraction field - potential prompt injection'
+    );
+    return null;
+  }
+
+  // Truncate if too long
+  const maxLength = fieldName !== 'other' ? MAX_FIELD_LENGTHS[fieldName] : 500;
+  if (trimmed.length > maxLength) {
+    logger.debug({ fieldName, originalLength: trimmed.length, maxLength }, 'Truncating field');
+    return trimmed.slice(0, maxLength);
+  }
+
+  return trimmed;
+}
+
+/**
  * Normalize and validate extraction result
+ * Includes sanitization and prompt injection detection
  */
 export function normalizeExtraction(raw: Partial<InvoiceExtraction>): InvoiceExtraction {
+  let suspiciousFieldCount = 0;
+
+  // Sanitize string fields and count suspicious content
+  const vendorName = sanitizeStringField(raw.vendor_name, 'vendor_name');
+  const invoiceNumber = sanitizeStringField(raw.invoice_number, 'invoice_number');
+  const currency = sanitizeStringField(raw.currency, 'currency');
+  const rejectionReason = sanitizeStringField(raw.rejection_reason, 'rejection_reason');
+
+  // Check if any fields were nullified due to suspicious content
+  if (raw.vendor_name && !vendorName) {
+    suspiciousFieldCount++;
+  }
+  if (raw.invoice_number && !invoiceNumber) {
+    suspiciousFieldCount++;
+  }
+
+  // Calculate confidence - lower if suspicious content detected
+  let confidence =
+    typeof raw.confidence === 'number' ? Math.min(1, Math.max(0, raw.confidence)) : 0.5;
+  if (suspiciousFieldCount > 0) {
+    confidence = Math.min(confidence, 0.3);
+    logger.warn(
+      { suspiciousFieldCount, originalConfidence: raw.confidence, adjustedConfidence: confidence },
+      'Lowered confidence due to suspicious content'
+    );
+  }
+
+  // Handle document validation
+  const isInvoice = typeof raw.is_invoice === 'boolean' ? raw.is_invoice : true;
+
   return {
-    vendor_name: typeof raw.vendor_name === 'string' ? raw.vendor_name : null,
-    invoice_number: typeof raw.invoice_number === 'string' ? raw.invoice_number : null,
+    // Document validation
+    is_invoice: isInvoice,
+    rejection_reason: isInvoice ? null : rejectionReason,
+
+    // Extraction fields
+    vendor_name: vendorName,
+    invoice_number: invoiceNumber,
     invoice_date: normalizeDate(raw.invoice_date),
     total_amount: typeof raw.total_amount === 'number' ? raw.total_amount : null,
-    currency: typeof raw.currency === 'string' ? raw.currency.toUpperCase() : null,
+    currency: currency ? currency.toUpperCase() : null,
     vat_amount: typeof raw.vat_amount === 'number' ? raw.vat_amount : null,
-    confidence: typeof raw.confidence === 'number' ? Math.min(1, Math.max(0, raw.confidence)) : 0.5,
+    confidence: isInvoice ? confidence : 0,
     category: normalizeCategory(raw.category),
   };
 }
@@ -66,6 +176,12 @@ function normalizeCategory(category: unknown): string {
   }
 
   const categoryTrimmed = category.trim();
+
+  // Check for suspicious content in category
+  if (containsSuspiciousContent(categoryTrimmed)) {
+    logger.warn({ category: categoryTrimmed.slice(0, 50) }, 'Suspicious content in category');
+    return DEFAULT_CATEGORY;
+  }
 
   // Case-insensitive match to handle LLM variations
   const matchedCategory = VALID_CATEGORIES.find(
@@ -85,6 +201,12 @@ export function normalizeDate(date: unknown): string | null {
   }
 
   const cleanDate = date.trim();
+
+  // Check for suspicious content in date
+  if (containsSuspiciousContent(cleanDate)) {
+    logger.warn({ date: cleanDate.slice(0, 50) }, 'Suspicious content in date field');
+    return null;
+  }
 
   // Already in ISO format (YYYY-MM-DD)
   if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
