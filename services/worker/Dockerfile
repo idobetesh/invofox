@@ -43,10 +43,11 @@ FROM node:24-slim
 
 ARG APP_VERSION=development
 
-# Install GraphicsMagick for PDF processing, Chromium for Puppeteer, and Hebrew fonts
+# Install GraphicsMagick for PDF processing, Ghostscript for PDF reading, Chromium for Puppeteer, and Hebrew fonts
 RUN apt-get update && \
     apt-get install -y \
         graphicsmagick \
+        ghostscript \
         chromium \
         fonts-noto-cjk \
         fonts-freefont-ttf \
