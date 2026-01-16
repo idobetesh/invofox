@@ -56,9 +56,11 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Configure Puppeteer to use system Chromium
+# Configure Puppeteer to use system Chromium and disable crash reporting
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    CHROME_DEVEL_SANDBOX=/usr/lib/chromium/chrome-sandbox \
+    CHROMIUM_FLAGS="--disable-crash-reporter --disable-gpu"
 
 # Add security: run as non-root user
 RUN groupadd -r nodejs && useradd -r -g nodejs nodejs
