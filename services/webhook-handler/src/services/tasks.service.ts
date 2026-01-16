@@ -31,12 +31,36 @@ function isLocalMode(): boolean {
 }
 
 /**
- * Call worker directly for local development
+ * Build a Cloud Task for worker endpoint
  */
-async function callWorkerDirectly(payload: TaskPayload, workerUrl: string): Promise<string> {
-  logger.info({ workerUrl }, 'Calling worker directly (local mode)');
+function buildCloudTask(
+  taskName: string,
+  endpoint: string,
+  payload: unknown,
+  config: Config
+): protos.google.cloud.tasks.v2.ITask {
+  return {
+    name: taskName,
+    httpRequest: {
+      httpMethod: 'POST',
+      url: `${config.workerUrl}${endpoint}`,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: Buffer.from(JSON.stringify(payload)).toString('base64'),
+      oidcToken: {
+        serviceAccountEmail: config.serviceAccountEmail,
+        audience: config.workerUrl,
+      },
+    },
+  };
+}
 
-  const response = await fetch(`${workerUrl}/process`, {
+/**
+ * Helper to POST JSON to worker endpoint (local mode)
+ */
+async function postToWorker(workerUrl: string, endpoint: string, payload: unknown): Promise<void> {
+  const response = await fetch(`${workerUrl}${endpoint}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -48,7 +72,14 @@ async function callWorkerDirectly(payload: TaskPayload, workerUrl: string): Prom
     const text = await response.text();
     throw new Error(`Worker returned ${response.status}: ${text}`);
   }
+}
 
+/**
+ * Call worker directly for local development
+ */
+async function callWorkerDirectly(payload: TaskPayload, workerUrl: string): Promise<string> {
+  logger.info({ workerUrl }, 'Calling worker directly (local mode)');
+  await postToWorker(workerUrl, '/process', payload);
   const taskId = `local-${payload.chatId}-${payload.messageId}`;
   logger.info({ taskId }, 'Worker processed task (local mode)');
   return taskId;
@@ -72,22 +103,7 @@ export async function enqueueProcessingTask(payload: TaskPayload, config: Config
   // Create a unique task name to prevent duplicates
   const taskName = `${parent}/tasks/invoice-${payload.chatId}-${payload.messageId}`;
 
-  const task: protos.google.cloud.tasks.v2.ITask = {
-    name: taskName,
-    httpRequest: {
-      httpMethod: 'POST',
-      url: `${config.workerUrl}/process`,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: Buffer.from(JSON.stringify(payload)).toString('base64'),
-      // Use OIDC token for authentication
-      oidcToken: {
-        serviceAccountEmail: config.serviceAccountEmail,
-        audience: config.workerUrl,
-      },
-    },
-  };
+  const task = buildCloudTask(taskName, '/process', payload, config);
 
   try {
     const [response] = await client.createTask({
@@ -112,20 +128,7 @@ export async function enqueueProcessingTask(payload: TaskPayload, config: Config
  */
 async function callCallbackDirectly(payload: CallbackPayload, workerUrl: string): Promise<string> {
   logger.info({ workerUrl }, 'Calling worker callback directly (local mode)');
-
-  const response = await fetch(`${workerUrl}/callback`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Worker returned ${response.status}: ${text}`);
-  }
-
+  await postToWorker(workerUrl, '/callback', payload);
   const taskId = `local-callback-${payload.callbackQueryId}`;
   logger.info({ taskId }, 'Worker processed callback (local mode)');
   return taskId;
@@ -152,22 +155,7 @@ export async function enqueueCallbackTask(
   // Create a unique task name to prevent duplicates
   const taskName = `${parent}/tasks/callback-${payload.callbackQueryId}`;
 
-  const task: protos.google.cloud.tasks.v2.ITask = {
-    name: taskName,
-    httpRequest: {
-      httpMethod: 'POST',
-      url: `${config.workerUrl}/callback`,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: Buffer.from(JSON.stringify(payload)).toString('base64'),
-      // Use OIDC token for authentication
-      oidcToken: {
-        serviceAccountEmail: config.serviceAccountEmail,
-        audience: config.workerUrl,
-      },
-    },
-  };
+  const task = buildCloudTask(taskName, '/callback', payload, config);
 
   try {
     const [response] = await client.createTask({
@@ -200,20 +188,7 @@ async function callInvoiceEndpointDirectly(
   workerUrl: string
 ): Promise<string> {
   logger.info({ workerUrl, endpoint }, 'Calling invoice endpoint directly (local mode)');
-
-  const response = await fetch(`${workerUrl}/invoice/${endpoint}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Worker returned ${response.status}: ${text}`);
-  }
-
+  await postToWorker(workerUrl, `/invoice/${endpoint}`, payload);
   const taskId = `local-invoice-${endpoint}-${payload.chatId}-${Date.now()}`;
   logger.info({ taskId }, 'Invoice endpoint processed (local mode)');
   return taskId;
@@ -240,21 +215,7 @@ async function enqueueInvoiceTask(
 
   const taskName = `${parent}/tasks/invoice-${endpoint}-${taskNameSuffix}`;
 
-  const task: protos.google.cloud.tasks.v2.ITask = {
-    name: taskName,
-    httpRequest: {
-      httpMethod: 'POST',
-      url: `${config.workerUrl}/invoice/${endpoint}`,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: Buffer.from(JSON.stringify(payload)).toString('base64'),
-      oidcToken: {
-        serviceAccountEmail: config.serviceAccountEmail,
-        audience: config.workerUrl,
-      },
-    },
-  };
+  const task = buildCloudTask(taskName, `/invoice/${endpoint}`, payload, config);
 
   try {
     const [response] = await client.createTask({
