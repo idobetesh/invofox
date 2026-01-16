@@ -25,7 +25,6 @@ const CHROMIUM_ARGS = [
   '--disable-domain-reliability',
   '--disable-features=AudioServiceOutOfProcess,IsolateOrigins,site-per-process',
   '--disable-print-preview',
-  '--disable-setuid-sandbox',
   '--disable-site-isolation-trials',
   '--disable-speech-api',
   '--disable-web-security',

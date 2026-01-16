@@ -440,37 +440,63 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
           '⏳ מייצר מסמך...'
         );
 
-        // Generate invoice
-        const result = await generateInvoice(
-          confirmedSession,
-          payload.userId,
-          payload.username,
-          payload.chatId
-        );
+        try {
+          // Generate invoice
+          const result = await generateInvoice(
+            confirmedSession,
+            payload.userId,
+            payload.username,
+            payload.chatId
+          );
 
-        // Delete session
-        await sessionService.deleteSession(payload.chatId, payload.userId);
+          // Delete session on success
+          await sessionService.deleteSession(payload.chatId, payload.userId);
 
-        // Send PDF
-        const typeLabel = confirmedSession.documentType === 'invoice' ? 'חשבונית' : 'חשבונית-קבלה';
+          // Send PDF
+          const typeLabel =
+            confirmedSession.documentType === 'invoice' ? 'חשבונית' : 'חשבונית-קבלה';
 
-        await telegramService.sendDocument(
-          payload.chatId,
-          result.pdfBuffer,
-          `${typeLabel}_${result.invoiceNumber}.pdf`,
-          { caption: `📄 ${typeLabel} מספר ${result.invoiceNumber}` }
-        );
+          await telegramService.sendDocument(
+            payload.chatId,
+            result.pdfBuffer,
+            `${typeLabel}_${result.invoiceNumber}.pdf`,
+            { caption: `📄 ${typeLabel} מספר ${result.invoiceNumber}` }
+          );
 
-        await telegramService.editMessageText(
-          payload.chatId,
-          payload.messageId,
-          `✅ ${typeLabel} מספר ${result.invoiceNumber} נוצרה בהצלחה!`
-        );
+          await telegramService.editMessageText(
+            payload.chatId,
+            payload.messageId,
+            `✅ ${typeLabel} מספר ${result.invoiceNumber} נוצרה בהצלחה!`
+          );
 
-        log.info({ invoiceNumber: result.invoiceNumber }, 'Invoice generated and sent');
-        res
-          .status(200)
-          .json({ ok: true, action: 'invoice_generated', invoiceNumber: result.invoiceNumber });
+          log.info({ invoiceNumber: result.invoiceNumber }, 'Invoice generated and sent');
+          res
+            .status(200)
+            .json({ ok: true, action: 'invoice_generated', invoiceNumber: result.invoiceNumber });
+        } catch (error) {
+          // PDF generation failed - notify user with detailed error
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          log.error({ error: errorMessage }, 'Invoice generation failed');
+
+          // Clean up session
+          await sessionService.deleteSession(payload.chatId, payload.userId);
+
+          // Update the "Generating..." message with error details
+          await telegramService.editMessageText(
+            payload.chatId,
+            payload.messageId,
+            '❌ שגיאה ביצירת המסמך!'
+          );
+
+          // Send detailed error message
+          const errorText = `⚠️ לא הצלחנו ליצור את המסמך.
+
+אנא נסה שוב עם /invoice`;
+
+          await telegramService.sendMessage(payload.chatId, errorText);
+
+          res.status(500).json({ error: 'Invoice generation failed', details: errorMessage });
+        }
         break;
       }
 
