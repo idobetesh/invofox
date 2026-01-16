@@ -18,6 +18,25 @@ import * as sheetsService from './sheets.service';
 import * as pdfService from './pdf.service';
 import logger from '../logger';
 
+/**
+ * Escape Markdown special characters to prevent injection in Telegram messages
+ */
+function escapeMarkdown(text: string | null): string {
+  if (!text) {
+    return '';
+  }
+  // Escape Markdown special characters: * _ [ ] ( ) ` ~
+  return text
+    .replace(/\*/g, '\\*')
+    .replace(/_/g, '\\_')
+    .replace(/\[/g, '\\[')
+    .replace(/\]/g, '\\]')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)')
+    .replace(/`/g, '\\`')
+    .replace(/~/g, '\\~');
+}
+
 export interface ProcessingResult {
   success: boolean;
   alreadyProcessed: boolean;
@@ -213,7 +232,11 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
       }
 
       // Send rejection message to user
-      const rejectionMessage = `❌ *לא זוהה כחשבונית*\n\n${extraction.rejection_reason || 'המסמך לא מכיל מידע של חשבונית'}\n\nאנא העלה חשבונית, קבלה או חשבון תקין.`;
+      // Sanitize rejection_reason to prevent Markdown injection
+      const sanitizedReason = escapeMarkdown(
+        extraction.rejection_reason || 'The document does not contain invoice information'
+      );
+      const rejectionMessage = `❌ *Not an invoice*\n\n${sanitizedReason}\n\nPlease upload a valid invoice, receipt, or bill.`;
       await telegramService.sendMessage(chatId, rejectionMessage, {
         parseMode: 'Markdown',
         replyToMessageId: messageId,
