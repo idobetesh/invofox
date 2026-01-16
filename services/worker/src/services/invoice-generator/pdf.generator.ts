@@ -12,6 +12,23 @@ import logger from '../../logger';
 // Puppeteer executable path (set via environment variable in Docker)
 const CHROME_PATH = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium';
 
+// Chromium launch arguments for Docker/headless environment
+const CHROMIUM_ARGS = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-dev-shm-usage',
+  '--disable-gpu',
+  '--disable-software-rasterizer',
+  '--disable-crash-reporter', // Disable crash reporter (requires --database in Docker)
+  '--disable-extensions',
+  '--disable-background-networking',
+  '--disable-sync',
+  '--metrics-recording-only',
+  '--mute-audio',
+  '--no-first-run',
+  '--font-render-hinting=none',
+];
+
 /**
  * Generate PDF from invoice data
  * Loads business config and logo from Firestore
@@ -33,14 +50,7 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
     browser = await puppeteer.launch({
       executablePath: CHROME_PATH,
       headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-software-rasterizer',
-        '--font-render-hinting=none',
-      ],
+      args: CHROMIUM_ARGS,
     });
 
     log.debug('Browser launched');
@@ -106,14 +116,7 @@ export async function generateInvoicePDFWithConfig(
     browser = await puppeteer.launch({
       executablePath: CHROME_PATH,
       headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-software-rasterizer',
-        '--font-render-hinting=none',
-      ],
+      args: CHROMIUM_ARGS,
     });
 
     log.debug('Browser launched');
@@ -170,7 +173,7 @@ export async function isPuppeteerAvailable(): Promise<boolean> {
     browser = await puppeteer.launch({
       executablePath: CHROME_PATH,
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: CHROMIUM_ARGS,
     });
     return true;
   } catch {
