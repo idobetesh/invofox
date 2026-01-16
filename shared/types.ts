@@ -108,7 +108,7 @@ export type JobStatus =
   | 'failed'
   | 'pending_decision'
   | 'pending_retry';
-export type PipelineStep = 'download' | 'drive' | 'llm' | 'sheets' | 'ack';
+export type PipelineStep = 'download' | 'drive' | 'llm' | 'sheets' | 'ack' | 'rejected';
 
 export interface InvoiceJob {
   status: JobStatus;
@@ -138,6 +138,8 @@ export interface InvoiceJob {
   llmProvider?: 'gemini' | 'openai';
   totalTokens?: number;
   costUSD?: number;
+  // Rejection data (for non-invoice documents)
+  rejectionReason?: string | null;
 }
 
 // ============================================================================
@@ -145,6 +147,11 @@ export interface InvoiceJob {
 // ============================================================================
 
 export interface InvoiceExtraction {
+  // Document validation
+  is_invoice: boolean; // Whether the document is a valid invoice
+  rejection_reason: string | null; // Why it was rejected (if is_invoice is false)
+
+  // Extraction fields
   vendor_name: string | null;
   invoice_number: string | null;
   invoice_date: string | null; // ISO format YYYY-MM-DD

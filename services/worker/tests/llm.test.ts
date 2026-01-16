@@ -5,12 +5,14 @@ describe('LLM Utilities', () => {
   describe('needsReview', () => {
     it('should return false for high confidence extraction with all fields', () => {
       const extraction: InvoiceExtraction = {
+        is_invoice: true,
+        rejection_reason: null,
         vendor_name: 'Test Company',
         invoice_number: 'INV-001',
         invoice_date: '2024-01-15',
-        total_amount: 100.00,
+        total_amount: 100.0,
         currency: 'ILS',
-        vat_amount: 17.00,
+        vat_amount: 17.0,
         confidence: 0.9,
         category: null,
       };
@@ -19,12 +21,14 @@ describe('LLM Utilities', () => {
 
     it('should return true for low confidence', () => {
       const extraction: InvoiceExtraction = {
+        is_invoice: true,
+        rejection_reason: null,
         vendor_name: 'Test Company',
         invoice_number: 'INV-001',
         invoice_date: '2024-01-15',
-        total_amount: 100.00,
+        total_amount: 100.0,
         currency: 'ILS',
-        vat_amount: 17.00,
+        vat_amount: 17.0,
         confidence: 0.5,
         category: null,
       };
@@ -33,12 +37,14 @@ describe('LLM Utilities', () => {
 
     it('should return false if only vendor_name is missing (not critical)', () => {
       const extraction: InvoiceExtraction = {
+        is_invoice: true,
+        rejection_reason: null,
         vendor_name: null,
         invoice_number: 'INV-001',
         invoice_date: '2024-01-15',
-        total_amount: 100.00,
+        total_amount: 100.0,
         currency: 'ILS',
-        vat_amount: 17.00,
+        vat_amount: 17.0,
         confidence: 0.9,
         category: null,
       };
@@ -48,12 +54,14 @@ describe('LLM Utilities', () => {
 
     it('should return true if total_amount is missing', () => {
       const extraction: InvoiceExtraction = {
+        is_invoice: true,
+        rejection_reason: null,
         vendor_name: 'Test Company',
         invoice_number: 'INV-001',
         invoice_date: '2024-01-15',
         total_amount: null,
         currency: 'ILS',
-        vat_amount: 17.00,
+        vat_amount: 17.0,
         confidence: 0.9,
         category: null,
       };
@@ -62,10 +70,12 @@ describe('LLM Utilities', () => {
 
     it('should return false with exactly 0.6 confidence', () => {
       const extraction: InvoiceExtraction = {
+        is_invoice: true,
+        rejection_reason: null,
         vendor_name: 'Test Company',
         invoice_number: null,
         invoice_date: null,
-        total_amount: 100.00,
+        total_amount: 100.0,
         currency: null,
         vat_amount: null,
         confidence: 0.6,

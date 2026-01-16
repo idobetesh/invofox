@@ -18,6 +18,25 @@ import * as sheetsService from './sheets.service';
 import * as pdfService from './pdf.service';
 import logger from '../logger';
 
+/**
+ * Escape Markdown special characters to prevent injection in Telegram messages
+ */
+function escapeMarkdown(text: string | null): string {
+  if (!text) {
+    return '';
+  }
+  // Escape Markdown special characters: * _ [ ] ( ) ` ~
+  return text
+    .replace(/\*/g, '\\*')
+    .replace(/_/g, '\\_')
+    .replace(/\[/g, '\\[')
+    .replace(/\]/g, '\\]')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)')
+    .replace(/`/g, '\\`')
+    .replace(/~/g, '\\~');
+}
+
 export interface ProcessingResult {
   success: boolean;
   alreadyProcessed: boolean;
@@ -183,6 +202,7 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
 
     log.info(
       {
+        isInvoice: extraction.is_invoice,
         vendor: extraction.vendor_name,
         total: extraction.total_amount,
         date: extraction.invoice_date,
@@ -193,6 +213,42 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
       },
       'LLM Vision extraction completed'
     );
+
+    // Check if document was rejected (not a valid invoice)
+    if (!extraction.is_invoice) {
+      log.info(
+        { rejectionReason: extraction.rejection_reason },
+        'Document rejected - not an invoice'
+      );
+
+      // Delete uploaded file since it's not an invoice
+      if (driveFileIds.length > 0) {
+        try {
+          await Promise.all(driveFileIds.map((id) => storageService.deleteFile(id)));
+          log.info({ fileCount: driveFileIds.length }, 'Deleted non-invoice files from storage');
+        } catch (deleteError) {
+          log.warn({ error: deleteError }, 'Failed to delete non-invoice files');
+        }
+      }
+
+      // Send rejection message to user
+      // Sanitize rejection_reason to prevent Markdown injection
+      const sanitizedReason = escapeMarkdown(
+        extraction.rejection_reason || 'The document does not contain invoice information'
+      );
+      const rejectionMessage = `❌ *Not an invoice*\n\n${sanitizedReason}\n\nPlease upload a valid invoice, receipt, or bill.`;
+      await telegramService.sendMessage(chatId, rejectionMessage, {
+        parseMode: 'Markdown',
+        replyToMessageId: messageId,
+      });
+
+      // Mark job as processed (not an error, just not an invoice)
+      await storeService.updateJobStep(chatId, messageId, 'rejected', {
+        rejectionReason: extraction.rejection_reason,
+      });
+
+      return { success: true, alreadyProcessed: false };
+    }
 
     // Store extraction data for future duplicate checks
     await storeService.storeExtraction(chatId, messageId, extraction);
@@ -427,6 +483,8 @@ export async function handleDuplicateDecision(
       chatTitle: job.chatTitle,
       driveLink: job.driveLink || '',
       extraction: {
+        is_invoice: true,
+        rejection_reason: null,
         vendor_name: job.vendorName || null,
         invoice_number: jobWithExtraction.invoiceNumber || null,
         invoice_date: job.invoiceDate || null,
