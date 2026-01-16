@@ -45,7 +45,7 @@ function getModel() {
     model: 'gemini-2.0-flash',
     generationConfig: {
       responseMimeType: 'application/json', // Force JSON output
-      temperature: 0.1, // Reduce creativity/deviation
+      temperature: 0.1, // Low temperature to reduce randomness for consistent, deterministic extraction results
     },
   });
 }
