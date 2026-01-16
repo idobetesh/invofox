@@ -15,7 +15,6 @@ const CHROME_PATH = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium'
 // Chromium launch arguments for Docker/headless environment
 const CHROMIUM_ARGS = [
   '--no-sandbox',
-  '--disable-setuid-sandbox',
   '--disable-dev-shm-usage',
   '--disable-gpu',
   '--disable-software-rasterizer',
