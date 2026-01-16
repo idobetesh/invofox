@@ -38,10 +38,19 @@ function calculateCost(inputTokens: number, outputTokens: number): number {
 
 /**
  * Get configured Gemini model for invoice extraction
+ *
+ * Note: responseMimeType: 'application/json' was removed due to 400 errors with gemini-2.0-flash.
+ * The model still returns JSON in most cases, and we handle markdown-wrapped JSON in the parsing logic.
+ * Temperature is kept at 0.1 to ensure consistent, deterministic extraction results.
  */
 function getModel() {
   const genAI = getClient();
-  return genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  return genAI.getGenerativeModel({
+    model: 'gemini-2.0-flash',
+    generationConfig: {
+      temperature: 0.1, // Low temperature to reduce randomness for consistent, deterministic extraction results
+    },
+  });
 }
 
 export async function extractInvoiceData(
