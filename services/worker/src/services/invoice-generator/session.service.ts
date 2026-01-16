@@ -134,13 +134,15 @@ export async function setDetails(
     amount: number;
   }
 ): Promise<void> {
-  await updateSession(chatId, userId, {
+  const updates: Partial<Omit<InvoiceSession, 'createdAt' | 'updatedAt'>> = {
     status: 'awaiting_payment',
     customerName: details.customerName,
-    customerTaxId: details.customerTaxId,
     description: details.description,
     amount: details.amount,
-  });
+    ...(details.customerTaxId !== undefined && { customerTaxId: details.customerTaxId }),
+  };
+
+  await updateSession(chatId, userId, updates);
 }
 
 /**
