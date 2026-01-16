@@ -124,12 +124,13 @@ function parseFastPath(text: string): {
 
 /**
  * Parse details from message
- * Format: name, amount, description
+ * Format: name, amount, description[, tax_id (optional)]
  */
 function parseDetails(text: string): {
   customerName: string;
   amount: number;
   description: string;
+  customerTaxId?: string;
 } | null {
   const parts = text.split(',').map((p) => p.trim());
 
@@ -139,14 +140,32 @@ function parseDetails(text: string): {
 
   const customerName = parts[0];
   const amountStr = parts[1];
-  const description = parts.slice(2).join(', '); // Allow commas in description
+
+  // Check if 4th field (tax ID) is provided
+  let description: string;
+  let customerTaxId: string | undefined;
+
+  if (parts.length >= 4) {
+    // Tax ID is the last field, description is everything in between
+    description = parts.slice(2, parts.length - 1).join(', ');
+    customerTaxId = parts[parts.length - 1];
+
+    // If tax ID is empty or looks invalid, treat it as part of description
+    if (!customerTaxId || customerTaxId.length === 0) {
+      description = parts.slice(2).join(', ');
+      customerTaxId = undefined;
+    }
+  } else {
+    // No tax ID, description is everything after amount
+    description = parts.slice(2).join(', ');
+  }
 
   const amount = parseFloat(amountStr);
   if (isNaN(amount) || amount <= 0) {
     return null;
   }
 
-  return { customerName, amount, description };
+  return { customerName, amount, description, customerTaxId };
 }
 
 /**
@@ -266,7 +285,7 @@ export async function handleInvoiceMessage(req: Request, res: Response): Promise
       if (!details) {
         await telegramService.sendMessage(
           payload.chatId,
-          '❌ פורמט לא תקין. שלח בפורמט:\nשם לקוח, סכום, תיאור\n(לדוגמה: אלעד, 275, אלבום חתונה)'
+          '❌ פורמט לא תקין. שלח בפורמט:\nשם לקוח, סכום, תיאור, ח.פ/ע.מ (אופציונלי)\n(לדוגמה: אלעד, 275, אלבום חתונה, 123456789)'
         );
         res.status(200).json({ ok: true, action: 'invalid_format' });
         return;
@@ -277,6 +296,7 @@ export async function handleInvoiceMessage(req: Request, res: Response): Promise
         customerName: details.customerName,
         description: details.description,
         amount: details.amount,
+        customerTaxId: details.customerTaxId,
       });
 
       // Ask for payment method
@@ -349,7 +369,7 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
         await telegramService.editMessageText(
           payload.chatId,
           payload.messageId,
-          `📄 נבחר: ${typeLabel}\n\n📝 שלח בפורמט:\nשם לקוח, סכום, תיאור\n(לדוגמה: אלעד, 275, אלבום חתונה)`
+          `📄 נבחר: ${typeLabel}\n\n📝 שלח בפורמט:\nשם לקוח, סכום, תיאור, ח.פ/ע.מ (אופציונלי)\n(לדוגמה: אלעד, 275, אלבום חתונה, 123456789)`
         );
 
         log.info({ documentType: action.documentType }, 'Document type selected');
