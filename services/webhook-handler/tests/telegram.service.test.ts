@@ -6,6 +6,8 @@ import {
   isPhotoMessage,
   isDocumentMessage,
   isPdfDocument,
+  isSupportedImageDocument,
+  isSupportedDocument,
   isFileSizeValid,
   isCommand,
   isValidUpdate,
@@ -215,6 +217,258 @@ describe('Telegram Service', () => {
         };
 
         expect(isDocumentMessage(update)).toBe(false);
+      });
+    });
+
+    describe('isSupportedImageDocument', () => {
+      it('should return true for JPEG with correct MIME type', () => {
+        const update: TelegramUpdate = {
+          update_id: 123,
+          message: {
+            message_id: 456,
+            chat: { id: 789, type: 'private' },
+            date: 1234567890,
+            document: {
+              file_id: 'doc123',
+              file_unique_id: 'unique123',
+              file_name: 'invoice.jpg',
+              mime_type: 'image/jpeg',
+              file_size: 1024000,
+            },
+          },
+        };
+
+        expect(isSupportedImageDocument(update)).toBe(true);
+      });
+
+      it('should return true for PNG with correct MIME type', () => {
+        const update: TelegramUpdate = {
+          update_id: 123,
+          message: {
+            message_id: 456,
+            chat: { id: 789, type: 'private' },
+            date: 1234567890,
+            document: {
+              file_id: 'doc123',
+              file_unique_id: 'unique123',
+              file_name: 'invoice.png',
+              mime_type: 'image/png',
+              file_size: 1024000,
+            },
+          },
+        };
+
+        expect(isSupportedImageDocument(update)).toBe(true);
+      });
+
+      it('should return true for WebP with correct MIME type', () => {
+        const update: TelegramUpdate = {
+          update_id: 123,
+          message: {
+            message_id: 456,
+            chat: { id: 789, type: 'private' },
+            date: 1234567890,
+            document: {
+              file_id: 'doc123',
+              file_unique_id: 'unique123',
+              file_name: 'invoice.webp',
+              mime_type: 'image/webp',
+              file_size: 1024000,
+            },
+          },
+        };
+
+        expect(isSupportedImageDocument(update)).toBe(true);
+      });
+
+      it('should return true for HEIC with correct MIME type', () => {
+        const update: TelegramUpdate = {
+          update_id: 123,
+          message: {
+            message_id: 456,
+            chat: { id: 789, type: 'private' },
+            date: 1234567890,
+            document: {
+              file_id: 'doc123',
+              file_unique_id: 'unique123',
+              file_name: 'IMG_1234.heic',
+              mime_type: 'image/heic',
+              file_size: 1024000,
+            },
+          },
+        };
+
+        expect(isSupportedImageDocument(update)).toBe(true);
+      });
+
+      it('should return true for HEIF with correct MIME type', () => {
+        const update: TelegramUpdate = {
+          update_id: 123,
+          message: {
+            message_id: 456,
+            chat: { id: 789, type: 'private' },
+            date: 1234567890,
+            document: {
+              file_id: 'doc123',
+              file_unique_id: 'unique123',
+              file_name: 'IMG_5678.heif',
+              mime_type: 'image/heif',
+              file_size: 1024000,
+            },
+          },
+        };
+
+        expect(isSupportedImageDocument(update)).toBe(true);
+      });
+
+      it('should return true for image with .jpg extension (fallback)', () => {
+        const update: TelegramUpdate = {
+          update_id: 123,
+          message: {
+            message_id: 456,
+            chat: { id: 789, type: 'private' },
+            date: 1234567890,
+            document: {
+              file_id: 'doc123',
+              file_unique_id: 'unique123',
+              file_name: 'Invoice.JPG', // uppercase extension, no mime_type
+              file_size: 1024000,
+            },
+          },
+        };
+
+        expect(isSupportedImageDocument(update)).toBe(true);
+      });
+
+      it('should return false for GIF (not supported for documents)', () => {
+        const update: TelegramUpdate = {
+          update_id: 123,
+          message: {
+            message_id: 456,
+            chat: { id: 789, type: 'private' },
+            date: 1234567890,
+            document: {
+              file_id: 'doc123',
+              file_unique_id: 'unique123',
+              file_name: 'animation.gif',
+              mime_type: 'image/gif',
+              file_size: 1024000,
+            },
+          },
+        };
+
+        expect(isSupportedImageDocument(update)).toBe(false);
+      });
+
+      it('should return false for unsupported format', () => {
+        const update: TelegramUpdate = {
+          update_id: 123,
+          message: {
+            message_id: 456,
+            chat: { id: 789, type: 'private' },
+            date: 1234567890,
+            document: {
+              file_id: 'doc123',
+              file_unique_id: 'unique123',
+              file_name: 'document.docx',
+              mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+              file_size: 1024000,
+            },
+          },
+        };
+
+        expect(isSupportedImageDocument(update)).toBe(false);
+      });
+
+      it('should return false for PDF', () => {
+        const update: TelegramUpdate = {
+          update_id: 123,
+          message: {
+            message_id: 456,
+            chat: { id: 789, type: 'private' },
+            date: 1234567890,
+            document: {
+              file_id: 'doc123',
+              file_unique_id: 'unique123',
+              file_name: 'invoice.pdf',
+              mime_type: 'application/pdf',
+              file_size: 1024000,
+            },
+          },
+        };
+
+        expect(isSupportedImageDocument(update)).toBe(false);
+      });
+    });
+
+    describe('isSupportedDocument', () => {
+      it('should return true for PDF', () => {
+        const update: TelegramUpdate = {
+          update_id: 123,
+          message: {
+            message_id: 456,
+            chat: { id: 789, type: 'private' },
+            date: 1234567890,
+            document: {
+              file_id: 'doc123',
+              file_unique_id: 'unique123',
+              file_name: 'invoice.pdf',
+              mime_type: 'application/pdf',
+              file_size: 1024000,
+            },
+          },
+        };
+
+        expect(isSupportedDocument(update)).toBe(true);
+      });
+
+      it('should return true for supported image formats', () => {
+        const formats = [
+          { name: 'invoice.jpg', mime: 'image/jpeg' },
+          { name: 'invoice.png', mime: 'image/png' },
+          { name: 'invoice.webp', mime: 'image/webp' },
+          { name: 'IMG_1234.heic', mime: 'image/heic' },
+        ];
+
+        formats.forEach(({ name, mime }) => {
+          const update: TelegramUpdate = {
+            update_id: 123,
+            message: {
+              message_id: 456,
+              chat: { id: 789, type: 'private' },
+              date: 1234567890,
+              document: {
+                file_id: 'doc123',
+                file_unique_id: 'unique123',
+                file_name: name,
+                mime_type: mime,
+                file_size: 1024000,
+              },
+            },
+          };
+
+          expect(isSupportedDocument(update)).toBe(true);
+        });
+      });
+
+      it('should return false for unsupported formats', () => {
+        const update: TelegramUpdate = {
+          update_id: 123,
+          message: {
+            message_id: 456,
+            chat: { id: 789, type: 'private' },
+            date: 1234567890,
+            document: {
+              file_id: 'doc123',
+              file_unique_id: 'unique123',
+              file_name: 'animation.gif',
+              mime_type: 'image/gif',
+              file_size: 1024000,
+            },
+          },
+        };
+
+        expect(isSupportedDocument(update)).toBe(false);
       });
     });
 

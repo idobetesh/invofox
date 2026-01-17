@@ -29,6 +29,22 @@
 - 👥 **Multi-tenant** - Per-customer branding by chat ID
 - 💰 **Cost-effective** - Scales to zero, mostly free tier
 
+## Supported File Types
+
+### 📱 As Photos (Telegram-compressed)
+- **JPEG** (.jpg, .jpeg)
+- **PNG** (.png)
+- **WebP** (.webp)
+
+### 📄 As Documents (Original Quality Preserved)
+- **PDF** (.pdf) - Multi-page support (up to 5 pages)
+- **JPEG** (.jpg, .jpeg)
+- **PNG** (.png)
+- **WebP** (.webp)
+- **HEIC/HEIF** (.heic, .heif) - iPhone native format
+
+> **Note:** HEIC files are automatically converted to JPEG for processing while the original HEIC is stored in Cloud Storage. Maximum file size: 5 MB.
+
 ## Architecture
 
 ```
@@ -88,6 +104,13 @@ Set these in `terraform.tfvars`:
 | `openai_api_key` | OpenAI API key (fallback) |
 | `gemini_api_key` | Gemini API key (primary, free tier) |
 | `sheet_id` | Google Sheet ID |
+
+## Documentation
+
+- **[Multi-Tenant Architecture](docs/MULTI_TENANT_ARCHITECTURE.md)** - Planned improvements for proper customer isolation
+- **[Customer Onboarding](docs/CUSTOMER_ONBOARDING.md)** - How to add new customers
+- **[Architecture Overview](docs/architecture.md)** - System architecture details
+- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
 
 ---
 
