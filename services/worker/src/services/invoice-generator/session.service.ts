@@ -88,12 +88,13 @@ export async function createSession(chatId: number, userId: number): Promise<Inv
 
 /**
  * Update session with new data
+ * Returns the updated session (Firestore guarantees read-after-write consistency)
  */
 export async function updateSession(
   chatId: number,
   userId: number,
   updates: Partial<Omit<InvoiceSession, 'createdAt' | 'updatedAt'>>
-): Promise<void> {
+): Promise<InvoiceSession> {
   const db = getFirestore();
   const sessionId = getSessionId(chatId, userId);
   const docRef = db.collection(COLLECTION_NAME).doc(sessionId);
@@ -104,18 +105,41 @@ export async function updateSession(
     updatedAt: FieldValue.serverTimestamp(),
   });
 
-  log.debug({ updates }, 'Session updated');
+  // Read back the updated document
+  // Firestore guarantees read-after-write consistency for single documents
+  const doc = await docRef.get();
+
+  if (!doc.exists) {
+    log.error('Session not found after update');
+    throw new Error('Session not found after update');
+  }
+
+  const session = doc.data() as InvoiceSession;
+
+  // Re-validate expiration (since we just read it)
+  const updatedAt = session.updatedAt as Timestamp;
+  const age = Date.now() - updatedAt.toMillis();
+
+  if (age > SESSION_TTL_MS) {
+    log.info({ ageMinutes: Math.round(age / 60000) }, 'Session expired during update, deleting');
+    await docRef.delete();
+    throw new Error('Session expired during update');
+  }
+
+  log.debug({ updates, status: session.status }, 'Session updated and returned');
+  return session;
 }
 
 /**
  * Set document type and move to awaiting_details status
+ * Returns the updated session
  */
 export async function setDocumentType(
   chatId: number,
   userId: number,
   documentType: InvoiceDocumentType
-): Promise<void> {
-  await updateSession(chatId, userId, {
+): Promise<InvoiceSession> {
+  return await updateSession(chatId, userId, {
     status: 'awaiting_details',
     documentType,
   });
@@ -123,6 +147,7 @@ export async function setDocumentType(
 
 /**
  * Set customer details and move to awaiting_payment status
+ * Returns the updated session
  */
 export async function setDetails(
   chatId: number,
@@ -133,7 +158,7 @@ export async function setDetails(
     description: string;
     amount: number;
   }
-): Promise<void> {
+): Promise<InvoiceSession> {
   const updates: Partial<Omit<InvoiceSession, 'createdAt' | 'updatedAt'>> = {
     status: 'awaiting_payment',
     customerName: details.customerName,
@@ -142,22 +167,23 @@ export async function setDetails(
     ...(details.customerTaxId !== undefined && { customerTaxId: details.customerTaxId }),
   };
 
-  await updateSession(chatId, userId, updates);
+  return await updateSession(chatId, userId, updates);
 }
 
 /**
  * Set payment method and move to confirming status
+ * Returns the updated session
  */
 export async function setPaymentMethod(
   chatId: number,
   userId: number,
   paymentMethod: PaymentMethod,
   date?: string
-): Promise<void> {
+): Promise<InvoiceSession> {
   const today = new Date();
   const defaultDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-  await updateSession(chatId, userId, {
+  return await updateSession(chatId, userId, {
     status: 'confirming',
     paymentMethod,
     date: date || defaultDate,

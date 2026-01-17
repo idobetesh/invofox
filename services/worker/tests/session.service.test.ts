@@ -7,12 +7,24 @@ import * as sessionService from '../src/services/invoice-generator/session.servi
 
 // Mock Firestore
 const mockUpdate = jest.fn();
+const mockGet = jest.fn();
 const mockDoc = jest.fn(() => ({
   update: mockUpdate,
+  get: mockGet,
 }));
 const mockCollection = jest.fn(() => ({
   doc: mockDoc,
 }));
+
+// Helper to create mock Timestamp objects
+function createMockTimestamp(date: Date = new Date()) {
+  return {
+    toMillis: () => date.getTime(),
+    toDate: () => date,
+    seconds: Math.floor(date.getTime() / 1000),
+    nanoseconds: (date.getTime() % 1000) * 1000000,
+  };
+}
 
 jest.mock('@google-cloud/firestore', () => {
   return {
@@ -21,6 +33,9 @@ jest.mock('@google-cloud/firestore', () => {
     })),
     FieldValue: {
       serverTimestamp: jest.fn(() => new Date()),
+    },
+    Timestamp: {
+      fromDate: jest.fn((date) => createMockTimestamp(date)),
     },
   };
 });
@@ -46,7 +61,22 @@ describe('Session Service', () => {
         // No customerTaxId provided
       };
 
-      await sessionService.setDetails(chatId, userId, details);
+      // Mock the read-after-write: return the updated session
+      const now = new Date();
+      const mockSession = {
+        status: 'awaiting_payment',
+        customerName: 'John Doe',
+        description: 'Test description',
+        amount: 1009,
+        updatedAt: createMockTimestamp(now),
+        createdAt: createMockTimestamp(now),
+      };
+      mockGet.mockResolvedValue({
+        exists: true,
+        data: () => mockSession,
+      });
+
+      const result = await sessionService.setDetails(chatId, userId, details);
 
       expect(mockCollection).toHaveBeenCalledWith('invoice_sessions');
       expect(mockDoc).toHaveBeenCalledWith(`${chatId}_${userId}`);
@@ -63,6 +93,10 @@ describe('Session Service', () => {
       // Verify customerTaxId is NOT in the update object
       const updateCall = mockUpdate.mock.calls[0][0];
       expect(updateCall).not.toHaveProperty('customerTaxId');
+
+      // Verify the function returns the updated session
+      expect(result).toEqual(mockSession);
+      expect(result).not.toHaveProperty('customerTaxId');
     });
 
     it('should successfully set details with customerTaxId', async () => {
@@ -73,7 +107,23 @@ describe('Session Service', () => {
         customerTaxId: '123456789',
       };
 
-      await sessionService.setDetails(chatId, userId, details);
+      // Mock the read-after-write: return the updated session
+      const now = new Date();
+      const mockSession = {
+        status: 'awaiting_payment',
+        customerName: 'Jane Smith',
+        description: 'Wedding album',
+        amount: 275,
+        customerTaxId: '123456789',
+        updatedAt: createMockTimestamp(now),
+        createdAt: createMockTimestamp(now),
+      };
+      mockGet.mockResolvedValue({
+        exists: true,
+        data: () => mockSession,
+      });
+
+      const result = await sessionService.setDetails(chatId, userId, details);
 
       expect(mockCollection).toHaveBeenCalledWith('invoice_sessions');
       expect(mockDoc).toHaveBeenCalledWith(`${chatId}_${userId}`);
@@ -87,6 +137,10 @@ describe('Session Service', () => {
           updatedAt: expect.any(Date),
         })
       );
+
+      // Verify the function returns the updated session
+      expect(result).toEqual(mockSession);
+      expect(result.customerTaxId).toBe('123456789');
     });
 
     it('should handle description with commas correctly', async () => {
@@ -97,13 +151,30 @@ describe('Session Service', () => {
         customerTaxId: '987654321',
       };
 
-      await sessionService.setDetails(chatId, userId, details);
+      // Mock the read-after-write
+      const now = new Date();
+      mockGet.mockResolvedValue({
+        exists: true,
+        data: () => ({
+          status: 'awaiting_payment',
+          customerName: 'Bob Johnson',
+          description: 'Photography, editing, and production',
+          amount: 500,
+          customerTaxId: '987654321',
+          updatedAt: createMockTimestamp(now),
+          createdAt: createMockTimestamp(now),
+        }),
+      });
+
+      const result = await sessionService.setDetails(chatId, userId, details);
 
       expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           description: 'Photography, editing, and production',
         })
       );
+
+      expect(result.description).toBe('Photography, editing, and production');
     });
 
     it('should not include customerTaxId when explicitly undefined', async () => {
@@ -114,10 +185,28 @@ describe('Session Service', () => {
         customerTaxId: undefined,
       };
 
-      await sessionService.setDetails(chatId, userId, details);
+      // Mock the read-after-write
+      const now = new Date();
+      const mockSession = {
+        status: 'awaiting_payment',
+        customerName: 'Alice Williams',
+        description: 'Graphic design',
+        amount: 150,
+        updatedAt: createMockTimestamp(now),
+        createdAt: createMockTimestamp(now),
+      };
+      mockGet.mockResolvedValue({
+        exists: true,
+        data: () => mockSession,
+      });
+
+      const result = await sessionService.setDetails(chatId, userId, details);
 
       const updateCall = mockUpdate.mock.calls[0][0];
       expect(updateCall).not.toHaveProperty('customerTaxId');
+
+      // Verify the returned session also doesn't have customerTaxId
+      expect(result).not.toHaveProperty('customerTaxId');
     });
   });
 });

@@ -381,19 +381,13 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
         const today = new Date();
         const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-        await sessionService.setPaymentMethod(
+        // setPaymentMethod now returns the updated session, eliminating the double-read
+        const updatedSession = await sessionService.setPaymentMethod(
           payload.chatId,
           payload.userId,
           action.paymentMethod,
           dateStr
         );
-
-        // Get updated session for confirmation
-        const updatedSession = await sessionService.getSession(payload.chatId, payload.userId);
-
-        if (!updatedSession) {
-          throw new Error('Session lost after update');
-        }
 
         const typeLabel = updatedSession.documentType === 'invoice' ? 'חשבונית' : 'חשבונית-קבלה';
 
