@@ -4,6 +4,8 @@
  */
 
 import puppeteer from 'puppeteer-core';
+import * as fs from 'fs';
+import * as path from 'path';
 import type { InvoiceData, BusinessConfig } from '../../../../../shared/types';
 import { buildInvoiceHTML } from './template';
 import { getBusinessConfig, getLogoBase64 } from './config.service';
@@ -12,8 +14,27 @@ import logger from '../../logger';
 // Puppeteer executable path (set via environment variable in Docker)
 const CHROME_PATH = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium';
 
+// Crashpad database directory - ensure it exists and is writable
+const CRASHPAD_DIR = process.env.CRASHPAD_DATABASE_DIR || '/app/.crashpad';
+const CRASHPAD_DB_DIR = path.join(CRASHPAD_DIR, 'database');
+
+// Ensure crashpad directory exists (called before browser launch)
+function ensureCrashpadDirectory(): void {
+  try {
+    if (!fs.existsSync(CRASHPAD_DIR)) {
+      fs.mkdirSync(CRASHPAD_DIR, { recursive: true });
+    }
+    if (!fs.existsSync(CRASHPAD_DB_DIR)) {
+      fs.mkdirSync(CRASHPAD_DB_DIR, { recursive: true });
+    }
+  } catch (error) {
+    // Log but don't fail - Chrome will handle it
+    logger.warn({ error, crashpadDir: CRASHPAD_DIR }, 'Failed to create crashpad directory');
+  }
+}
+
 // Chromium launch arguments for Docker/headless environment
-// Note: Providing crash-dumps-dir instead of disabling crashpad to avoid "chrome_crashpad_handler: --database is required" error
+// Note: Using multiple approaches to disable crashpad handler to avoid "chrome_crashpad_handler: --database is required" error
 const CHROMIUM_ARGS = [
   '--no-sandbox',
   '--disable-dev-shm-usage',
@@ -21,7 +42,9 @@ const CHROMIUM_ARGS = [
   '--disable-software-rasterizer',
   '--disable-crash-reporter',
   '--disable-breakpad', // Alternative crash reporter flag
-  '--crash-dumps-dir=/tmp', // Provide crashpad database directory (fixes "chrome_crashpad_handler: --database is required" error)
+  '--disable-crashpad', // Disable crashpad handler
+  `--crash-dumps-dir=${CRASHPAD_DIR}`, // Provide crashpad database directory (writable by non-root user)
+  '--disable-background-networking', // Disable background networking (can trigger crashpad)
   '--disable-component-update',
   '--disable-domain-reliability',
   '--disable-features=AudioServiceOutOfProcess,IsolateOrigins,site-per-process',
@@ -41,7 +64,7 @@ const CHROMIUM_ARGS = [
   '--no-zygote',
   '--use-gl=swiftshader',
   '--window-size=1920,1080',
-  '--single-process', // Run in single process mode (more stable in containers)
+  // Note: Removed --single-process as it can cause crashpad handler issues
   '--font-render-hinting=none',
 ];
 
@@ -124,6 +147,9 @@ export async function generateInvoicePDFWithConfig(
 ): Promise<Buffer> {
   const log = logger.child({ invoiceNumber: data.invoiceNumber });
   log.info('Starting PDF generation with custom config');
+
+  // Ensure crashpad directory exists before launching browser
+  ensureCrashpadDirectory();
 
   let browser = null;
 
