@@ -81,13 +81,6 @@ export function buildInvoiceHTML(
       background: #fff;
     }
     
-    /* Fallback for when Google Fonts doesn't load */
-    @font-face {
-      font-family: 'Heebo';
-      src: local('Arial');
-      font-weight: 300 700;
-    }
-    
     .header {
       display: flex;
       justify-content: space-between;
