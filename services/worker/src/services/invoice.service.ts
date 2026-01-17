@@ -16,6 +16,7 @@ import * as storageService from './storage.service';
 import * as llmService from './llm.service';
 import * as sheetsService from './sheets.service';
 import * as pdfService from './pdf.service';
+import * as heicService from './heic.service';
 import logger from '../logger';
 
 /**
@@ -97,10 +98,12 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
       );
     }
 
-    // Detect if PDF and process accordingly
+    // Detect file type and process accordingly
     const isPDF = fileExtension.toLowerCase() === 'pdf';
+    const isHEIC = ['heic', 'heif'].includes(fileExtension.toLowerCase());
     let imageBuffers: Buffer[];
     let imageExtension: string;
+    const originalFileExtension = fileExtension; // Store original extension for upload
 
     if (isPDF) {
       // PDF Processing Path
@@ -148,8 +151,18 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
       imageExtension = 'png';
 
       log.info({ pagesConverted: imageBuffers.length }, 'PDF converted to images');
+    } else if (isHEIC) {
+      // HEIC/HEIF Processing Path
+      log.info('Processing as HEIC/HEIF image');
+
+      // Convert HEIC to JPEG for LLM compatibility
+      const converted = await heicService.convertHEICToJPEG(buffer);
+      imageBuffers = [converted.buffer];
+      imageExtension = converted.extension;
+
+      log.info('HEIC image converted to JPEG for processing');
     } else {
-      // Image Processing Path (existing)
+      // Image Processing Path (JPEG, PNG, WebP, etc.)
       log.info('Processing as image');
       imageBuffers = [buffer];
       imageExtension = fileExtension;
@@ -172,8 +185,20 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
       driveFileIds.push(pdfUpload.fileId);
       driveLink = pdfUpload.webViewLink;
       log.info({ driveLink }, 'Original PDF uploaded');
+    } else if (isHEIC) {
+      // For HEIC: upload original HEIC file (converted JPEG is just for LLM extraction)
+      const heicUpload = await storageService.uploadInvoiceImage(
+        buffer, // Use raw HEIC buffer (not converted JPEG)
+        originalFileExtension,
+        chatId,
+        messageId,
+        receivedAt
+      );
+      driveFileIds.push(heicUpload.fileId);
+      driveLink = heicUpload.webViewLink;
+      log.info({ driveLink }, 'Original HEIC image uploaded');
     } else {
-      // For images: upload directly since no PDF-to-image conversion is needed
+      // For images: upload directly since no conversion is needed
       const imageUpload = await storageService.uploadInvoiceImage(
         imageBuffers[0],
         imageExtension,

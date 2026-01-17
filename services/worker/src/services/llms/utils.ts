@@ -69,13 +69,13 @@ export function containsSuspiciousContent(text: string): boolean {
 
 /**
  * Get MIME type from file extension
+ * Only includes formats supported by both Gemini and OpenAI for reliable fallback
  */
 export function getMimeType(extension: string): string {
   const mimeTypes: Record<string, string> = {
     jpg: 'image/jpeg',
     jpeg: 'image/jpeg',
     png: 'image/png',
-    gif: 'image/gif',
     webp: 'image/webp',
   };
   return mimeTypes[extension.toLowerCase()] || 'image/jpeg';

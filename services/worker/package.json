@@ -28,6 +28,7 @@
     "pino": "^8.17.0",
     "pino-http": "^9.0.0",
     "playwright": "^1.48.0",
+    "sharp": "^0.34.5",
     "zod": "^3.25.76"
   },
   "devDependencies": {

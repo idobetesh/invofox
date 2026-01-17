@@ -18,14 +18,16 @@ function getStorage(): Storage {
 
 /**
  * Get MIME type from file extension
+ * HEIC files are stored as-is but converted to JPEG for LLM processing
  */
 export function getMimeType(extension: string): string {
   const mimeTypes: Record<string, string> = {
     jpg: 'image/jpeg',
     jpeg: 'image/jpeg',
     png: 'image/png',
-    gif: 'image/gif',
     webp: 'image/webp',
+    heic: 'image/heic',
+    heif: 'image/heif',
     pdf: 'application/pdf',
   };
 

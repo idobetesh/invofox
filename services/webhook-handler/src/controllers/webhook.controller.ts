@@ -91,11 +91,11 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
     return;
   }
 
-  // Process PDF documents
+  // Process document files (PDF, images)
   if (telegramService.isDocumentMessage(update)) {
-    if (!telegramService.isPdfDocument(update)) {
-      logger.debug('Ignoring non-PDF document');
-      res.status(200).json({ ok: true, action: 'ignored_non_pdf' });
+    if (!telegramService.isSupportedDocument(update)) {
+      logger.debug('Ignoring unsupported document type');
+      res.status(200).json({ ok: true, action: 'ignored_unsupported_document' });
       return;
     }
 
@@ -104,7 +104,7 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
     const document = message?.document;
 
     if (!document || !telegramService.isFileSizeValid(document)) {
-      logger.warn({ fileSize: document?.file_size }, 'PDF exceeds size limit (5 MB)');
+      logger.warn({ fileSize: document?.file_size }, 'Document exceeds size limit (5 MB)');
       res.status(200).json({ ok: true, action: 'rejected_size_limit' });
       return;
     }
@@ -123,13 +123,14 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
         messageId: payload.messageId,
         uploader: payload.uploaderUsername,
         fileName: document.file_name,
+        mimeType: document.mime_type,
       },
-      'Processing PDF document'
+      'Processing document'
     );
 
     try {
       const taskName = await tasksService.enqueueProcessingTask(payload, config);
-      logger.info({ taskName }, 'PDF task enqueued successfully');
+      logger.info({ taskName }, 'Document task enqueued successfully');
 
       res.status(200).json({
         ok: true,
@@ -137,14 +138,14 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
         task: taskName,
       });
     } catch (error) {
-      logger.error({ error }, 'Failed to enqueue PDF task');
+      logger.error({ error }, 'Failed to enqueue document task');
       res.status(500).json({ error: 'Failed to enqueue task' });
     }
     return;
   }
 
   // Ignore all other message types
-  logger.debug('Ignoring non-photo, non-PDF message');
+  logger.debug('Ignoring non-photo, non-document message');
   res.status(200).json({ ok: true, action: 'ignored' });
 }
 

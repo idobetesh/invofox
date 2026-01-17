@@ -156,6 +156,43 @@ export function isPdfDocument(update: TelegramUpdate): boolean {
 }
 
 /**
+ * Check if the document is a supported image format
+ * Supports: JPEG, PNG, WebP (natively supported), HEIC/HEIF (converted to JPEG)
+ * Excludes: GIF (should be sent as photo)
+ */
+export function isSupportedImageDocument(update: TelegramUpdate): boolean {
+  const message = update.message || update.channel_post;
+  const document = message?.document;
+  if (!document) {
+    return false;
+  }
+
+  // Supported image MIME types (HEIC will be converted to JPEG before LLM processing)
+  const supportedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+
+  // Check MIME type
+  if (document.mime_type && supportedMimeTypes.includes(document.mime_type)) {
+    return true;
+  }
+
+  // Fallback: check file extension
+  if (document.file_name) {
+    const lowerName = document.file_name.toLowerCase();
+    const supportedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'];
+    return supportedExtensions.some((ext) => lowerName.endsWith(ext));
+  }
+
+  return false;
+}
+
+/**
+ * Check if the document is either PDF or a supported image format
+ */
+export function isSupportedDocument(update: TelegramUpdate): boolean {
+  return isPdfDocument(update) || isSupportedImageDocument(update);
+}
+
+/**
  * Validate if document file size is within limits
  * Maximum: 5 MB
  */
