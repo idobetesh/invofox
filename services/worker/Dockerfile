@@ -81,8 +81,9 @@ COPY --from=builder /app/services/worker/dist ./dist
 # Playwright handles all browser setup including crashpad
 RUN npx playwright install chromium --with-deps
 
-# Change ownership to non-root user (including Playwright browsers)
-RUN chown -R nodejs:nodejs /app /ms-playwright 2>/dev/null || chown -R nodejs:nodejs /app
+# Change ownership to non-root user (including Playwright browsers, if present)
+RUN chown -R nodejs:nodejs /app && \
+    if [ -d "/ms-playwright" ]; then chown -R nodejs:nodejs /ms-playwright; fi
 
 # Switch to non-root user
 USER nodejs
