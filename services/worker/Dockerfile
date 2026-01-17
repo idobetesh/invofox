@@ -43,30 +43,22 @@ FROM node:24-slim
 
 ARG APP_VERSION=development
 
-# Install GraphicsMagick for PDF processing, Ghostscript for PDF reading, Chromium for Puppeteer, and Hebrew fonts
+# Install GraphicsMagick for PDF processing, Ghostscript for PDF reading, and Hebrew fonts
+# Playwright will install its own Chromium browser
 RUN apt-get update && \
     apt-get install -y \
         graphicsmagick \
         ghostscript \
-        chromium \
         fonts-noto-cjk \
         fonts-freefont-ttf \
         fonts-dejavu-core \
         --no-install-recommends && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    # Create a dummy crashpad handler that accepts --database flag to prevent Chrome from failing
-    mv /usr/lib/chromium/chrome_crashpad_handler /usr/lib/chromium/chrome_crashpad_handler.orig 2>/dev/null || true && \
-    printf '#!/bin/sh\n# Dummy crashpad handler - accepts all flags and exits successfully\nexit 0\n' > /usr/lib/chromium/chrome_crashpad_handler && \
-    chmod +x /usr/lib/chromium/chrome_crashpad_handler
+    rm -rf /var/lib/apt/lists/*
 
-# Configure Puppeteer to use system Chromium and disable crash reporting
-# Set crashpad database directory to avoid "chrome_crashpad_handler: --database is required" error
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
-    CHROME_DEVEL_SANDBOX=/usr/lib/chromium/chrome-sandbox \
-    CHROMIUM_FLAGS="--disable-crash-reporter --disable-gpu" \
-    CRASHPAD_DATABASE_DIR=/app/.crashpad
+# Configure Playwright to use system dependencies
+# Playwright handles browser installation and crashpad internally
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # Add security: run as non-root user
 RUN groupadd -r nodejs && useradd -r -g nodejs nodejs
@@ -85,14 +77,12 @@ RUN --mount=type=cache,target=/root/.npm \
 # Copy built application
 COPY --from=builder /app/services/worker/dist ./dist
 
-# Create crashpad directory for Chromium (writable by non-root user)
-# The crashpad handler needs a database directory - create it with proper permissions
-RUN mkdir -p /app/.crashpad/database && \
-    chown -R nodejs:nodejs /app/.crashpad && \
-    chmod -R 755 /app/.crashpad
+# Install Playwright Chromium browser (as root, before switching to nodejs user)
+# Playwright handles all browser setup including crashpad
+RUN npx playwright install chromium --with-deps
 
-# Change ownership to non-root user
-RUN chown -R nodejs:nodejs /app
+# Change ownership to non-root user (including Playwright browsers)
+RUN chown -R nodejs:nodejs /app /ms-playwright 2>/dev/null || chown -R nodejs:nodejs /app
 
 # Switch to non-root user
 USER nodejs
