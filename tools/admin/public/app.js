@@ -692,15 +692,26 @@ async function loadBucketObjects() {
     if (storagePageToken) url += `&pageToken=${storagePageToken}`;
     
     const response = await fetch(url, getAuthHeaders());
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+    }
+    
     const data = await response.json();
     
+    if (!data || !Array.isArray(data.objects)) {
+      throw new Error('Invalid response format: objects array not found');
+    }
+    
     displayStorageObjects(data.objects);
-    storagePageToken = data.nextPageToken;
-    updateStoragePagination(data.hasMore);
+    storagePageToken = data.nextPageToken || null;
+    updateStoragePagination(data.hasMore || false);
     
     document.getElementById('refresh-bucket-btn').style.display = 'inline-block';
   } catch (error) {
     showError('Failed to load objects: ' + error.message);
+    console.error('Error loading objects:', error);
   } finally {
     hideLoading();
   }
@@ -805,20 +816,36 @@ function displayStorageObjects(objects) {
 async function viewStorageObject(bucketName, objectPath) {
   showLoading();
   try {
-    const response = await fetch(
-      `${API_BASE}/storage/buckets/${bucketName}/objects/${objectPath}`,
-      getAuthHeaders()
-    );
+    // Encode each path segment separately to preserve slashes
+    const pathSegments = objectPath.split('/');
+    const encodedSegments = pathSegments.map(segment => encodeURIComponent(segment));
+    const encodedPath = encodedSegments.join('/');
+    const url = `${API_BASE}/storage/buckets/${bucketName}/objects/${encodedPath}`;
+    
+    const response = await fetch(url, getAuthHeaders());
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    }
+    
     const data = await response.json();
+    
+    if (!data || !data.publicUrl) {
+      throw new Error('Invalid response: missing publicUrl');
+    }
     
     const detailsSection = document.getElementById('object-details-section');
     const detailsDiv = document.getElementById('object-details');
     
+    // Escape the URL for use in HTML attributes
+    const escapedUrl = data.publicUrl.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    
     let preview = '';
     if (data.contentType?.startsWith('image/')) {
-      preview = `<div class="object-preview"><img src="${data.publicUrl}" alt="Preview"></div>`;
+      preview = `<div class="object-preview"><img src="${escapedUrl}" alt="Preview"></div>`;
     } else if (data.contentType === 'application/pdf') {
-      preview = `<div class="object-preview"><iframe src="${data.publicUrl}" width="100%" height="600px"></iframe></div>`;
+      preview = `<div class="object-preview"><iframe src="${escapedUrl}" width="100%" height="600px"></iframe></div>`;
     }
     
     detailsDiv.innerHTML = `
@@ -832,18 +859,36 @@ async function viewStorageObject(bucketName, objectPath) {
       </div>
       ${preview}
       <div style="text-align: center; margin: 20px 0;">
-        <a href="${data.publicUrl}" target="_blank" class="object-link">
+        <button 
+          class="action-btn" 
+          onclick="window.open('${escapedUrl}', '_blank', 'noopener,noreferrer')"
+          style="display: inline-flex; align-items: center; gap: 8px;"
+        >
           <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
             <polyline points="15 3 21 3 21 9"/>
             <line x1="10" y1="14" x2="21" y2="3"/>
           </svg>
           <span>Open in New Tab</span>
+        </button>
+        <a 
+          href="${escapedUrl}" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          class="object-link"
+          style="margin-left: 12px; display: inline-flex; align-items: center; gap: 8px; color: #60a5fa; text-decoration: none;"
+        >
+          <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+          <span>Direct Link</span>
         </a>
       </div>
       <div style="margin-top: 24px;">
         <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #94a3b8;">Metadata</h3>
-        <div class="json-viewer">${JSON.stringify(data.metadata, null, 2)}</div>
+        <div class="json-viewer">${JSON.stringify(data.metadata || {}, null, 2)}</div>
       </div>
     `;
     
@@ -851,6 +896,7 @@ async function viewStorageObject(bucketName, objectPath) {
     detailsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   } catch (error) {
     showError('Failed to load object: ' + error.message);
+    console.error('Error loading object:', error);
   } finally {
     hideLoading();
   }

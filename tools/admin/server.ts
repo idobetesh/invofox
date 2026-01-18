@@ -1,18 +1,18 @@
 /**
  * Papertrail Admin Tool
- * 
+ *
  * ⚠️ SECURITY WARNING ⚠️
  * - This is a powerful admin tool with DELETE capabilities
  * - Only run locally (localhost) - NEVER deploy to production
  * - Requires GCP admin credentials
  * - Can permanently delete Firestore documents and Storage objects
  * - Use with extreme caution!
- * 
+ *
  * Usage:
  *   cd tools/admin
  *   npm install
  *   npm start
- * 
+ *
  * Then open http://localhost:3000 in your browser
  */
 
@@ -64,16 +64,5 @@ app.use('/api', createRoutes(firestoreController, storageController, healthContr
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`
-╔══════════════════════════════════════════════════════════════╗
-║          Papertrail Admin Tool                               ║
-╠══════════════════════════════════════════════════════════════╣
-║  Server running at: http://localhost:${PORT}                    ║
-║                                                              ║
-║  ⚠️  WARNING: This is a powerful admin tool!                 ║
-║  - Can delete Firestore documents                            ║
-║  - Can delete Storage objects                                ║
-║  - Use with extreme caution                                  ║
-╚══════════════════════════════════════════════════════════════╝
-  `);
+  console.log(`Server running at: http://localhost:${PORT} 🚀`);
 });
