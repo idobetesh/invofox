@@ -103,6 +103,7 @@ export async function getCurrentCounter(chatId: number, year?: string): Promise<
  * @param chatId - Customer's Telegram chat ID
  * @param startingNumber - Starting counter value
  * @param year - Optional year (defaults to current year)
+ * @throws Error if counter already exists
  */
 export async function initializeCounter(
   chatId: number,
@@ -113,6 +114,17 @@ export async function initializeCounter(
   const targetYear = year || getCurrentYear();
   const docId = `chat_${chatId}_${targetYear}`;
   const docRef = db.collection(COLLECTION_NAME).doc(docId);
+
+  // Safety check: prevent any overwrites
+  const existing = await docRef.get();
+  if (existing.exists) {
+    const data = existing.data() as InvoiceCounter;
+    throw new Error(
+      `Counter already exists for customer ${chatId} in year ${targetYear} (current value: ${data.counter}). ` +
+        `Cannot overwrite existing counter to prevent invoice number collisions. ` +
+        `If you need to modify it, use Firestore console directly.`
+    );
+  }
 
   await docRef.set({
     counter: startingNumber,
