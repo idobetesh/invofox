@@ -27,16 +27,26 @@ export class StorageController {
       const maxResults = parseInt(req.query.maxResults as string) || 100;
       const pageToken = req.query.pageToken as string | undefined;
 
+      console.log(
+        `Listing objects in bucket "${bucketName}" with prefix="${prefix}", maxResults=${maxResults}, pageToken=${pageToken || 'none'}`
+      );
+
       const result = await this.storageService.listObjects(bucketName, {
         prefix,
         maxResults,
         pageToken,
       });
 
+      console.log(`Found ${result.objects.length} objects in bucket "${bucketName}"`);
+
       res.json(result);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`Error listing objects in ${req.params.bucketName}:`, error);
-      res.status(500).json({ error: 'Failed to list objects' });
+      res.status(500).json({
+        error: 'Failed to list objects',
+        message: errorMessage,
+      });
     }
   };
 
@@ -46,12 +56,31 @@ export class StorageController {
   getObject = async (req: Request, res: Response): Promise<void> => {
     try {
       const bucketName = req.params.bucketName;
-      // Extract object path from the wildcard (everything after /objects/)
-      const fullPath = req.path;
-      const objectsPrefix = `/api/storage/buckets/${bucketName}/objects/`;
-      const objectPath = fullPath.replace(objectsPrefix, '');
 
-      if (!objectPath) {
+      // Extract object path from the wildcard route
+      // Express stores wildcard matches in req.params[0] or we can use req.path
+      let objectPath: string;
+
+      // Try to get from params first (if Express populated it)
+      if ((req.params as { [key: string]: string })['0']) {
+        objectPath = (req.params as { [key: string]: string })['0'];
+      } else {
+        // Fallback: extract from path
+        const fullPath = req.path;
+        const objectsPrefix = `/api/storage/buckets/${bucketName}/objects/`;
+        objectPath = fullPath.replace(objectsPrefix, '');
+      }
+
+      // Decode the path in case it was URL encoded
+      try {
+        objectPath = decodeURIComponent(objectPath);
+      } catch {
+        // If decoding fails, use as-is
+      }
+
+      console.log(`Getting object: ${bucketName}/${objectPath} (from path: ${req.path})`);
+
+      if (!objectPath || objectPath === '') {
         res.status(400).json({ error: 'Object path is required' });
         return;
       }
@@ -63,10 +92,17 @@ export class StorageController {
         return;
       }
 
+      console.log(
+        `Successfully retrieved object: ${bucketName}/${objectPath}, URL: ${object.publicUrl.substring(0, 100)}...`
+      );
       res.json(object);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Error getting object:', error);
-      res.status(500).json({ error: 'Failed to get object' });
+      res.status(500).json({
+        error: 'Failed to get object',
+        message: errorMessage,
+      });
     }
   };
 

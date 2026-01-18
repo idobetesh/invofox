@@ -54,12 +54,15 @@ export class FirestoreService {
     }
 
     const snapshot = await query.get();
-    const documents = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      data: doc.data(),
-      createdAt: doc.data().createdAt,
-      updatedAt: doc.data().updatedAt,
-    }));
+    const documents = snapshot.docs.map((doc) => {
+      const docData = doc.data() || {};
+      return {
+        id: doc.id,
+        data: docData as Record<string, unknown>,
+        createdAt: docData.createdAt,
+        updatedAt: docData.updatedAt,
+      };
+    });
 
     const lastDoc = snapshot.docs[snapshot.docs.length - 1];
     const hasMore = snapshot.docs.length === limit;
@@ -83,9 +86,10 @@ export class FirestoreService {
       return null;
     }
 
+    const docData = doc.data() || {};
     return {
       id: doc.id,
-      data: doc.data(),
+      data: docData as Record<string, unknown>,
     };
   }
 
@@ -120,16 +124,17 @@ export class FirestoreService {
   ): Promise<FirestoreDocument> {
     const docRef = this.firestore.collection(collectionName).doc(documentId);
     await docRef.set(data, { merge: false }); // Use set with merge: false to replace entire document
-    
+
     // Read back the updated document
     const doc = await docRef.get();
     if (!doc.exists) {
       throw new Error('Document not found after update');
     }
 
+    const docData = doc.data() || {};
     return {
       id: doc.id,
-      data: doc.data(),
+      data: docData as Record<string, unknown>,
     };
   }
 }

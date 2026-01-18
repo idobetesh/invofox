@@ -18,7 +18,8 @@ VERSION ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "latest")
         logs-webhook logs-worker clean lint lint-fix test test-unit \
         version revisions rollback-webhook rollback-worker \
         sample-invoice seed-business-config upload-logo \
-        seed-customer-config list-customers upload-customer-logo
+        seed-customer-config list-customers upload-customer-logo \
+        admin-dev
 
 # =============================================================================
 # Help
@@ -69,6 +70,9 @@ help:
 	@echo "  make dev-webhook      Run webhook-handler locally"
 	@echo "  make dev-worker       Run worker locally"
 	@echo "  make test-worker      Send test payload to local worker"
+	@echo ""
+	@echo "ADMIN TOOL"
+	@echo "  make admin-dev        Start admin tool in dev mode (auto-reload) and open browser"
 	@echo ""
 	@echo "MONITORING"
 	@echo "  make logs-webhook     Tail webhook-handler logs"
@@ -372,6 +376,19 @@ upload-customer-logo:
 	fi
 	@echo "Uploading logo for chat $(CHAT_ID)..."
 	cd services/worker && npx ts-node scripts/customer/upload-logo.ts $(LOGO) $(CHAT_ID)
+
+# =============================================================================
+# Admin Tool
+# =============================================================================
+
+ADMIN_PORT ?= 3000
+ADMIN_URL = http://localhost:$(ADMIN_PORT)
+
+admin-dev:
+	@echo "Starting admin tool in dev mode on port $(ADMIN_PORT)..."
+	@echo "Opening browser in 2 seconds..."
+	@(sleep 2 && open $(ADMIN_URL) || xdg-open $(ADMIN_URL) || echo "Please open $(ADMIN_URL) manually") &
+	@cd tools/admin && npm run dev
 
 # =============================================================================
 # Cleanup

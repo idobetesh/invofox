@@ -51,60 +51,137 @@ export class StorageService {
       pageToken?: string;
     } = {}
   ): Promise<ListObjectsResult> {
-    const { prefix = '', maxResults = 100, pageToken } = options;
+    try {
+      const { prefix = '', maxResults = 100, pageToken } = options;
 
-    const bucket = this.storage.bucket(bucketName);
-    const [files, response] = await bucket.getFiles({
-      prefix,
-      maxResults,
-      pageToken,
-    });
+      const bucket = this.storage.bucket(bucketName);
 
-    const objects = await Promise.all(
-      files.map(async (file) => {
-        const [metadata] = await file.getMetadata();
-        return {
-          name: file.name,
-          size: metadata.size,
-          contentType: metadata.contentType,
-          timeCreated: metadata.timeCreated,
-          updated: metadata.updated,
-          publicUrl: file.publicUrl(),
-        };
-      })
-    );
+      // Check if bucket exists
+      const [exists] = await bucket.exists();
+      if (!exists) {
+        throw new Error(`Bucket "${bucketName}" does not exist`);
+      }
 
-    const nextPageTokenValue = (response?.pageToken as string | undefined) || null;
+      const [files, response] = await bucket.getFiles({
+        prefix,
+        maxResults,
+        pageToken: pageToken || undefined,
+      });
 
-    return {
-      objects,
-      nextPageToken: nextPageTokenValue,
-      hasMore: !!nextPageTokenValue,
-    };
+      const objects = await Promise.all(
+        files.map(async (file) => {
+          try {
+            const [metadata] = await file.getMetadata();
+
+            // Generate URL for viewing
+            // Try signed URL first (requires service account key), fallback to public URL
+            let publicUrl: string;
+            try {
+              const [signedUrl] = await file.getSignedUrl({
+                action: 'read',
+                expires: Date.now() + 60 * 60 * 1000, // 1 hour
+              });
+              publicUrl = signedUrl;
+            } catch {
+              // Signed URL generation failed (expected with ADC) - use public URL
+              try {
+                publicUrl = file.publicUrl();
+              } catch {
+                // Last resort: construct URL manually
+                publicUrl = `https://storage.googleapis.com/${bucketName}/${file.name}`;
+              }
+            }
+
+            return {
+              name: file.name,
+              size: metadata.size,
+              contentType: metadata.contentType,
+              timeCreated: metadata.timeCreated,
+              updated: metadata.updated,
+              publicUrl,
+            };
+          } catch (error) {
+            console.error(`Error getting metadata for ${file.name}:`, error);
+            // Return object with minimal info if metadata fetch fails
+            // Construct URL manually as fallback
+            const fallbackUrl = `https://storage.googleapis.com/${bucketName}/${file.name}`;
+            return {
+              name: file.name,
+              size: undefined,
+              contentType: undefined,
+              timeCreated: undefined,
+              updated: undefined,
+              publicUrl: fallbackUrl,
+            };
+          }
+        })
+      );
+
+      // Extract pageToken from response - it might be in different places depending on API version
+      const nextPageTokenValue =
+        (response as { pageToken?: string })?.pageToken ||
+        (response as { nextPageToken?: string })?.nextPageToken ||
+        null;
+
+      return {
+        objects,
+        nextPageToken: nextPageTokenValue,
+        hasMore: !!nextPageTokenValue,
+      };
+    } catch (error) {
+      console.error(`Error listing objects in bucket "${bucketName}":`, error);
+      throw error;
+    }
   }
 
   /**
    * Get object metadata
    */
   async getObject(bucketName: string, objectPath: string): Promise<StorageObjectMetadata | null> {
-    const bucket = this.storage.bucket(bucketName);
-    const file = bucket.file(objectPath);
-    const [exists] = await file.exists();
+    try {
+      const bucket = this.storage.bucket(bucketName);
+      const file = bucket.file(objectPath);
+      const [exists] = await file.exists();
 
-    if (!exists) {
-      return null;
+      if (!exists) {
+        console.log(`Object does not exist: ${bucketName}/${objectPath}`);
+        return null;
+      }
+
+      const [metadata] = await file.getMetadata();
+
+      // Generate URL for the object
+      // Try signed URL first (requires service account key), fallback to public URL
+      let publicUrl: string;
+      try {
+        const [signedUrl] = await file.getSignedUrl({
+          action: 'read',
+          expires: Date.now() + 60 * 60 * 1000, // 1 hour
+        });
+        publicUrl = signedUrl;
+      } catch {
+        // Signed URL generation failed (expected with ADC) - use public URL
+        try {
+          publicUrl = file.publicUrl();
+        } catch {
+          // Last resort: construct URL manually
+          publicUrl = `https://storage.googleapis.com/${bucketName}/${objectPath}`;
+        }
+      }
+
+      return {
+        name: file.name,
+        size: metadata.size,
+        contentType: metadata.contentType,
+        timeCreated: metadata.timeCreated,
+        updated: metadata.updated,
+        publicUrl,
+        metadata: metadata as Record<string, unknown>,
+      };
+    } catch (error) {
+      console.error(`Error getting object ${bucketName}/${objectPath}:`, error);
+      throw error;
     }
-
-    const [metadata] = await file.getMetadata();
-    return {
-      name: file.name,
-      size: metadata.size,
-      contentType: metadata.contentType,
-      timeCreated: metadata.timeCreated,
-      updated: metadata.updated,
-      publicUrl: file.publicUrl(),
-      metadata,
-    };
   }
 
   /**
@@ -155,7 +232,7 @@ export class StorageService {
           });
 
           result.objects.forEach((obj) => {
-            const size = typeof obj.size === 'string' ? parseInt(obj.size, 10) : (obj.size || 0);
+            const size = typeof obj.size === 'string' ? parseInt(obj.size, 10) : obj.size || 0;
             bucketSize += size;
             bucketObjectCount++;
           });
