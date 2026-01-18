@@ -118,9 +118,9 @@ export async function generateInvoice(
   const logoBase64 = await getLogoBase64(chatId);
   log.debug({ hasLogo: !!logoBase64 }, 'Loaded logo');
 
-  // Get next invoice number (atomic)
-  const invoiceNumber = await getNextInvoiceNumber();
-  log.info({ invoiceNumber }, 'Got invoice number');
+  // Get next invoice number (atomic, per-customer)
+  const invoiceNumber = await getNextInvoiceNumber(chatId);
+  log.info({ invoiceNumber }, 'Got invoice number for customer');
 
   // Validate required session fields
   if (
@@ -150,8 +150,8 @@ export async function generateInvoice(
   const pdfBuffer = await generateInvoicePDFWithConfig(invoiceData, config, logoBase64);
   log.info({ pdfSize: pdfBuffer.length }, 'PDF generated');
 
-  // Upload to Cloud Storage
-  const pdfUrl = await uploadPDF(invoiceNumber, pdfBuffer);
+  // Upload to Cloud Storage (per-customer path)
+  const pdfUrl = await uploadPDF(chatId, invoiceNumber, pdfBuffer);
   log.info({ pdfUrl }, 'PDF uploaded to storage');
 
   // Save to Firestore audit log
@@ -182,21 +182,27 @@ export async function generateInvoice(
 }
 
 /**
- * Upload PDF to Cloud Storage
+ * Upload PDF to Cloud Storage with per-customer path isolation
+ * Path format: {chatId}/{year}/{invoiceNumber}.pdf
  */
-async function uploadPDF(invoiceNumber: string, pdfBuffer: Buffer): Promise<string> {
+async function uploadPDF(
+  chatId: number,
+  invoiceNumber: string,
+  pdfBuffer: Buffer
+): Promise<string> {
   const config = getConfig();
   const bucketName = config.generatedInvoicesBucket;
   const gcs = getStorage();
   const bucket = gcs.bucket(bucketName);
 
   const year = new Date().getFullYear();
-  const filePath = `${year}/${invoiceNumber}.pdf`;
+  const filePath = `${chatId}/${year}/${invoiceNumber}.pdf`;
   const file = bucket.file(filePath);
 
   await file.save(pdfBuffer, {
     contentType: 'application/pdf',
     metadata: {
+      chatId: chatId.toString(),
       invoiceNumber,
       generatedAt: new Date().toISOString(),
     },
@@ -208,7 +214,8 @@ async function uploadPDF(invoiceNumber: string, pdfBuffer: Buffer): Promise<stri
 }
 
 /**
- * Save invoice record to Firestore for audit trail
+ * Save invoice record to Firestore for audit trail with per-customer document ID
+ * Document ID format: chat_{chatId}_{invoiceNumber}
  */
 async function saveInvoiceRecord(
   invoiceNumber: string,
@@ -219,7 +226,8 @@ async function saveInvoiceRecord(
   storageUrl: string
 ): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(GENERATED_INVOICES_COLLECTION).doc(invoiceNumber);
+  const docId = `chat_${chatId}_${invoiceNumber}`;
+  const docRef = db.collection(GENERATED_INVOICES_COLLECTION).doc(docId);
 
   const record: GeneratedInvoice = {
     invoiceNumber,
@@ -236,7 +244,7 @@ async function saveInvoiceRecord(
       username,
       chatId,
     },
-    storagePath: `${new Date().getFullYear()}/${invoiceNumber}.pdf`,
+    storagePath: `${chatId}/${new Date().getFullYear()}/${invoiceNumber}.pdf`,
     storageUrl,
   };
 
@@ -244,11 +252,17 @@ async function saveInvoiceRecord(
 }
 
 /**
- * Get generated invoice by number (for lookup)
+ * Get generated invoice by customer and number (for lookup)
+ * @param chatId - Customer's Telegram chat ID
+ * @param invoiceNumber - Invoice number to look up
  */
-export async function getGeneratedInvoice(invoiceNumber: string): Promise<GeneratedInvoice | null> {
+export async function getGeneratedInvoice(
+  chatId: number,
+  invoiceNumber: string
+): Promise<GeneratedInvoice | null> {
   const db = getFirestore();
-  const docRef = db.collection(GENERATED_INVOICES_COLLECTION).doc(invoiceNumber);
+  const docId = `chat_${chatId}_${invoiceNumber}`;
+  const docRef = db.collection(GENERATED_INVOICES_COLLECTION).doc(docId);
 
   const doc = await docRef.get();
   return doc.exists ? (doc.data() as GeneratedInvoice) : null;

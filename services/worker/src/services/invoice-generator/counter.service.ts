@@ -27,15 +27,18 @@ function getCurrentYear(): string {
 }
 
 /**
- * Get the next invoice number atomically
+ * Get the next invoice number atomically for a specific customer
  * Format: {year}{sequence} (e.g., "20261", "20262", ...)
  * Counter resets to 1 on January 1st each year
+ * Each customer has their own independent counter
+ * @param chatId - Customer's Telegram chat ID
  */
-export async function getNextInvoiceNumber(): Promise<string> {
+export async function getNextInvoiceNumber(chatId: number): Promise<string> {
   const db = getFirestore();
   const year = getCurrentYear();
-  const docRef = db.collection(COLLECTION_NAME).doc(year);
-  const log = logger.child({ year, collection: COLLECTION_NAME });
+  const docId = `chat_${chatId}_${year}`;
+  const docRef = db.collection(COLLECTION_NAME).doc(docId);
+  const log = logger.child({ year, chatId, collection: COLLECTION_NAME });
 
   return db.runTransaction(async (transaction) => {
     const doc = await transaction.get(docRef);
@@ -53,10 +56,10 @@ export async function getNextInvoiceNumber(): Promise<string> {
         lastUpdated: FieldValue.serverTimestamp(),
       });
     } else {
-      // First invoice of the year
+      // First invoice of the year for this customer
       counter = 1;
 
-      log.info({ counter }, 'Creating new counter for year');
+      log.info({ counter }, 'Creating new counter for customer and year');
 
       transaction.set(docRef, {
         counter,
@@ -67,19 +70,22 @@ export async function getNextInvoiceNumber(): Promise<string> {
     // Format: year + counter (e.g., "2026" + "1" = "20261")
     const invoiceNumber = `${year}${counter}`;
 
-    log.info({ invoiceNumber }, 'Generated invoice number');
+    log.info({ invoiceNumber }, 'Generated invoice number for customer');
 
     return invoiceNumber;
   });
 }
 
 /**
- * Get current counter value for a year (for display/debugging)
+ * Get current counter value for a customer and year (for display/debugging)
+ * @param chatId - Customer's Telegram chat ID
+ * @param year - Optional year (defaults to current year)
  */
-export async function getCurrentCounter(year?: string): Promise<number> {
+export async function getCurrentCounter(chatId: number, year?: string): Promise<number> {
   const db = getFirestore();
   const targetYear = year || getCurrentYear();
-  const docRef = db.collection(COLLECTION_NAME).doc(targetYear);
+  const docId = `chat_${chatId}_${targetYear}`;
+  const docRef = db.collection(COLLECTION_NAME).doc(docId);
 
   const doc = await docRef.get();
 
@@ -92,12 +98,52 @@ export async function getCurrentCounter(year?: string): Promise<number> {
 }
 
 /**
- * Check if invoice number already exists
- * Used for validation before generating PDF
+ * Initialize counter for a customer at a specific starting number
+ * Useful for onboarding existing businesses with previous invoices
+ * @param chatId - Customer's Telegram chat ID
+ * @param startingNumber - Starting counter value
+ * @param year - Optional year (defaults to current year)
+ * @throws Error if counter already exists
  */
-export async function invoiceNumberExists(invoiceNumber: string): Promise<boolean> {
+export async function initializeCounter(
+  chatId: number,
+  startingNumber: number,
+  year?: string
+): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection('generated_invoices').doc(invoiceNumber);
+  const targetYear = year || getCurrentYear();
+  const docId = `chat_${chatId}_${targetYear}`;
+  const docRef = db.collection(COLLECTION_NAME).doc(docId);
+
+  // Safety check: prevent any overwrites
+  const existing = await docRef.get();
+  if (existing.exists) {
+    const data = existing.data() as InvoiceCounter;
+    throw new Error(
+      `Counter already exists for customer ${chatId} in year ${targetYear} (current value: ${data.counter}). ` +
+        `Cannot overwrite existing counter to prevent invoice number collisions. ` +
+        `If you need to modify it, use Firestore console directly.`
+    );
+  }
+
+  await docRef.set({
+    counter: startingNumber,
+    lastUpdated: FieldValue.serverTimestamp(),
+  });
+
+  logger.info({ chatId, startingNumber, year: targetYear }, 'Counter initialized for customer');
+}
+
+/**
+ * Check if invoice number already exists for a customer
+ * Used for validation before generating PDF
+ * @param chatId - Customer's Telegram chat ID
+ * @param invoiceNumber - Invoice number to check
+ */
+export async function invoiceNumberExists(chatId: number, invoiceNumber: string): Promise<boolean> {
+  const db = getFirestore();
+  const docId = `chat_${chatId}_${invoiceNumber}`;
+  const docRef = db.collection('generated_invoices').doc(docId);
 
   const doc = await docRef.get();
   return doc.exists;
