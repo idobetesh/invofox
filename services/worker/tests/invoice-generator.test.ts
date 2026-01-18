@@ -131,9 +131,9 @@ describe('Invoice Generator', () => {
       expect(result.pdfBuffer).toBeInstanceOf(Buffer);
       expect(result.pdfUrl).toContain('storage.googleapis.com');
 
-      // Verify Firestore save was called
+      // Verify Firestore save was called with per-customer document ID
       expect(mockCollection).toHaveBeenCalledWith('generated_invoices');
-      expect(mockDoc).toHaveBeenCalledWith('202610');
+      expect(mockDoc).toHaveBeenCalledWith('chat_789012_202610');
       expect(mockSet).toHaveBeenCalled();
 
       // Verify customerTaxId is NOT in the Firestore record
@@ -202,6 +202,24 @@ describe('Invoice Generator', () => {
       await expect(generateInvoice(incompleteSession, userId, username, chatId)).rejects.toThrow(
         'Invoice session is incomplete'
       );
+    });
+
+    it('should generate invoices with per-customer document IDs', async () => {
+      const session: InvoiceSession = {
+        ...baseSession,
+        customerTaxId: '123456789',
+      };
+
+      // Generate for chatId 789012
+      await generateInvoice(session, userId, username, chatId);
+
+      // Verify first customer's document ID
+      expect(mockDoc).toHaveBeenCalledWith('chat_789012_202610');
+
+      // Verify storage path includes chatId
+      const firestoreRecord = mockSet.mock.calls[0][0];
+      expect(firestoreRecord.storagePath).toBe('789012/2026/202610.pdf');
+      expect(firestoreRecord.storageUrl).toContain('789012/2026/202610.pdf');
     });
   });
 });
