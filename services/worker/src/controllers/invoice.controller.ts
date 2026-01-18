@@ -15,6 +15,7 @@ import type {
 import * as sessionService from '../services/invoice-generator/session.service';
 import { generateInvoice } from '../services/invoice-generator';
 import * as telegramService from '../services/telegram.service';
+import * as userMappingService from '../services/customer/user-mapping.service';
 import logger from '../logger';
 
 // Payment method options
@@ -193,6 +194,51 @@ export async function handleInvoiceCommand(req: Request, res: Response): Promise
   log.info('Processing invoice command');
 
   try {
+    // Validate user access to customer
+    const hasAccess = await userMappingService.userHasAccessToCustomer(
+      payload.userId,
+      payload.chatId
+    );
+
+    if (!hasAccess) {
+      // Auto-add user if command sent in group chat
+      if (payload.chatId < 0) {
+        // Negative chatId = group/supergroup
+        const chatTitle = payload.chatTitle || `Chat ${payload.chatId}`;
+        await userMappingService.addUserToCustomer(
+          payload.userId,
+          payload.username,
+          payload.chatId,
+          chatTitle
+        );
+        log.info('Auto-added user to customer on first interaction');
+      } else {
+        // Private chat - check if user has any customers
+        const defaultCustomer = await userMappingService.getUserDefaultCustomer(payload.userId);
+        if (!defaultCustomer) {
+          await telegramService.sendMessage(
+            payload.chatId,
+            '❌ אין לך הרשאה ליצור חשבוניות.\nשלח את הפקודה /invoice בקבוצה של העסק שלך.'
+          );
+          log.warn('User has no customer access');
+          res.status(403).json({ error: 'User has no customer access' });
+          return;
+        }
+        // User has customers but sent command in private chat
+        // For now, reject (could enhance later to use default customer)
+        await telegramService.sendMessage(
+          payload.chatId,
+          '❌ אנא שלח את הפקודה /invoice בקבוצה של העסק.'
+        );
+        log.debug('User sent command in private chat');
+        res.status(403).json({ error: 'Command must be sent in group chat' });
+        return;
+      }
+    }
+
+    // Update user activity
+    await userMappingService.updateUserActivity(payload.userId);
+
     // Check for fast-path (all arguments in one message)
     const fastPath = parseFastPath(payload.text);
 

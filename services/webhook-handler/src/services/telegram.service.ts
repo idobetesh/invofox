@@ -355,6 +355,7 @@ export function extractInvoiceCommandPayload(update: TelegramUpdate): InvoiceCom
   return {
     type: 'command',
     chatId: message.chat.id,
+    chatTitle: message.chat.title, // Group/channel title (undefined for private chats)
     messageId: message.message_id,
     userId: message.from.id,
     username,
