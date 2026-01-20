@@ -961,10 +961,12 @@ export async function handleOnboardingPhotoExpress(req: Request, res: Response):
       },
       date: new Date(payload.receivedAt).getTime() / 1000,
       // Use fileId to construct photo array (Telegram format)
+      // Note: file_unique_id is set to empty string as we only have file_id in TaskPayload
+      // This is acceptable since handleLogoStep only uses file_id for downloading
       photo: [
         {
           file_id: payload.fileId,
-          file_unique_id: payload.fileId,
+          file_unique_id: '',
           width: 0,
           height: 0,
         },

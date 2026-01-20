@@ -5,6 +5,7 @@
  */
 
 import { Firestore } from '@google-cloud/firestore';
+import logger from '../logger';
 
 const COLLECTION_NAME = 'approved_chats';
 const ONBOARDING_SESSIONS_COLLECTION = 'onboarding_sessions';
@@ -45,7 +46,7 @@ setInterval(
     }
 
     if (cleaned > 0) {
-      console.log(`[ApprovedChatsService] Cleaned ${cleaned} expired cache entries`);
+      logger.info({ cleaned }, 'Cleaned expired cache entries');
     }
   },
   5 * 60 * 1000
@@ -89,7 +90,7 @@ export async function isInOnboarding(chatId: number): Promise<boolean> {
 
     return inOnboarding;
   } catch (error) {
-    console.error('[ApprovedChatsService] Error checking onboarding session:', error);
+    logger.error({ error, chatId }, 'Error checking onboarding session');
     // On error, assume not in onboarding (fail safe - won't disrupt invoice flow)
     return false;
   }
@@ -123,7 +124,7 @@ export async function isChatApproved(chatId: number): Promise<boolean> {
 
     return approved;
   } catch (error) {
-    console.error('[ApprovedChatsService] Error checking chat approval:', error);
+    logger.error({ error, chatId }, 'Error checking chat approval');
     // On error, assume not approved (fail safe)
     return false;
   }

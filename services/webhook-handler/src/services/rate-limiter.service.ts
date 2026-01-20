@@ -7,6 +7,7 @@
  */
 
 import { Firestore } from '@google-cloud/firestore';
+import logger from '../logger';
 
 const COLLECTION_NAME = 'rate_limits';
 
@@ -44,7 +45,7 @@ setInterval(
     }
 
     if (cleaned > 0) {
-      console.log(`[RateLimiter] Cleaned ${cleaned} expired cache entries`);
+      logger.info({ cleaned }, 'Cleaned expired rate limit cache entries');
     }
   },
   5 * 60 * 1000
@@ -97,7 +98,7 @@ export async function isRateLimited(chatId: number): Promise<boolean> {
 
     return false;
   } catch (error) {
-    console.error('[RateLimiter] Error checking rate limit:', error);
+    logger.error({ error, chatId }, 'Error checking rate limit');
     // On error, allow the request (fail open)
     return false;
   }
@@ -129,7 +130,7 @@ export async function getRateLimitStatus(chatId: number): Promise<{
       blockedUntil: data.blockedUntil ? new Date(data.blockedUntil._seconds * 1000) : undefined,
     };
   } catch (error) {
-    console.error('[RateLimiter] Error getting rate limit status:', error);
+    logger.error({ error, chatId }, 'Error getting rate limit status');
     return { blocked: false, attempts: 0 };
   }
 }
