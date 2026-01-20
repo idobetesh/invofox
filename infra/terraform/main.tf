@@ -464,6 +464,16 @@ resource "google_cloud_run_v2_service" "worker" {
       }
 
       env {
+        name  = "ONBOARD_MAX_ATTEMPTS"
+        value = tostring(var.onboard_max_attempts)
+      }
+
+      env {
+        name  = "ONBOARD_BLOCK_DURATION_MINUTES"
+        value = tostring(var.onboard_block_duration_minutes)
+      }
+
+      env {
         name = "TELEGRAM_BOT_TOKEN"
         value_source {
           secret_key_ref {
