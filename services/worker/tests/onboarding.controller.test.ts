@@ -81,16 +81,29 @@ describe('Onboarding Controller', () => {
       from: { id: userId, is_bot: false, first_name: 'Test', username: 'testuser' },
     });
 
-    it('should start onboarding when config does not exist', async () => {
+    it('should start onboarding with valid invite code', async () => {
       const msg = createMessage(-1001234567, 123456);
+      msg.text = '/onboard INV-ABC123';
 
       (configService.hasBusinessConfig as jest.Mock).mockResolvedValue(false);
-      (approvedChatsService.isChatApproved as jest.Mock).mockResolvedValue(true); // Mock approved chat
+      (approvedChatsService.isChatApproved as jest.Mock).mockResolvedValue(false);
+      (inviteCodeService.validateInviteCode as jest.Mock).mockResolvedValue({
+        valid: true,
+        invite: {
+          code: 'INV-ABC123',
+          createdBy: { userId: 999, username: 'admin' },
+        },
+      });
+      (approvedChatsService.approveChatWithInviteCode as jest.Mock).mockResolvedValue(undefined);
+      (inviteCodeService.markInviteCodeAsUsed as jest.Mock).mockResolvedValue(undefined);
       (onboardingService.startOnboarding as jest.Mock).mockResolvedValue(undefined);
       (telegramService.sendMessage as jest.Mock).mockResolvedValue(undefined);
 
       await handleOnboardCommand(msg);
 
+      expect(inviteCodeService.validateInviteCode).toHaveBeenCalledWith('INV-ABC123');
+      expect(approvedChatsService.approveChatWithInviteCode).toHaveBeenCalled();
+      expect(inviteCodeService.markInviteCodeAsUsed).toHaveBeenCalled();
       expect(onboardingService.startOnboarding).toHaveBeenCalledWith(-1001234567, 123456);
       expect(telegramService.sendMessage).toHaveBeenCalledWith(
         -1001234567,
@@ -126,8 +139,11 @@ describe('Onboarding Controller', () => {
       const msg = createMessage(-1001234567, 123456);
       delete msg.from;
 
+      (rateLimiterService.recordFailedOnboardingAttempt as jest.Mock).mockResolvedValue(undefined);
+
       await handleOnboardCommand(msg);
 
+      expect(rateLimiterService.recordFailedOnboardingAttempt).toHaveBeenCalledWith(-1001234567);
       expect(onboardingService.startOnboarding).not.toHaveBeenCalled();
       // Security: Silently ignore invalid requests (no message sent)
       expect(telegramService.sendMessage).not.toHaveBeenCalled();

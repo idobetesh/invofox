@@ -70,8 +70,9 @@ export async function handleOnboardCommand(msg: TelegramMessage): Promise<void> 
   const log = logger.child({ chatId, userId, command: 'onboard' });
 
   if (!userId) {
-    // Silently ignore if user cannot be identified
+    // Record failed attempt for rate limiting (suspicious activity)
     log.warn('Onboard command ignored: could not identify user');
+    await recordFailedOnboardingAttempt(chatId);
     return;
   }
 
