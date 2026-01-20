@@ -1479,8 +1479,15 @@ async function generateInviteCode() {
   const expiresInDays = document.getElementById('invite-expires').value;
 
   if (!adminId || !adminUsername) {
+    // Show error in a better way (could create a toast or inline error, but for now keep alert for validation)
     alert('Please enter your Telegram User ID and Username');
     return;
+  }
+
+  // Hide previous success message
+  const successDiv = document.getElementById('invite-success');
+  if (successDiv) {
+    successDiv.style.display = 'none';
   }
 
   const generateBtn = document.getElementById('generate-invite-btn');
@@ -1509,18 +1516,40 @@ async function generateInviteCode() {
     const result = await response.json();
     const code = result.inviteCode.code;
 
-    // Show success with copyable code
-    const message = `✅ Invite code generated successfully!\n\nCode: ${code}\n\nShare this with the customer:\n/onboard ${code}`;
-    alert(message);
+    // Show success message in UI
+    const successDiv = document.getElementById('invite-success');
+    const codeDisplay = document.getElementById('generated-code');
+    const onboardCommand = document.getElementById('onboard-command');
+    const copyBtn = document.getElementById('copy-code-btn');
 
-    // Copy to clipboard
-    navigator.clipboard.writeText(`/onboard ${code}`).catch(() => {});
+    codeDisplay.textContent = code;
+    onboardCommand.textContent = `/onboard ${code}`;
+    successDiv.style.display = 'block';
+
+    // Setup copy button
+    copyBtn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(`/onboard ${code}`);
+        const originalHTML = copyBtn.innerHTML;
+        copyBtn.innerHTML = '<svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+        copyBtn.disabled = true;
+        setTimeout(() => {
+          copyBtn.innerHTML = originalHTML;
+          copyBtn.disabled = false;
+        }, 2000);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
+    };
 
     // Clear form
     document.getElementById('invite-note').value = '';
 
     // Reload list
     loadInviteCodes(currentInviteStatus);
+
+    // Scroll to success message
+    successDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   } catch (error) {
     console.error('Error generating invite code:', error);

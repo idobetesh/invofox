@@ -323,6 +323,34 @@
             </svg>
             <span>Generate Code</span>
           </button>
+
+          <!-- Success message (hidden by default) -->
+          <div id="invite-success" class="invite-success" style="display: none;">
+            <div class="success-header">
+              <svg class="success-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+              <span>Invite code generated successfully!</span>
+            </div>
+            <div class="code-display">
+              <div class="code-label">Code:</div>
+              <div class="code-value" id="generated-code">INV-ABC123</div>
+            </div>
+            <div class="share-section">
+              <div class="share-label">Share this with the customer:</div>
+              <div class="share-command">
+                <code id="onboard-command">/onboard INV-ABC123</code>
+                <button id="copy-code-btn" class="btn btn-secondary btn-sm">
+                  <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                  Copy
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
