@@ -35,5 +35,6 @@ router.post('/invoice/callback', invoiceController.handleInvoiceCallback);
 router.post('/onboard/command', onboardingController.handleOnboardCommandExpress);
 router.post('/onboard/message', onboardingController.handleOnboardingMessageExpress);
 router.post('/onboard/callback', onboardingController.handleOnboardingCallbackExpress);
+router.post('/onboard/photo', onboardingController.handleOnboardingPhotoExpress);
 
 export default router;

@@ -375,3 +375,68 @@ export async function enqueueOnboardCallbackTask(
 ): Promise<string> {
   return enqueueOnboardingTask('callback', payload.callbackQueryId, payload, config);
 }
+
+/**
+ * Enqueue onboarding photo/document (logo upload) for processing
+ */
+export async function enqueueOnboardingPhotoTask(
+  payload: TaskPayload,
+  config: Config
+): Promise<string> {
+  // Local development mode - call worker directly
+  if (isLocalMode()) {
+    return callOnboardingPhotoDirectly(payload, config.workerUrl);
+  }
+
+  // Production mode - use Cloud Tasks
+  const client = getClient();
+
+  const parent = client.queuePath(config.projectId, config.location, config.queueName);
+
+  const taskName = `${parent}/tasks/onboard-photo-${payload.chatId}-${payload.messageId}`;
+
+  const task = buildCloudTask(taskName, '/onboard/photo', payload, config);
+
+  try {
+    const [response] = await client.createTask({
+      parent,
+      task,
+    });
+
+    logger.info({ taskName: response.name }, 'Onboarding photo Cloud Task created');
+    return response.name || taskName;
+  } catch (error: unknown) {
+    if (error instanceof Error && 'code' in error && (error as { code: number }).code === 6) {
+      logger.info({ taskName }, 'Onboarding photo task already exists (duplicate)');
+      return taskName;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Call onboarding photo endpoint directly (local mode)
+ */
+async function callOnboardingPhotoDirectly(
+  payload: TaskPayload,
+  workerUrl: string
+): Promise<string> {
+  const url = `${workerUrl}/onboard/photo`;
+
+  logger.info({ url }, 'Calling onboarding photo endpoint directly (local mode)');
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Onboarding photo endpoint call failed: ${response.status} ${text}`);
+  }
+
+  return `local-onboard-photo`;
+}

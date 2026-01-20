@@ -79,9 +79,35 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
       return;
     }
 
+    // Check if this photo is for onboarding (logo upload)
+    const inOnboarding = await approvedChatsService.isInOnboarding(payload.chatId);
+
+    if (inOnboarding) {
+      logger.info(
+        { chatId: payload.chatId, messageId: payload.messageId },
+        'Processing photo for onboarding (logo upload)'
+      );
+
+      try {
+        const taskName = await tasksService.enqueueOnboardingPhotoTask(payload, config);
+        logger.info({ taskName }, 'Onboarding photo task enqueued successfully');
+
+        res.status(200).json({
+          ok: true,
+          action: 'onboarding_photo_enqueued',
+          task: taskName,
+        });
+      } catch (error) {
+        logger.error({ error }, 'Failed to enqueue onboarding photo task');
+        res.status(500).json({ error: 'Failed to enqueue onboarding photo task' });
+      }
+      return;
+    }
+
+    // Not in onboarding - process as invoice
     logger.info(
       { chatId: payload.chatId, messageId: payload.messageId, uploader: payload.uploaderUsername },
-      'Processing photo message'
+      'Processing photo message for invoice'
     );
 
     try {
@@ -126,6 +152,37 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
       return;
     }
 
+    // Check if this document is for onboarding (logo upload or just image document)
+    const inOnboarding = await approvedChatsService.isInOnboarding(payload.chatId);
+
+    if (inOnboarding && telegramService.isSupportedImageDocument(update)) {
+      // Image document during onboarding - treat as logo upload
+      logger.info(
+        {
+          chatId: payload.chatId,
+          messageId: payload.messageId,
+          fileName: document.file_name,
+        },
+        'Processing image document for onboarding (logo upload)'
+      );
+
+      try {
+        const taskName = await tasksService.enqueueOnboardingPhotoTask(payload, config);
+        logger.info({ taskName }, 'Onboarding image document task enqueued successfully');
+
+        res.status(200).json({
+          ok: true,
+          action: 'onboarding_photo_enqueued',
+          task: taskName,
+        });
+      } catch (error) {
+        logger.error({ error }, 'Failed to enqueue onboarding photo task');
+        res.status(500).json({ error: 'Failed to enqueue onboarding photo task' });
+      }
+      return;
+    }
+
+    // Not in onboarding - process as invoice
     logger.info(
       {
         chatId: payload.chatId,
@@ -134,7 +191,7 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
         fileName: document.file_name,
         mimeType: document.mime_type,
       },
-      'Processing document'
+      'Processing document for invoice'
     );
 
     try {
@@ -320,7 +377,33 @@ async function handleTextMessage(
     return;
   }
 
-  // Check if chat is approved to determine routing
+  // Check if chat has active onboarding session first (takes priority)
+  const inOnboarding = await approvedChatsService.isInOnboarding(payload.chatId);
+
+  if (inOnboarding) {
+    // In active onboarding - route to onboarding flow
+    logger.info(
+      { chatId: payload.chatId, userId: payload.userId },
+      'Enqueueing onboarding message for worker'
+    );
+
+    try {
+      const taskName = await tasksService.enqueueOnboardMessageTask(payload, config);
+      logger.info({ taskName }, 'Onboarding message task enqueued successfully');
+
+      res.status(200).json({
+        ok: true,
+        action: 'onboarding_message_enqueued',
+        task: taskName,
+      });
+    } catch (error) {
+      logger.error({ error }, 'Failed to enqueue onboarding message task');
+      res.status(500).json({ error: 'Failed to enqueue onboarding message task' });
+    }
+    return;
+  }
+
+  // Not in onboarding - check if chat is approved for invoice flow
   const isApproved = await approvedChatsService.isChatApproved(payload.chatId);
 
   if (isApproved) {

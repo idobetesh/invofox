@@ -357,6 +357,25 @@ paths:
         "200":
           description: Callback handled
 
+  /onboard/photo:
+    post:
+      tags:
+        - Onboarding
+      summary: Handle onboarding photo/document upload
+      description: |
+        Processes photo or image document uploads during onboarding (logo upload).
+        Supports both compressed photos and original quality documents.
+      operationId: handleOnboardingPhoto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskPayload"
+      responses:
+        "200":
+          description: Photo handled
+
 components:
   securitySchemes:
     cloudTasks:

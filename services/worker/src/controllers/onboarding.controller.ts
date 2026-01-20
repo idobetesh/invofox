@@ -434,7 +434,7 @@ async function handleAddressStep(msg: TelegramMessage, language: Language): Prom
 }
 
 /**
- * Handle logo step
+ * Handle logo step (supports both photo and document uploads)
  */
 async function handleLogoStep(msg: TelegramMessage, language: Language): Promise<void> {
   const chatId = msg.chat.id;
@@ -448,16 +448,39 @@ async function handleLogoStep(msg: TelegramMessage, language: Language): Promise
     return;
   }
 
-  // Check if photo uploaded
-  if (!msg.photo || msg.photo.length === 0) {
+  // Check if photo or document uploaded
+  let fileId: string | undefined;
+
+  if (msg.photo && msg.photo.length > 0) {
+    // Photo upload (compressed by Telegram)
+    const photo = msg.photo[msg.photo.length - 1];
+    fileId = photo.file_id;
+  } else if (msg.document) {
+    // Document upload (original quality, check if image)
+    const mimeType = msg.document.mime_type || '';
+    const supportedImageTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/heic',
+      'image/heif',
+    ];
+
+    if (
+      supportedImageTypes.includes(mimeType) ||
+      msg.document.file_name?.match(/\.(jpg|jpeg|png|webp|heic|heif)$/i)
+    ) {
+      fileId = msg.document.file_id;
+    }
+  }
+
+  if (!fileId) {
     await sendMessage(chatId, t(language, 'onboarding.step4Invalid'));
     return;
   }
 
   try {
-    // Get largest photo size (last in array)
-    const photo = msg.photo[msg.photo.length - 1];
-    const { buffer, filePath } = await downloadFileById(photo.file_id);
+    const { buffer, filePath } = await downloadFileById(fileId);
     const extension = getFileExtension(filePath);
 
     // Upload logo to Cloud Storage
@@ -737,6 +760,7 @@ import type {
   InvoiceCommandPayload,
   InvoiceMessagePayload,
   InvoiceCallbackPayload,
+  TaskPayload,
 } from '../../../../shared/types';
 
 /**
@@ -903,4 +927,57 @@ export async function handleOnboardingPhoto(msg: TelegramMessage): Promise<boole
   // Handle as logo upload
   await handleLogoStep(msg, session.language);
   return true;
+}
+
+/**
+ * Express handler for onboarding photo/document uploads (logo)
+ */
+export async function handleOnboardingPhotoExpress(req: Request, res: Response): Promise<void> {
+  const payload = req.body as TaskPayload;
+  const log = logger.child({
+    chatId: payload.chatId,
+    messageId: payload.messageId,
+    handler: 'handleOnboardingPhotoExpress',
+  });
+
+  log.debug('Processing onboarding photo/document');
+
+  try {
+    // Check if user is in onboarding flow at logo step
+    const session = await getOnboardingSession(payload.chatId);
+    if (!session || session.step !== 'logo' || !session.language) {
+      // Not in logo step or language not set, ignore
+      log.debug('Not in logo step or language not set, ignoring photo');
+      res.status(200).json({ ok: true, action: 'ignored_not_in_logo_step' });
+      return;
+    }
+
+    // Build TelegramMessage-like object with photo from payload
+    const msg: TelegramMessage = {
+      message_id: payload.messageId,
+      chat: {
+        id: payload.chatId,
+        type: payload.chatId < 0 ? 'supergroup' : 'private',
+      },
+      date: new Date(payload.receivedAt).getTime() / 1000,
+      // Use fileId to construct photo array (Telegram format)
+      // Note: file_unique_id is set to empty string as we only have file_id in TaskPayload
+      // This is acceptable since handleLogoStep only uses file_id for downloading
+      photo: [
+        {
+          file_id: payload.fileId,
+          file_unique_id: '',
+          width: 0,
+          height: 0,
+        },
+      ],
+    };
+
+    await handleLogoStep(msg, session.language);
+
+    res.status(200).json({ ok: true });
+  } catch (error) {
+    log.error({ error }, 'Error handling onboarding photo');
+    res.status(500).json({ error: 'Internal server error' });
+  }
 }
