@@ -6,6 +6,7 @@ import { Request, Response } from 'express';
 import { getConfig } from '../config';
 import * as telegramService from '../services/telegram.service';
 import * as tasksService from '../services/tasks.service';
+import * as rateLimiter from '../services/rate-limiter.service';
 import logger from '../logger';
 
 /**
@@ -355,6 +356,18 @@ async function handleOnboardCommand(
   if (!payload) {
     logger.error('Failed to extract onboard command payload');
     res.status(400).json({ error: 'Failed to extract onboard command payload' });
+    return;
+  }
+
+  // Rate limiting: Check if chat is blocked due to too many unauthorized attempts
+  if (await rateLimiter.isRateLimited(payload.chatId)) {
+    const status = await rateLimiter.getRateLimitStatus(payload.chatId);
+    logger.warn({ chatId: payload.chatId, status }, 'Onboard command blocked: rate limit exceeded');
+    // Silently ignore (no task created, no further processing)
+    res.status(200).json({
+      ok: true,
+      action: 'ignored_rate_limited',
+    });
     return;
   }
 

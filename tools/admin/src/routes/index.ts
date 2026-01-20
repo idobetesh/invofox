@@ -3,12 +3,14 @@ import { FirestoreController } from '../controllers/firestore.controller';
 import { StorageController } from '../controllers/storage.controller';
 import { HealthController } from '../controllers/health.controller';
 import { CustomerController } from '../controllers/customer.controller';
+import { InviteCodeController } from '../controllers/invite-code.controller';
 
 export function createRoutes(
   firestoreController: FirestoreController,
   storageController: StorageController,
   healthController: HealthController,
-  customerController: CustomerController
+  customerController: CustomerController,
+  inviteCodeController: InviteCodeController
 ): Router {
   const router = Router();
 
@@ -47,6 +49,13 @@ export function createRoutes(
   router.get('/customers', customerController.listCustomers);
   router.get('/customers/:chatId/offboarding-preview', customerController.getOffboardingPreview);
   router.delete('/customers/:chatId/offboard', customerController.offboardCustomer);
+
+  // Invite code routes
+  router.post('/invite-codes', inviteCodeController.createInviteCode);
+  router.get('/invite-codes', inviteCodeController.listInviteCodes);
+  router.get('/invite-codes/:code', inviteCodeController.getInviteCode);
+  router.post('/invite-codes/:code/revoke', inviteCodeController.revokeInviteCode);
+  router.delete('/invite-codes/:code', inviteCodeController.deleteInviteCode);
 
   return router;
 }

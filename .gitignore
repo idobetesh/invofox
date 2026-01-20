@@ -61,6 +61,10 @@ coverage/
 service-account*.json
 secrets/
 
+# Firestore config (contains database schema - keep private for security)
+infra/firestore.rules
+infra/firestore.indexes.json
+
 # Invoice generation config (contains business details)
 services/worker/invoice-config.json
 

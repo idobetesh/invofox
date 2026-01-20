@@ -61,6 +61,13 @@
           </svg>
           <span>Cloud Storage</span>
         </button>
+        <button class="tab-button" data-tab="invites">
+          <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <span>Invite Codes</span>
+        </button>
       </div>
     </div>
 
@@ -275,6 +282,83 @@
         </div>
         <div class="card-body">
           <div id="object-details"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Invite Codes Tab -->
+    <div id="invites-tab" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <h2>
+            <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            Generate Invite Code
+          </h2>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label for="invite-admin-id">Your Telegram User ID *</label>
+            <input type="number" id="invite-admin-id" class="modern-input" placeholder="123456789" required>
+          </div>
+          <div class="form-group">
+            <label for="invite-admin-username">Your Telegram Username *</label>
+            <input type="text" id="invite-admin-username" class="modern-input" placeholder="@yourusername" required>
+          </div>
+          <div class="form-group">
+            <label for="invite-note">Note (Optional)</label>
+            <input type="text" id="invite-note" class="modern-input" placeholder="e.g., 'Acme Corp onboarding'">
+          </div>
+          <div class="form-group">
+            <label for="invite-expires">Expires In (Days)</label>
+            <input type="number" id="invite-expires" class="modern-input" value="7" min="1" max="365">
+          </div>
+          <button id="generate-invite-btn" class="btn btn-primary">
+            <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="16"/>
+              <line x1="8" y1="12" x2="16" y2="12"/>
+            </svg>
+            <span>Generate Code</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2>
+            <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            Invite Codes
+          </h2>
+          <div class="tab-buttons">
+            <button class="tab-button active" data-status="active">Active</button>
+            <button class="tab-button" data-status="used">Used</button>
+            <button class="tab-button" data-status="expired">Expired</button>
+            <button class="tab-button" data-status="all">All</button>
+          </div>
+          <button id="refresh-invites-btn" class="btn btn-secondary">
+            <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"/>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+            <span>Refresh</span>
+          </button>
+        </div>
+        <div class="card-body">
+          <div id="invites-container">
+            <div class="empty-state">
+              <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              <p>No invite codes found</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

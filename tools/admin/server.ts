@@ -26,10 +26,12 @@ import { FirestoreService } from './src/services/firestore.service';
 import { StorageService } from './src/services/storage.service';
 import { HealthService } from './src/services/health.service';
 import { CustomerService } from './src/services/customer.service';
+import { InviteCodeService } from './src/services/invite-code.service';
 import { FirestoreController } from './src/controllers/firestore.controller';
 import { StorageController } from './src/controllers/storage.controller';
 import { HealthController } from './src/controllers/health.controller';
 import { CustomerController } from './src/controllers/customer.controller';
+import { InviteCodeController } from './src/controllers/invite-code.controller';
 import { requireAuth } from './src/middlewares/auth.middleware';
 import { createRoutes } from './src/routes/index';
 
@@ -39,6 +41,8 @@ dotenv.config();
 const app = express();
 const PORT = process.env.ADMIN_PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD; // Optional password protection
+const ADMIN_TELEGRAM_USER_ID = process.env.ADMIN_TELEGRAM_USER_ID;
+const ADMIN_TELEGRAM_USERNAME = process.env.ADMIN_TELEGRAM_USERNAME;
 
 // Initialize GCP clients
 const firestore = new Firestore();
@@ -49,12 +53,14 @@ const firestoreService = new FirestoreService(firestore);
 const storageService = new StorageService(storage);
 const healthService = new HealthService(firestoreService, storageService);
 const customerService = new CustomerService(firestore, storage);
+const inviteCodeService = new InviteCodeService(firestore);
 
 // Initialize controllers
 const firestoreController = new FirestoreController(firestoreService);
 const storageController = new StorageController(storageService);
 const healthController = new HealthController(healthService);
 const customerController = new CustomerController(customerService);
+const inviteCodeController = new InviteCodeController(inviteCodeService);
 
 // Middleware
 app.use(express.json());
@@ -72,13 +78,27 @@ app.use((req, res, next) => {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Serve admin config (no auth required for config endpoint)
+app.get('/api/config', (req, res) => {
+  res.json({
+    adminUserId: ADMIN_TELEGRAM_USER_ID || null,
+    adminUsername: ADMIN_TELEGRAM_USERNAME || null,
+  });
+});
+
 // Apply auth to API routes only (not static files)
 app.use('/api', requireAuth(ADMIN_PASSWORD));
 
 // Register routes
 app.use(
   '/api',
-  createRoutes(firestoreController, storageController, healthController, customerController)
+  createRoutes(
+    firestoreController,
+    storageController,
+    healthController,
+    customerController,
+    inviteCodeController
+  )
 );
 
 // Start server

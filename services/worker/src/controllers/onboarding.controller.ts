@@ -34,6 +34,9 @@ import { getServiceAccountEmail } from '../utils/service-account';
 import { getConfig } from '../config';
 import logger from '../logger';
 import { google } from 'googleapis';
+import { validateInviteCode, markInviteCodeAsUsed } from '../services/invite-code.service';
+import { isChatApproved, approveChatWithInviteCode } from '../services/approved-chats.service';
+import { recordFailedOnboardingAttempt, clearRateLimit } from '../services/rate-limiter.service';
 
 // Validation schemas
 const businessNameSchema = z.string().min(2).max(100);
@@ -57,14 +60,19 @@ const SERVICE_ACCOUNT_CACHE: { email: string | null } = { email: null };
 
 /**
  * Handle /onboard command
+ * Format: /onboard INV-XXXXXX
+ * Security: Requires valid invite code unless chat already approved
  */
 export async function handleOnboardCommand(msg: TelegramMessage): Promise<void> {
   const chatId = msg.chat.id;
   const userId = msg.from?.id;
+  const chatTitle = msg.chat.title || msg.chat.first_name || 'Private Chat';
   const log = logger.child({ chatId, userId, command: 'onboard' });
 
   if (!userId) {
-    await sendMessage(chatId, 'Error: Could not identify user');
+    // Record failed attempt for rate limiting (suspicious activity)
+    log.warn('Onboard command ignored: could not identify user');
+    await recordFailedOnboardingAttempt(chatId);
     return;
   }
 
@@ -77,6 +85,43 @@ export async function handleOnboardCommand(msg: TelegramMessage): Promise<void> 
     );
     log.info('Onboarding blocked: config already exists');
     return;
+  }
+
+  // Security Check: Require invite code or approved status
+  const isApproved = await isChatApproved(chatId);
+
+  if (!isApproved) {
+    // Extract invite code from command text (e.g., "/onboard INV-ABC123")
+    const inviteCode = msg.text?.trim().split(/\s+/)[1];
+
+    if (!inviteCode) {
+      // No invite code provided - silently ignore and record failure
+      log.warn('Onboard command ignored: no invite code provided');
+      await recordFailedOnboardingAttempt(chatId);
+      return;
+    }
+
+    // Validate invite code
+    const validation = await validateInviteCode(inviteCode);
+
+    if (!validation.valid) {
+      // Invalid invite code - silently ignore and record failure
+      log.warn(
+        { inviteCode, reason: validation.reason, usedBy: validation.usedBy },
+        'Onboard command ignored: invalid invite code'
+      );
+      await recordFailedOnboardingAttempt(chatId);
+      return;
+    }
+
+    // Valid invite code - approve chat and mark code as used
+    await approveChatWithInviteCode(chatId, chatTitle, inviteCode, userId);
+    await markInviteCodeAsUsed(inviteCode, { chatId, chatTitle });
+
+    // Clear any previous rate limiting (successful approval)
+    await clearRateLimit(chatId);
+
+    log.info({ inviteCode }, 'Chat approved with invite code');
   }
 
   // Start onboarding session

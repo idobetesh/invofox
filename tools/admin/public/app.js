@@ -1390,4 +1390,288 @@ document.addEventListener('DOMContentLoaded', () => {
       loadCustomers();
     });
   }
+
+  // Invite codes functionality
+  setupInviteCodesTab();
 });
+
+// ============================================================================
+// Invite Codes Management
+// ============================================================================
+
+let currentInviteStatus = 'active';
+
+async function loadAdminConfig() {
+  try {
+    const response = await fetch('/api/config');
+    if (!response.ok) {
+      console.warn('Failed to load admin config');
+      return;
+    }
+
+    const config = await response.json();
+
+    // Auto-fill admin credentials if available
+    const adminIdField = document.getElementById('invite-admin-id');
+    const adminUsernameField = document.getElementById('invite-admin-username');
+
+    if (config.adminUserId && adminIdField) {
+      adminIdField.value = config.adminUserId;
+      adminIdField.readOnly = true;
+      adminIdField.style.opacity = '0.7';
+      adminIdField.title = 'Loaded from environment variables';
+    }
+
+    if (config.adminUsername && adminUsernameField) {
+      adminUsernameField.value = config.adminUsername;
+      adminUsernameField.readOnly = true;
+      adminUsernameField.style.opacity = '0.7';
+      adminUsernameField.title = 'Loaded from environment variables';
+    }
+  } catch (error) {
+    console.error('Error loading admin config:', error);
+  }
+}
+
+function setupInviteCodesTab() {
+  // Load admin config on setup
+  loadAdminConfig();
+
+  // Generate invite code button
+  const generateBtn = document.getElementById('generate-invite-btn');
+  if (generateBtn) {
+    generateBtn.addEventListener('click', generateInviteCode);
+  }
+
+  // Refresh button
+  const refreshBtn = document.getElementById('refresh-invites-btn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => loadInviteCodes(currentInviteStatus));
+  }
+
+  // Status filter buttons
+  const statusButtons = document.querySelectorAll('#invites-tab .tab-button[data-status]');
+  statusButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      // Update active state
+      statusButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      // Load codes with selected status
+      currentInviteStatus = btn.dataset.status;
+      loadInviteCodes(currentInviteStatus);
+    });
+  });
+
+  // Load invite codes when tab is activated
+  const invitesTab = document.querySelector('[data-tab="invites"]');
+  if (invitesTab) {
+    invitesTab.addEventListener('click', () => {
+      loadInviteCodes(currentInviteStatus);
+    });
+  }
+}
+
+async function generateInviteCode() {
+  const adminId = document.getElementById('invite-admin-id').value;
+  const adminUsername = document.getElementById('invite-admin-username').value;
+  const note = document.getElementById('invite-note').value;
+  const expiresInDays = document.getElementById('invite-expires').value;
+
+  if (!adminId || !adminUsername) {
+    alert('Please enter your Telegram User ID and Username');
+    return;
+  }
+
+  const generateBtn = document.getElementById('generate-invite-btn');
+  generateBtn.disabled = true;
+  generateBtn.innerHTML = '<div class="spinner-small"></div> Generating...';
+
+  try {
+    const response = await fetch('/api/invite-codes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify({
+        adminUserId: parseInt(adminId),
+        adminUsername,
+        note,
+        expiresInDays: parseInt(expiresInDays)
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to generate invite code');
+    }
+
+    const result = await response.json();
+    const code = result.inviteCode.code;
+
+    // Show success with copyable code
+    const message = `✅ Invite code generated successfully!\n\nCode: ${code}\n\nShare this with the customer:\n/onboard ${code}`;
+    alert(message);
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(`/onboard ${code}`).catch(() => {});
+
+    // Clear form
+    document.getElementById('invite-note').value = '';
+
+    // Reload list
+    loadInviteCodes(currentInviteStatus);
+
+  } catch (error) {
+    console.error('Error generating invite code:', error);
+    alert(`❌ Error: ${error.message}`);
+  } finally {
+    generateBtn.disabled = false;
+    generateBtn.innerHTML = '<svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg><span>Generate Code</span>';
+  }
+}
+
+async function loadInviteCodes(status = 'active') {
+  const container = document.getElementById('invites-container');
+
+  container.innerHTML = `
+    <div class="loading">
+      <div class="spinner-small"></div>
+      <span>Loading invite codes...</span>
+    </div>
+  `;
+
+  try {
+    const response = await fetch(`/api/invite-codes?status=${status}`, getAuthHeaders());
+
+    if (!response.ok) {
+      throw new Error('Failed to load invite codes');
+    }
+
+    const data = await response.json();
+    renderInviteCodes(data.inviteCodes);
+
+  } catch (error) {
+    console.error('Error loading invite codes:', error);
+    container.innerHTML = `
+      <div class="error">
+        <p>❌ Error loading invite codes: ${escapeHtml(error.message)}</p>
+      </div>
+    `;
+  }
+}
+
+function renderInviteCodes(codes) {
+  const container = document.getElementById('invites-container');
+
+  if (codes.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <p>No invite codes found</p>
+      </div>
+    `;
+    return;
+  }
+
+  const html = codes.map(code => {
+    const createdAt = new Date(code.createdAt._seconds * 1000);
+    const expiresAt = new Date(code.expiresAt._seconds * 1000);
+    const usedAt = code.usedAt ? new Date(code.usedAt._seconds * 1000) : null;
+
+    const statusBadge = code.used
+      ? '<span class="status-badge status-used">Used</span>'
+      : code.revoked
+      ? '<span class="status-badge status-revoked">Revoked</span>'
+      : expiresAt < new Date()
+      ? '<span class="status-badge status-expired">Expired</span>'
+      : '<span class="status-badge status-active">Active</span>';
+
+    const usageInfo = code.used
+      ? `
+        <div style="margin-top: 8px; padding: 8px; background: #f3f4f6; border-radius: 4px; font-size: 13px;">
+          <strong>Used by:</strong> ${escapeHtml(code.usedBy.chatTitle)} (Chat ID: ${code.usedBy.chatId})<br>
+          <strong>Used at:</strong> ${usedAt.toLocaleString()}
+        </div>
+      `
+      : '';
+
+    const actions = !code.used && !code.revoked
+      ? `
+        <button class="btn btn-small btn-secondary" onclick="copyInviteCode('${code.code}')">
+          <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          Copy
+        </button>
+        <button class="btn btn-small btn-danger" onclick="deleteInviteCode('${code.code}')">
+          <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+          Delete
+        </button>
+      `
+      : '';
+
+    return `
+      <div class="list-item">
+        <div class="list-item-content">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <code class="code-inline" style="font-size: 16px; font-weight: 600;">${code.code}</code>
+            ${statusBadge}
+          </div>
+          <div style="font-size: 13px; color: #6b7280; line-height: 1.6;">
+            <div><strong>Created by:</strong> ${escapeHtml(code.createdBy.username)} (User ID: ${code.createdBy.userId})</div>
+            <div><strong>Created:</strong> ${createdAt.toLocaleString()}</div>
+            <div><strong>Expires:</strong> ${expiresAt.toLocaleString()}</div>
+            ${code.note ? `<div><strong>Note:</strong> ${escapeHtml(code.note)}</div>` : ''}
+          </div>
+          ${usageInfo}
+        </div>
+        <div class="list-item-actions">
+          ${actions}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = html;
+}
+
+function copyInviteCode(code) {
+  const command = `/onboard ${code}`;
+  navigator.clipboard.writeText(command).then(() => {
+    alert(`✅ Copied to clipboard:\n${command}\n\nShare this with the customer to start onboarding.`);
+  }).catch(err => {
+    alert(`Code: ${code}\n\nCommand: ${command}`);
+  });
+}
+
+async function deleteInviteCode(code) {
+  if (!confirm(`Are you sure you want to delete invite code ${code}?\n\nThis action cannot be undone.`)) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/invite-codes/${code}`, {
+      method: 'DELETE',
+      ...getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to delete invite code');
+    }
+
+    alert(`✅ Invite code ${code} has been deleted`);
+    loadInviteCodes(currentInviteStatus);
+
+  } catch (error) {
+    console.error('Error deleting invite code:', error);
+    alert(`❌ Error: ${error.message}`);
+  }
+}

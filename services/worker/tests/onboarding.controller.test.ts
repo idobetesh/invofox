@@ -17,6 +17,9 @@ import * as telegramService from '../src/services/telegram.service';
 import * as configService from '../src/services/invoice-generator/config.service';
 import * as counterService from '../src/services/invoice-generator/counter.service';
 import * as serviceAccountUtil from '../src/utils/service-account';
+import * as inviteCodeService from '../src/services/invite-code.service';
+import * as approvedChatsService from '../src/services/approved-chats.service';
+import * as rateLimiterService from '../src/services/rate-limiter.service';
 
 // Mock modules
 jest.mock('../src/logger', () => ({
@@ -43,6 +46,9 @@ jest.mock('../src/services/telegram.service');
 jest.mock('../src/services/invoice-generator/config.service');
 jest.mock('../src/services/invoice-generator/counter.service');
 jest.mock('../src/utils/service-account');
+jest.mock('../src/services/invite-code.service');
+jest.mock('../src/services/approved-chats.service');
+jest.mock('../src/services/rate-limiter.service');
 
 // Mock googleapis
 const mockSheetsGet = jest.fn();
@@ -75,15 +81,29 @@ describe('Onboarding Controller', () => {
       from: { id: userId, is_bot: false, first_name: 'Test', username: 'testuser' },
     });
 
-    it('should start onboarding when config does not exist', async () => {
+    it('should start onboarding with valid invite code', async () => {
       const msg = createMessage(-1001234567, 123456);
+      msg.text = '/onboard INV-ABC123';
 
       (configService.hasBusinessConfig as jest.Mock).mockResolvedValue(false);
+      (approvedChatsService.isChatApproved as jest.Mock).mockResolvedValue(false);
+      (inviteCodeService.validateInviteCode as jest.Mock).mockResolvedValue({
+        valid: true,
+        invite: {
+          code: 'INV-ABC123',
+          createdBy: { userId: 999, username: 'admin' },
+        },
+      });
+      (approvedChatsService.approveChatWithInviteCode as jest.Mock).mockResolvedValue(undefined);
+      (inviteCodeService.markInviteCodeAsUsed as jest.Mock).mockResolvedValue(undefined);
       (onboardingService.startOnboarding as jest.Mock).mockResolvedValue(undefined);
       (telegramService.sendMessage as jest.Mock).mockResolvedValue(undefined);
 
       await handleOnboardCommand(msg);
 
+      expect(inviteCodeService.validateInviteCode).toHaveBeenCalledWith('INV-ABC123');
+      expect(approvedChatsService.approveChatWithInviteCode).toHaveBeenCalled();
+      expect(inviteCodeService.markInviteCodeAsUsed).toHaveBeenCalled();
       expect(onboardingService.startOnboarding).toHaveBeenCalledWith(-1001234567, 123456);
       expect(telegramService.sendMessage).toHaveBeenCalledWith(
         -1001234567,
@@ -119,13 +139,68 @@ describe('Onboarding Controller', () => {
       const msg = createMessage(-1001234567, 123456);
       delete msg.from;
 
+      (rateLimiterService.recordFailedOnboardingAttempt as jest.Mock).mockResolvedValue(undefined);
+
       await handleOnboardCommand(msg);
 
+      expect(rateLimiterService.recordFailedOnboardingAttempt).toHaveBeenCalledWith(-1001234567);
       expect(onboardingService.startOnboarding).not.toHaveBeenCalled();
-      expect(telegramService.sendMessage).toHaveBeenCalledWith(
-        -1001234567,
-        'Error: Could not identify user'
-      );
+      // Security: Silently ignore invalid requests (no message sent)
+      expect(telegramService.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('should record failed attempt when no invite code provided', async () => {
+      const msg = createMessage(-1001234567, 123456);
+      msg.text = '/onboard'; // No invite code
+
+      (configService.hasBusinessConfig as jest.Mock).mockResolvedValue(false);
+      (approvedChatsService.isChatApproved as jest.Mock).mockResolvedValue(false);
+      (rateLimiterService.recordFailedOnboardingAttempt as jest.Mock).mockResolvedValue(undefined);
+
+      await handleOnboardCommand(msg);
+
+      expect(rateLimiterService.recordFailedOnboardingAttempt).toHaveBeenCalledWith(-1001234567);
+      expect(onboardingService.startOnboarding).not.toHaveBeenCalled();
+    });
+
+    it('should record failed attempt when invalid invite code provided', async () => {
+      const msg = createMessage(-1001234567, 123456);
+      msg.text = '/onboard INV-FAKE12';
+
+      (configService.hasBusinessConfig as jest.Mock).mockResolvedValue(false);
+      (approvedChatsService.isChatApproved as jest.Mock).mockResolvedValue(false);
+      (inviteCodeService.validateInviteCode as jest.Mock).mockResolvedValue({
+        valid: false,
+        reason: 'not_found',
+      });
+      (rateLimiterService.recordFailedOnboardingAttempt as jest.Mock).mockResolvedValue(undefined);
+
+      await handleOnboardCommand(msg);
+
+      expect(rateLimiterService.recordFailedOnboardingAttempt).toHaveBeenCalledWith(-1001234567);
+      expect(onboardingService.startOnboarding).not.toHaveBeenCalled();
+    });
+
+    it('should clear rate limit when valid invite code provided', async () => {
+      const msg = createMessage(-1001234567, 123456);
+      msg.text = '/onboard INV-ABC123';
+
+      (configService.hasBusinessConfig as jest.Mock).mockResolvedValue(false);
+      (approvedChatsService.isChatApproved as jest.Mock).mockResolvedValue(false);
+      (inviteCodeService.validateInviteCode as jest.Mock).mockResolvedValue({
+        valid: true,
+        invite: { code: 'INV-ABC123' },
+      });
+      (approvedChatsService.approveChatWithInviteCode as jest.Mock).mockResolvedValue(undefined);
+      (inviteCodeService.markInviteCodeAsUsed as jest.Mock).mockResolvedValue(undefined);
+      (rateLimiterService.clearRateLimit as jest.Mock).mockResolvedValue(undefined);
+      (onboardingService.startOnboarding as jest.Mock).mockResolvedValue(undefined);
+      (telegramService.sendMessage as jest.Mock).mockResolvedValue(undefined);
+
+      await handleOnboardCommand(msg);
+
+      expect(rateLimiterService.clearRateLimit).toHaveBeenCalledWith(-1001234567);
+      expect(onboardingService.startOnboarding).toHaveBeenCalled();
     });
   });
 

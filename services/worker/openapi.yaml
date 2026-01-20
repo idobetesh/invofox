@@ -41,6 +41,8 @@ tags:
     description: Invoice processing endpoints (Cloud Tasks)
   - name: Invoice Generation
     description: Invoice generation flow endpoints
+  - name: Onboarding
+    description: Customer onboarding flow endpoints
   - name: Callbacks
     description: Telegram callback handling
 
@@ -287,6 +289,73 @@ paths:
           description: Notification sent
         "400":
           description: Missing required fields
+
+  /onboard/command:
+    post:
+      tags:
+        - Onboarding
+      summary: Handle /onboard command
+      description: |
+        Starts customer onboarding flow with invite code validation.
+
+        Format: `/onboard INV-ABC123`
+
+        Validates invite code and starts 7-step onboarding:
+        1. Language selection
+        2. Business name
+        3. Owner details
+        4. Address
+        5. Tax status
+        6. Logo (optional)
+        7. Starting invoice number
+      operationId: handleOnboardCommand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceCommandPayload"
+      responses:
+        "200":
+          description: Command handled
+
+  /onboard/message:
+    post:
+      tags:
+        - Onboarding
+      summary: Handle onboarding conversation message
+      description: Processes text messages during onboarding flow (business name, owner details, address, etc.)
+      operationId: handleOnboardingMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceMessagePayload"
+      responses:
+        "200":
+          description: Message handled
+
+  /onboard/callback:
+    post:
+      tags:
+        - Onboarding
+      summary: Handle onboarding button callback
+      description: |
+        Processes inline keyboard callbacks during onboarding:
+        - Language selection (English / Hebrew)
+        - Tax status selection
+        - Counter selection
+      operationId: handleOnboardingCallback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceCallbackPayload"
+      responses:
+        "200":
+          description: Callback handled
 
 components:
   securitySchemes:

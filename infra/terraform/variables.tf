@@ -113,6 +113,19 @@ variable "queue_max_backoff" {
   default     = "1800s"
 }
 
+# Rate Limiting Configuration
+variable "onboard_max_attempts" {
+  description = "Maximum failed onboarding attempts before blocking"
+  type        = number
+  default     = 3
+}
+
+variable "onboard_block_duration_minutes" {
+  description = "Duration to block after max failed attempts (in minutes)"
+  type        = number
+  default     = 15
+}
+
 # Budget Configuration
 variable "billing_account_id" {
   description = "Billing account ID for budget alerts (optional, leave empty to skip budget creation)"
