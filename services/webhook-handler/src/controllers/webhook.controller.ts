@@ -7,6 +7,7 @@ import { getConfig } from '../config';
 import * as telegramService from '../services/telegram.service';
 import * as tasksService from '../services/tasks.service';
 import * as rateLimiter from '../services/rate-limiter.service';
+import * as approvedChatsService from '../services/approved-chats.service';
 import logger from '../logger';
 
 /**
@@ -299,7 +300,7 @@ async function handleInvoiceCommand(
 }
 
 /**
- * Handle text message (might be part of invoice conversation)
+ * Handle text message (might be part of invoice conversation or onboarding)
  */
 async function handleTextMessage(
   update: ReturnType<typeof telegramService.parseUpdate>,
@@ -313,29 +314,55 @@ async function handleTextMessage(
 
   const payload = telegramService.extractInvoiceMessagePayload(update);
   if (!payload) {
-    // Not a valid message for invoice flow
-    logger.debug('Text message not suitable for invoice flow');
+    // Not a valid message
+    logger.debug('Text message not suitable for processing');
     res.status(200).json({ ok: true, action: 'ignored_text' });
     return;
   }
 
-  logger.info(
-    { chatId: payload.chatId, userId: payload.userId },
-    'Enqueueing invoice message for worker'
-  );
+  // Check if chat is approved to determine routing
+  const isApproved = await approvedChatsService.isChatApproved(payload.chatId);
 
-  try {
-    const taskName = await tasksService.enqueueInvoiceMessageTask(payload, config);
-    logger.info({ taskName }, 'Invoice message task enqueued successfully');
+  if (isApproved) {
+    // Approved chat - route to invoice flow
+    logger.info(
+      { chatId: payload.chatId, userId: payload.userId },
+      'Enqueueing invoice message for worker'
+    );
 
-    res.status(200).json({
-      ok: true,
-      action: 'invoice_message_enqueued',
-      task: taskName,
-    });
-  } catch (error) {
-    logger.error({ error }, 'Failed to enqueue invoice message task');
-    res.status(500).json({ error: 'Failed to enqueue invoice message task' });
+    try {
+      const taskName = await tasksService.enqueueInvoiceMessageTask(payload, config);
+      logger.info({ taskName }, 'Invoice message task enqueued successfully');
+
+      res.status(200).json({
+        ok: true,
+        action: 'invoice_message_enqueued',
+        task: taskName,
+      });
+    } catch (error) {
+      logger.error({ error }, 'Failed to enqueue invoice message task');
+      res.status(500).json({ error: 'Failed to enqueue invoice message task' });
+    }
+  } else {
+    // Not approved - route to onboarding flow
+    logger.info(
+      { chatId: payload.chatId, userId: payload.userId },
+      'Enqueueing onboarding message for worker'
+    );
+
+    try {
+      const taskName = await tasksService.enqueueOnboardMessageTask(payload, config);
+      logger.info({ taskName }, 'Onboarding message task enqueued successfully');
+
+      res.status(200).json({
+        ok: true,
+        action: 'onboarding_message_enqueued',
+        task: taskName,
+      });
+    } catch (error) {
+      logger.error({ error }, 'Failed to enqueue onboarding message task');
+      res.status(500).json({ error: 'Failed to enqueue onboarding message task' });
+    }
   }
 }
 
