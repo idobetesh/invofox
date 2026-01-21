@@ -427,10 +427,11 @@ async function handleAddressStep(msg: TelegramMessage, language: Language): Prom
   await updateOnboardingData(chatId, { address });
   await updateOnboardingSession(chatId, { step: 'tax_status' });
 
-  // Send tax status selection with buttons
-  await sendTaxStatusSelection(chatId, language);
-
+  // First acknowledge the address
   await sendMessage(chatId, t(language, 'onboarding.step3Confirm', { address }));
+
+  // Then send tax status selection with buttons
+  await sendTaxStatusSelection(chatId, language);
 }
 
 /**

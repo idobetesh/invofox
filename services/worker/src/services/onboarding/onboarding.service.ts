@@ -73,6 +73,7 @@ export async function startOnboarding(chatId: number, userId: number): Promise<v
 
   await docRef.set({
     ...session,
+    active: true, // Mark as active so webhook handler can route photos correctly
     startedAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   });
@@ -146,6 +147,10 @@ export async function completeOnboarding(chatId: number): Promise<void> {
   const db = getFirestore();
   const docRef = db.collection(COLLECTION_NAME).doc(chatId.toString());
 
+  // Mark as inactive first (helps with webhook handler cache)
+  await docRef.update({ active: false });
+
+  // Then delete the session
   await docRef.delete();
 
   logger.info({ chatId }, 'Onboarding session completed and deleted');
