@@ -22,11 +22,15 @@ export class FirestoreService {
    */
   getKnownCollections(): string[] {
     return [
-      'invoice_sessions',
-      'generated_invoices',
-      'invoice_jobs',
-      'invoice_counters',
+      'approved_chats',
       'business_config',
+      'generated_invoices',
+      'invite_codes',
+      'invoice_counters',
+      'invoice_jobs',
+      'invoice_sessions',
+      'onboarding_sessions',
+      'rate_limits',
     ];
   }
 
@@ -136,5 +140,71 @@ export class FirestoreService {
       id: doc.id,
       data: docData as Record<string, unknown>,
     };
+  }
+
+  /**
+   * Check onboarding session status for a chatId
+   * @returns Status object with session state
+   */
+  async getOnboardingStatus(chatId: number): Promise<{
+    exists: boolean;
+    status?: 'in_progress' | 'stuck';
+    age?: number; // hours
+    step?: string;
+  }> {
+    const docRef = this.firestore.collection('onboarding_sessions').doc(chatId.toString());
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return { exists: false };
+    }
+
+    const data = doc.data();
+    if (!data) {
+      return { exists: false };
+    }
+
+    // Calculate age
+    const startedAt = data.startedAt;
+    let ageHours = 0;
+
+    if (startedAt && typeof startedAt === 'object' && 'toMillis' in startedAt) {
+      const ageMs = Date.now() - startedAt.toMillis();
+      ageHours = ageMs / (1000 * 60 * 60);
+    } else if (startedAt instanceof Date) {
+      const ageMs = Date.now() - startedAt.getTime();
+      ageHours = ageMs / (1000 * 60 * 60);
+    }
+
+    // Consider stuck if older than 24 hours
+    const status = ageHours > 24 ? 'stuck' : 'in_progress';
+
+    return {
+      exists: true,
+      status,
+      age: Math.round(ageHours * 10) / 10, // Round to 1 decimal
+      step: data.step as string,
+    };
+  }
+
+  /**
+   * Delete onboarding session and optionally the invite code
+   * @param chatId Chat ID for the onboarding session
+   * @param inviteCode Optional invite code to delete as well
+   */
+  async cleanupOnboarding(chatId: number, inviteCode?: string): Promise<void> {
+    const batch = this.firestore.batch();
+
+    // Delete onboarding session
+    const sessionRef = this.firestore.collection('onboarding_sessions').doc(chatId.toString());
+    batch.delete(sessionRef);
+
+    // Delete invite code if provided
+    if (inviteCode) {
+      const codeRef = this.firestore.collection('invite_codes').doc(inviteCode);
+      batch.delete(codeRef);
+    }
+
+    await batch.commit();
   }
 }
