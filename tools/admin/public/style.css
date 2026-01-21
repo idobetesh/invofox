@@ -429,6 +429,32 @@ body {
   color: white;
 }
 
+/* Filter buttons (for status filters in invite codes tab) */
+.filter-button {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: var(--transition);
+}
+
+.filter-button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--primary);
+}
+
+.filter-button.active {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: white;
+  border-color: transparent;
+  box-shadow: var(--shadow-sm);
+}
+
 /* Cards */
 .tab-content {
   display: none;
@@ -609,6 +635,15 @@ body {
 
 .btn-danger:hover {
   background: linear-gradient(135deg, var(--danger-dark) 0%, #b91c1c 100%);
+}
+
+.btn-warning {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+}
+
+.btn-warning:hover {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
 }
 
 .btn-ghost {

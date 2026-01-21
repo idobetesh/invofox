@@ -121,4 +121,61 @@ export class InviteCodeController {
       });
     }
   };
+
+  /**
+   * Get onboarding session status for an invite code
+   * GET /api/invite-codes/:code/onboarding-status
+   */
+  getOnboardingStatus = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { code } = req.params;
+
+      const status = await this.inviteCodeService.getOnboardingStatus(code);
+
+      res.json({ status });
+    } catch (error) {
+      console.error('Error getting onboarding status:', error);
+      res.status(500).json({
+        error: `Failed to get onboarding status: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    }
+  };
+
+  /**
+   * Clean onboarding session only (keep invite code)
+   * POST /api/invite-codes/:code/cleanup-session
+   */
+  cleanupSession = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { code } = req.params;
+
+      await this.inviteCodeService.cleanupOnboardingSession(code);
+
+      res.json({ success: true, message: `Onboarding session cleaned for ${code}` });
+    } catch (error) {
+      console.error('Error cleaning session:', error);
+      res.status(500).json({
+        error: `Failed to clean session: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    }
+  };
+
+  /**
+   * Delete both invite code and onboarding session
+   * POST /api/invite-codes/:code/delete-all
+   */
+  deleteAll = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { code } = req.params;
+
+      await this.inviteCodeService.deleteCodeAndSession(code);
+
+      res.json({ success: true, message: `Invite code and session deleted for ${code}` });
+    } catch (error) {
+      console.error('Error deleting all:', error);
+      res.status(500).json({
+        error: `Failed to delete all: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    }
+  };
 }

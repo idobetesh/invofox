@@ -27,6 +27,7 @@ export interface CreateInviteCodeRequest {
 
 export class InviteCodeService {
   private readonly COLLECTION_NAME = 'invite_codes';
+  private readonly ONBOARDING_SESSIONS_COLLECTION = 'onboarding_sessions';
 
   constructor(private firestore: Firestore) {}
 
@@ -178,5 +179,115 @@ export class InviteCodeService {
     await docRef.delete();
 
     console.log(`[InviteCodeService] Deleted invite code: ${code}`);
+  }
+
+  /**
+   * Get onboarding session status for an invite code
+   */
+  async getOnboardingStatus(code: string): Promise<{
+    exists: boolean;
+    status?: 'in_progress' | 'stuck' | 'completed';
+    age?: number;
+    step?: string;
+    chatId?: number;
+  }> {
+    // Get invite code
+    const inviteCode = await this.getInviteCode(code);
+
+    if (!inviteCode || !inviteCode.used || !inviteCode.usedBy) {
+      return { exists: false, status: 'completed' };
+    }
+
+    const chatId = inviteCode.usedBy.chatId;
+
+    // Check onboarding session
+    const sessionRef = this.firestore
+      .collection(this.ONBOARDING_SESSIONS_COLLECTION)
+      .doc(chatId.toString());
+    const sessionDoc = await sessionRef.get();
+
+    if (!sessionDoc.exists) {
+      return { exists: false, status: 'completed', chatId };
+    }
+
+    const data = sessionDoc.data();
+    if (!data) {
+      return { exists: false, status: 'completed', chatId };
+    }
+
+    // Calculate age
+    const startedAt = data.startedAt;
+    let ageHours = 0;
+
+    if (startedAt && typeof startedAt === 'object' && 'toMillis' in startedAt) {
+      const ageMs = Date.now() - startedAt.toMillis();
+      ageHours = ageMs / (1000 * 60 * 60);
+    } else if (startedAt instanceof Date) {
+      const ageMs = Date.now() - startedAt.getTime();
+      ageHours = ageMs / (1000 * 60 * 60);
+    }
+
+    // Consider stuck if older than 24 hours
+    const status = ageHours > 24 ? 'stuck' : 'in_progress';
+
+    return {
+      exists: true,
+      status,
+      age: Math.round(ageHours * 10) / 10,
+      step: data.step as string,
+      chatId,
+    };
+  }
+
+  /**
+   * Clean onboarding session only (keep invite code)
+   */
+  async cleanupOnboardingSession(code: string): Promise<void> {
+    const inviteCode = await this.getInviteCode(code);
+
+    if (!inviteCode || !inviteCode.used || !inviteCode.usedBy) {
+      throw new Error('Invite code not used or not found');
+    }
+
+    const chatId = inviteCode.usedBy.chatId;
+    const sessionRef = this.firestore
+      .collection(this.ONBOARDING_SESSIONS_COLLECTION)
+      .doc(chatId.toString());
+
+    await sessionRef.delete();
+
+    console.log(
+      `[InviteCodeService] Cleaned onboarding session for chatId: ${chatId}, code: ${code}`
+    );
+  }
+
+  /**
+   * Delete both invite code and onboarding session
+   */
+  async deleteCodeAndSession(code: string): Promise<void> {
+    const inviteCode = await this.getInviteCode(code);
+
+    if (!inviteCode) {
+      throw new Error('Invite code not found');
+    }
+
+    const batch = this.firestore.batch();
+
+    // Delete invite code
+    const codeRef = this.firestore.collection(this.COLLECTION_NAME).doc(code);
+    batch.delete(codeRef);
+
+    // Delete onboarding session if exists
+    if (inviteCode.used && inviteCode.usedBy) {
+      const chatId = inviteCode.usedBy.chatId;
+      const sessionRef = this.firestore
+        .collection(this.ONBOARDING_SESSIONS_COLLECTION)
+        .doc(chatId.toString());
+      batch.delete(sessionRef);
+    }
+
+    await batch.commit();
+
+    console.log(`[InviteCodeService] Deleted invite code and session for code: ${code}`);
   }
 }

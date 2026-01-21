@@ -1450,7 +1450,7 @@ function setupInviteCodesTab() {
   }
 
   // Status filter buttons
-  const statusButtons = document.querySelectorAll('#invites-tab .tab-button[data-status]');
+  const statusButtons = document.querySelectorAll('#invites-tab .filter-button[data-status]');
   statusButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       // Update active state
@@ -1578,7 +1578,26 @@ async function loadInviteCodes(status = 'active') {
     }
 
     const data = await response.json();
-    renderInviteCodes(data.inviteCodes);
+
+    // Fetch onboarding status for used codes
+    const codesWithStatus = await Promise.all(
+      data.inviteCodes.map(async (code) => {
+        if (code.used) {
+          try {
+            const statusResponse = await fetch(`/api/invite-codes/${code.code}/onboarding-status`, getAuthHeaders());
+            if (statusResponse.ok) {
+              const statusData = await statusResponse.json();
+              return { ...code, onboardingStatus: statusData.status };
+            }
+          } catch (err) {
+            console.warn(`Failed to get onboarding status for ${code.code}:`, err);
+          }
+        }
+        return code;
+      })
+    );
+
+    renderInviteCodes(codesWithStatus);
 
   } catch (error) {
     console.error('Error loading invite codes:', error);
@@ -1619,16 +1638,27 @@ function renderInviteCodes(codes) {
       ? '<span class="status-badge status-expired">Expired</span>'
       : '<span class="status-badge status-active">Active</span>';
 
+    // Onboarding status badge
+    const onboardingBadge = code.onboardingStatus && code.onboardingStatus.exists
+      ? code.onboardingStatus.status === 'stuck'
+        ? `<span class="status-badge" style="background: #ef4444; color: white;">🔴 Stuck (${code.onboardingStatus.age}h old)</span>`
+        : `<span class="status-badge" style="background: #f59e0b; color: white;">🟡 In Progress (${code.onboardingStatus.step})</span>`
+      : code.used
+      ? '<span class="status-badge" style="background: #10b981; color: white;">🟢 Completed</span>'
+      : '';
+
     const usageInfo = code.used
       ? `
         <div style="margin-top: 8px; padding: 8px; background: #f3f4f6; border-radius: 4px; font-size: 13px;">
           <strong>Used by:</strong> ${escapeHtml(code.usedBy.chatTitle)} (Chat ID: ${code.usedBy.chatId})<br>
-          <strong>Used at:</strong> ${usedAt.toLocaleString()}
+          <strong>Used at:</strong> ${usedAt.toLocaleString()}<br>
+          <strong>Onboarding:</strong> ${onboardingBadge}
         </div>
       `
       : '';
 
-    const actions = !code.used && !code.revoked
+    // Actions for unused codes
+    const unusedActions = !code.used && !code.revoked
       ? `
         <button class="btn btn-small btn-secondary" onclick="copyInviteCode('${code.code}')">
           <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1636,6 +1666,14 @@ function renderInviteCodes(codes) {
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
           </svg>
           Copy
+        </button>
+        <button class="btn btn-small btn-warning" onclick="revokeInviteCode('${code.code}')">
+          <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+          Revoke
         </button>
         <button class="btn btn-small btn-danger" onclick="deleteInviteCode('${code.code}')">
           <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1646,6 +1684,29 @@ function renderInviteCodes(codes) {
         </button>
       `
       : '';
+
+    // Actions for stuck/in-progress onboarding
+    const sessionActions = code.onboardingStatus && code.onboardingStatus.exists
+      ? `
+        <button class="btn btn-small btn-warning" onclick="cleanupSession('${code.code}')">
+          <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+          Clean Session
+        </button>
+        <button class="btn btn-small btn-danger" onclick="deleteAll('${code.code}')">
+          <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+          Delete All
+        </button>
+      `
+      : '';
+
+    const actions = unusedActions + sessionActions;
 
     return `
       <div class="list-item">
@@ -1681,6 +1742,30 @@ function copyInviteCode(code) {
   });
 }
 
+async function revokeInviteCode(code) {
+  if (!confirm(`Revoke invite code ${code}?\n\nThis will prevent it from being used for onboarding.`)) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/invite-codes/${code}/revoke`, {
+      method: 'POST',
+      ...getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to revoke invite code');
+    }
+
+    alert(`✅ Invite code ${code} has been revoked`);
+    loadInviteCodes(currentInviteStatus);
+
+  } catch (error) {
+    console.error('Error revoking invite code:', error);
+    alert(`❌ Error: ${error.message}`);
+  }
+}
+
 async function deleteInviteCode(code) {
   if (!confirm(`Are you sure you want to delete invite code ${code}?\n\nThis action cannot be undone.`)) {
     return;
@@ -1701,6 +1786,54 @@ async function deleteInviteCode(code) {
 
   } catch (error) {
     console.error('Error deleting invite code:', error);
+    alert(`❌ Error: ${error.message}`);
+  }
+}
+
+async function cleanupSession(code) {
+  if (!confirm(`Clean onboarding session for ${code}?\n\nThis will delete the stuck session but keep the invite code for audit trail.\n\nThe user can start onboarding again.`)) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/invite-codes/${code}/cleanup-session`, {
+      method: 'POST',
+      ...getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to cleanup session');
+    }
+
+    alert(`✅ Onboarding session cleaned for ${code}`);
+    loadInviteCodes(currentInviteStatus);
+
+  } catch (error) {
+    console.error('Error cleaning session:', error);
+    alert(`❌ Error: ${error.message}`);
+  }
+}
+
+async function deleteAll(code) {
+  if (!confirm(`Delete BOTH invite code AND onboarding session for ${code}?\n\n⚠️ WARNING: This will:\n- Delete the invite code permanently\n- Delete the onboarding session\n- Remove all traces from the system\n\nThis action cannot be undone.`)) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/invite-codes/${code}/delete-all`, {
+      method: 'POST',
+      ...getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to delete all');
+    }
+
+    alert(`✅ Invite code and session deleted for ${code}`);
+    loadInviteCodes(currentInviteStatus);
+
+  } catch (error) {
+    console.error('Error deleting all:', error);
     alert(`❌ Error: ${error.message}`);
   }
 }

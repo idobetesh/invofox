@@ -54,6 +54,9 @@ export function createRoutes(
   router.post('/invite-codes', inviteCodeController.createInviteCode);
   router.get('/invite-codes', inviteCodeController.listInviteCodes);
   router.get('/invite-codes/:code', inviteCodeController.getInviteCode);
+  router.get('/invite-codes/:code/onboarding-status', inviteCodeController.getOnboardingStatus);
+  router.post('/invite-codes/:code/cleanup-session', inviteCodeController.cleanupSession);
+  router.post('/invite-codes/:code/delete-all', inviteCodeController.deleteAll);
   router.post('/invite-codes/:code/revoke', inviteCodeController.revokeInviteCode);
   router.delete('/invite-codes/:code', inviteCodeController.deleteInviteCode);
 

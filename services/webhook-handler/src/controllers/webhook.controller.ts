@@ -55,17 +55,18 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
     return;
   }
 
-  // Handle other commands (could add /status, /help later)
-  if (telegramService.isCommand(update)) {
-    logger.debug('Ignoring unknown command message');
-    res.status(200).json({ ok: true, action: 'ignored_command' });
-    return;
-  }
-
-  // Handle text messages (might be part of invoice conversation)
+  // Handle text messages (including /skip during onboarding)
   if (telegramService.isTextMessage(update)) {
     logger.debug('Processing text message');
     await handleTextMessage(update, config, res);
+    return;
+  }
+
+  // Handle other commands (could add /status, /help later)
+  // This is checked AFTER text messages so /skip can work during onboarding
+  if (telegramService.isCommand(update)) {
+    logger.debug('Ignoring unknown command message');
+    res.status(200).json({ ok: true, action: 'ignored_command' });
     return;
   }
 
