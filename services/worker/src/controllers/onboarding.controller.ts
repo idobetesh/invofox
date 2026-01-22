@@ -28,7 +28,7 @@ import {
   saveBusinessConfig,
   uploadLogo,
   type BusinessConfigDocument,
-} from '../services/invoice-generator/config.service';
+} from '../services/business-config/config.service';
 import { initializeCounter } from '../services/invoice-generator/counter.service';
 import { getServiceAccountEmail } from '../utils/service-account';
 import { getConfig } from '../config';
@@ -484,10 +484,10 @@ async function handleLogoStep(msg: TelegramMessage, language: Language): Promise
     const { buffer, filePath } = await downloadFileById(fileId);
     const extension = getFileExtension(filePath);
 
-    // Upload logo to Cloud Storage
+    // Upload logo to Cloud Storage (skip business_config update during onboarding)
     const config = getConfig();
     const filename = `logo.${extension}`;
-    const logoUrl = await uploadLogo(buffer, filename, config.storageBucket, chatId);
+    const logoUrl = await uploadLogo(buffer, filename, config.storageBucket, chatId, false);
 
     await updateOnboardingData(chatId, { logoUrl });
     await updateOnboardingSession(chatId, { step: 'sheet' });
@@ -517,6 +517,31 @@ async function getSheetStepMessage(language: Language): Promise<string> {
 }
 
 /**
+ * Extract Google Sheet ID from URL or return the ID if already provided
+ * Supports formats:
+ * - https://docs.google.com/spreadsheets/d/SHEET_ID/edit
+ * - https://docs.google.com/spreadsheets/d/SHEET_ID/edit#gid=0
+ * - SHEET_ID (direct ID)
+ */
+export function extractSheetId(input: string): string | null {
+  // Try to match Google Sheets URL pattern
+  const urlPattern = /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/;
+  const match = input.match(urlPattern);
+
+  if (match && match[1]) {
+    return match[1];
+  }
+
+  // If no URL pattern found, assume it's a direct ID
+  // Validate it looks like a sheet ID (alphanumeric, dashes, underscores, min 20 chars)
+  if (/^[a-zA-Z0-9-_]{20,}$/.test(input)) {
+    return input;
+  }
+
+  return null;
+}
+
+/**
  * Handle sheet step
  */
 async function handleSheetStep(msg: TelegramMessage, language: Language): Promise<void> {
@@ -536,8 +561,20 @@ async function handleSheetStep(msg: TelegramMessage, language: Language): Promis
     return;
   }
 
+  // Extract sheet ID from URL or validate direct ID
+  const sheetId = extractSheetId(text);
+
+  if (!sheetId) {
+    await sendMessage(
+      chatId,
+      t(language, 'onboarding.step6Invalid') +
+        '\n\n❌ מזהה גיליון לא תקין - העתק את כתובת ה-URL של הגיליון או את המזהה (לפחות 20 תווים)'
+    );
+    return;
+  }
+
   // Validate sheet ID format
-  const sheetIdValidation = googleSheetIdSchema.safeParse(text);
+  const sheetIdValidation = googleSheetIdSchema.safeParse(sheetId);
   if (!sheetIdValidation.success) {
     await sendMessage(
       chatId,
@@ -549,15 +586,15 @@ async function handleSheetStep(msg: TelegramMessage, language: Language): Promis
 
   // Test sheet access
   try {
-    const tabs = await testSheetAccess(text);
+    const tabs = await testSheetAccess(sheetId);
 
-    await updateOnboardingData(chatId, { sheetId: text });
+    await updateOnboardingData(chatId, { sheetId });
     await updateOnboardingSession(chatId, { step: 'counter' });
 
     await sendMessage(chatId, t(language, 'onboarding.step6Confirm', { tabs: tabs.join(', ') }));
     await sendCounterSelection(chatId, language);
   } catch (error) {
-    logger.error({ error, chatId, sheetId: text }, 'Failed to access sheet');
+    logger.error({ error, chatId, sheetId }, 'Failed to access sheet');
 
     if (!SERVICE_ACCOUNT_CACHE.email) {
       SERVICE_ACCOUNT_CACHE.email = await getServiceAccountEmail();
