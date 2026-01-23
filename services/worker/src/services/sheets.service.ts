@@ -247,8 +247,9 @@ export async function appendRow(chatId: number, row: SheetRow): Promise<number |
   const sheetId = await getSheetIdForCustomer(chatId);
 
   if (!sheetId) {
-    logger.warn({ chatId }, 'Skipping Google Sheets append - no sheet configured for customer');
-    return undefined;
+    const error = `No Google Sheet configured for customer ${chatId}. Please configure sheetId in business_config.`;
+    logger.error({ chatId }, error);
+    throw new Error(error);
   }
 
   const sheets = getSheets();
