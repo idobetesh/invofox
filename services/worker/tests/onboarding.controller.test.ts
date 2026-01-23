@@ -8,9 +8,9 @@ import {
   handleOnboardCommand,
   handleLanguageSelection,
   handleOnboardingMessage,
-  handleTaxStatusSelection,
-  handleCounterSelection,
   handleOnboardingPhoto,
+  handleTaxStatusCallback,
+  handleCounterCallback,
 } from '../src/controllers/onboarding.controller';
 import * as onboardingService from '../src/services/onboarding/onboarding.service';
 import * as telegramService from '../src/services/telegram.service';
@@ -258,7 +258,7 @@ describe('Onboarding Controller', () => {
     });
   });
 
-  describe('handleTaxStatusSelection', () => {
+  describe('handleTaxStatusCallback', () => {
     const createQuery = (chatId: number, data: string): TelegramCallbackQuery => ({
       id: 'query123',
       from: { id: 123456, is_bot: false, first_name: 'Test', username: 'testuser' },
@@ -286,7 +286,7 @@ describe('Onboarding Controller', () => {
       (telegramService.answerCallbackQuery as jest.Mock).mockResolvedValue(undefined);
       (telegramService.sendMessage as jest.Mock).mockResolvedValue(undefined);
 
-      await handleTaxStatusSelection(query);
+      await handleTaxStatusCallback(query);
 
       expect(onboardingService.updateOnboardingData).toHaveBeenCalledWith(-1001234567, {
         taxStatus: 'Tax Exempt Business (עוסק פטור מס)',
@@ -311,7 +311,7 @@ describe('Onboarding Controller', () => {
       (telegramService.answerCallbackQuery as jest.Mock).mockResolvedValue(undefined);
       (telegramService.sendMessage as jest.Mock).mockResolvedValue(undefined);
 
-      await handleTaxStatusSelection(query);
+      await handleTaxStatusCallback(query);
 
       expect(onboardingService.updateOnboardingData).toHaveBeenCalledWith(-1001234567, {
         taxStatus: 'עוסק מורשה',
@@ -323,13 +323,13 @@ describe('Onboarding Controller', () => {
 
       (onboardingService.getOnboardingSession as jest.Mock).mockResolvedValue(null);
 
-      await handleTaxStatusSelection(query);
+      await handleTaxStatusCallback(query);
 
       expect(onboardingService.updateOnboardingData).not.toHaveBeenCalled();
     });
   });
 
-  describe('handleCounterSelection', () => {
+  describe('handleCounterCallback', () => {
     const createQuery = (chatId: number, data: string): TelegramCallbackQuery => ({
       id: 'query123',
       from: { id: 123456, is_bot: false, first_name: 'Test', username: 'testuser' },
@@ -376,7 +376,7 @@ describe('Onboarding Controller', () => {
           data: { ...mockSession.data, startingCounter: 0 },
         });
 
-      await handleCounterSelection(query);
+      await handleCounterCallback(query);
 
       expect(onboardingService.updateOnboardingData).toHaveBeenCalledWith(-1001234567, {
         startingCounter: 0,
@@ -398,7 +398,7 @@ describe('Onboarding Controller', () => {
       (telegramService.answerCallbackQuery as jest.Mock).mockResolvedValue(undefined);
       (telegramService.sendMessage as jest.Mock).mockResolvedValue(undefined);
 
-      await handleCounterSelection(query);
+      await handleCounterCallback(query);
 
       expect(telegramService.sendMessage).toHaveBeenCalledWith(
         -1001234567,
