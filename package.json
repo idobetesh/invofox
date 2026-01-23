@@ -22,11 +22,13 @@
   "lint-staged": {
     "services/webhook-handler/**/*.ts": [
       "eslint --fix",
-      "prettier --write"
+      "prettier --write",
+      "bash -c 'cd services/webhook-handler && npx tsc --noEmit'"
     ],
     "services/worker/**/*.ts": [
       "eslint --fix",
-      "prettier --write"
+      "prettier --write",
+      "bash -c 'cd services/worker && npx tsc --noEmit'"
     ],
     "shared/**/*.ts": [
       "eslint --fix",
@@ -34,7 +36,8 @@
     ],
     "tools/admin/**/*.ts": [
       "eslint --fix",
-      "prettier --write"
+      "prettier --write",
+      "bash -c 'cd tools/admin && npx tsc --noEmit'"
     ]
   },
   "devDependencies": {
@@ -48,8 +51,5 @@
   },
   "engines": {
     "node": ">=24.0.0"
-  },
-  "dependencies": {
-    "@google-cloud/firestore": "^8.2.0"
   }
 }

@@ -47,10 +47,16 @@ jest.mock('../../src/logger', () => ({
   warn: jest.fn(),
 }));
 
+// Mock config
+jest.mock('../../src/config', () => ({
+  getConfig: jest.fn(() => ({
+    generatedInvoicesBucket: 'papertrail-invoice-generated-invoices',
+  })),
+}));
+
 describe('uploadLogo', () => {
   const buffer = Buffer.from('test image data');
   const filename = 'logo.png';
-  const bucketName = 'test-bucket';
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -63,17 +69,19 @@ describe('uploadLogo', () => {
     it('should upload logo and update business_config', async () => {
       const chatId = 123456;
 
-      const url = await uploadLogo(buffer, filename, bucketName, chatId);
+      const url = await uploadLogo(buffer, filename, chatId);
 
-      // Should upload to storage
-      expect(mockBucket).toHaveBeenCalledWith(bucketName);
+      // Should upload to storage (uses generated-invoices bucket)
+      expect(mockBucket).toHaveBeenCalledWith('papertrail-invoice-generated-invoices');
       expect(mockFile).toHaveBeenCalledWith(`logos/${chatId}/${filename}`);
       expect(mockSave).toHaveBeenCalledWith(buffer, {
         contentType: 'image/png',
       });
 
       // Should return correct URL
-      expect(url).toBe(`https://storage.googleapis.com/${bucketName}/logos/${chatId}/${filename}`);
+      expect(url).toBe(
+        `https://storage.googleapis.com/papertrail-invoice-generated-invoices/logos/${chatId}/${filename}`
+      );
 
       // Should update business_config
       expect(mockCollection).toHaveBeenCalledWith('business_config');
@@ -88,7 +96,7 @@ describe('uploadLogo', () => {
     });
 
     it('should upload logo without chatId and update default config', async () => {
-      await uploadLogo(buffer, filename, bucketName);
+      await uploadLogo(buffer, filename);
 
       // Should upload to default logo folder
       expect(mockFile).toHaveBeenCalledWith(`logos/${filename}`);
@@ -101,7 +109,7 @@ describe('uploadLogo', () => {
     it('should handle JPEG files', async () => {
       const jpegFilename = 'logo.jpeg';
 
-      await uploadLogo(buffer, jpegFilename, bucketName, 123456);
+      await uploadLogo(buffer, jpegFilename, 123456);
 
       expect(mockSave).toHaveBeenCalledWith(buffer, {
         contentType: 'image/jpeg',
@@ -111,7 +119,7 @@ describe('uploadLogo', () => {
     it('should handle JPG files', async () => {
       const jpgFilename = 'logo.jpg';
 
-      await uploadLogo(buffer, jpgFilename, bucketName, 123456);
+      await uploadLogo(buffer, jpgFilename, 123456);
 
       expect(mockSave).toHaveBeenCalledWith(buffer, {
         contentType: 'image/jpeg',
@@ -123,17 +131,19 @@ describe('uploadLogo', () => {
     it('should upload logo but skip business_config update', async () => {
       const chatId = 123456;
 
-      const url = await uploadLogo(buffer, filename, bucketName, chatId, false);
+      const url = await uploadLogo(buffer, filename, chatId, false);
 
-      // Should upload to storage
-      expect(mockBucket).toHaveBeenCalledWith(bucketName);
+      // Should upload to storage (uses generated-invoices bucket)
+      expect(mockBucket).toHaveBeenCalledWith('papertrail-invoice-generated-invoices');
       expect(mockFile).toHaveBeenCalledWith(`logos/${chatId}/${filename}`);
       expect(mockSave).toHaveBeenCalledWith(buffer, {
         contentType: 'image/png',
       });
 
       // Should return correct URL
-      expect(url).toBe(`https://storage.googleapis.com/${bucketName}/logos/${chatId}/${filename}`);
+      expect(url).toBe(
+        `https://storage.googleapis.com/papertrail-invoice-generated-invoices/logos/${chatId}/${filename}`
+      );
 
       // Should NOT update business_config
       expect(mockCollection).not.toHaveBeenCalled();
@@ -142,7 +152,7 @@ describe('uploadLogo', () => {
     });
 
     it('should skip config update even without chatId', async () => {
-      await uploadLogo(buffer, filename, bucketName, undefined, false);
+      await uploadLogo(buffer, filename, undefined, false);
 
       // Should upload to storage
       expect(mockSave).toHaveBeenCalled();
@@ -152,7 +162,7 @@ describe('uploadLogo', () => {
     });
 
     it('should handle different file types when skipping config update', async () => {
-      await uploadLogo(buffer, 'logo.jpg', bucketName, 123456, false);
+      await uploadLogo(buffer, 'logo.jpg', 123456, false);
 
       expect(mockSave).toHaveBeenCalledWith(buffer, {
         contentType: 'image/jpeg',
@@ -165,15 +175,13 @@ describe('uploadLogo', () => {
     it('should propagate storage upload errors', async () => {
       mockSave.mockRejectedValue(new Error('Storage upload failed'));
 
-      await expect(uploadLogo(buffer, filename, bucketName, 123456)).rejects.toThrow(
-        'Storage upload failed'
-      );
+      await expect(uploadLogo(buffer, filename, 123456)).rejects.toThrow('Storage upload failed');
     });
 
     it('should propagate Firestore update errors when updateConfig=true', async () => {
       mockSet.mockRejectedValue(new Error('Firestore update failed'));
 
-      await expect(uploadLogo(buffer, filename, bucketName, 123456, true)).rejects.toThrow(
+      await expect(uploadLogo(buffer, filename, 123456, true)).rejects.toThrow(
         'Firestore update failed'
       );
     });
@@ -182,7 +190,7 @@ describe('uploadLogo', () => {
       mockSet.mockRejectedValue(new Error('Firestore update failed'));
 
       // Should succeed because we skip the Firestore update
-      await expect(uploadLogo(buffer, filename, bucketName, 123456, false)).resolves.toBeTruthy();
+      await expect(uploadLogo(buffer, filename, 123456, false)).resolves.toBeTruthy();
     });
   });
 });

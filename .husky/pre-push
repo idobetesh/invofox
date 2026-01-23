@@ -1,0 +1,2 @@
+echo "🧪 Running tests before push..."
+make test

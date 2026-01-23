@@ -5,8 +5,6 @@
 
 import { Storage } from '@google-cloud/storage';
 import { Firestore, FieldValue, Timestamp } from '@google-cloud/firestore';
-import * as fs from 'fs';
-import * as path from 'path';
 import type {
   InvoiceData,
   BusinessConfig,
@@ -45,41 +43,9 @@ function getFirestore(): Firestore {
  * @param chatId - Optional chat ID for customer-specific config
  */
 export async function loadBusinessConfig(chatId?: number): Promise<BusinessConfig> {
-  try {
-    // Try Firestore first (production)
-    const config = await getBusinessConfig(chatId);
-    logger.info({ chatId }, 'Loaded business config from Firestore');
-    return config;
-  } catch {
-    // Fall back to local file (development)
-    logger.debug('Firestore unavailable, trying local config files');
-  }
-
-  const configPath = path.resolve(__dirname, '../../../../invoice-config.json');
-  const exampleConfigPath = path.resolve(__dirname, '../../../../invoice-config.example.json');
-
-  try {
-    // Try to load actual config first
-    if (fs.existsSync(configPath)) {
-      const configContent = fs.readFileSync(configPath, 'utf-8');
-      const config = JSON.parse(configContent) as BusinessConfig;
-      logger.info('Loaded invoice config from invoice-config.json');
-      return config;
-    } else if (fs.existsSync(exampleConfigPath)) {
-      // Fall back to example config (for development/testing)
-      const configContent = fs.readFileSync(exampleConfigPath, 'utf-8');
-      const config = JSON.parse(configContent) as BusinessConfig;
-      logger.warn('Using example invoice config - create invoice-config.json for production');
-      return config;
-    } else {
-      throw new Error('No invoice config file found');
-    }
-  } catch (error) {
-    logger.error({ error }, 'Failed to load business config');
-    throw new Error(
-      `Failed to load invoice config: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
-  }
+  const config = await getBusinessConfig(chatId);
+  logger.info({ chatId }, 'Loaded business config from Firestore');
+  return config;
 }
 
 /**

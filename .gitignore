@@ -67,9 +67,6 @@ secrets/
 infra/firestore.rules
 infra/firestore.indexes.json
 
-# Invoice generation config (contains business details)
-services/worker/invoice-config.json
-
 # Customer configs (contains business details)
 services/worker/configs/*.json
 !services/worker/configs/.gitkeep
