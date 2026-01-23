@@ -32,10 +32,10 @@ function getSheets(): sheets_v4.Sheets {
 async function getSheetIdForCustomer(chatId: number): Promise<string | null> {
   // Get customer-specific sheet ID from business config
   const businessConfig = await getBusinessConfig(chatId);
-
-  if (businessConfig.business.sheetId) {
-    logger.debug({ chatId, sheetId: businessConfig.business.sheetId }, 'Using per-customer sheet');
-    return businessConfig.business.sheetId;
+  const { sheetId } = businessConfig.business;
+  if (sheetId) {
+    logger.debug({ chatId, sheetId }, 'Using per-customer sheet');
+    return sheetId;
   }
 
   // No sheet configured - do NOT use global fallback to avoid cross-contamination
@@ -247,7 +247,9 @@ export async function appendRow(chatId: number, row: SheetRow): Promise<number |
   const sheetId = await getSheetIdForCustomer(chatId);
 
   if (!sheetId) {
-    const error = `No Google Sheet configured for customer ${chatId}. Please configure sheetId in business_config.`;
+    // No sheet configured - THIS IS A CONFIGURATION ERROR
+    // Every business MUST have a sheetId configured
+    const error = `No Google Sheet configured for customer ${chatId}. Every business must have sheetId in business_config/chat_${chatId}`;
     logger.error({ chatId }, error);
     throw new Error(error);
   }

@@ -103,21 +103,6 @@ export async function userHasAccessToCustomer(userId: number, chatId: number): P
 }
 
 /**
- * Get user's default customer (first one or most recently added)
- * Useful when user sends command in private chat
- */
-export async function getUserDefaultCustomer(userId: number): Promise<number | null> {
-  const customers = await getUserCustomers(userId);
-
-  if (customers.length === 0) {
-    return null;
-  }
-
-  // Return first customer (could be enhanced to track "last used")
-  return customers[0].chatId;
-}
-
-/**
  * Remove user from customer (e.g., when they leave the group)
  */
 export async function removeUserFromCustomer(userId: number, chatId: number): Promise<void> {

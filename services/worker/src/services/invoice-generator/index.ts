@@ -243,5 +243,5 @@ export async function getGeneratedInvoice(
 // Re-export sub-services
 export * from './counter.service';
 export * from './session.service';
-export { generateInvoicePDF } from './pdf.generator';
+export { generateInvoicePDFWithConfig } from './pdf.generator';
 export { buildInvoiceHTML, escapeHtml } from './template';

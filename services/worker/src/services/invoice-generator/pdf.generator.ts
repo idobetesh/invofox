@@ -7,7 +7,6 @@
 import { chromium } from 'playwright';
 import type { InvoiceData, BusinessConfig } from '../../../../../shared/types';
 import { buildInvoiceHTML } from './template';
-import { getBusinessConfig, getLogoBase64 } from '../business-config/config.service';
 import logger from '../../logger';
 
 // Chromium launch arguments for Docker/headless environment
@@ -36,76 +35,12 @@ const CHROMIUM_ARGS = [
 ];
 
 /**
- * Generate PDF from invoice data
- * Loads business config and logo from Firestore
- * Returns PDF as Buffer
- */
-export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
-  const log = logger.child({ invoiceNumber: data.invoiceNumber });
-  log.info('Starting PDF generation');
-
-  // Load business config and logo from Firestore
-  const [businessConfig, logoBase64] = await Promise.all([getBusinessConfig(), getLogoBase64()]);
-
-  log.debug({ hasLogo: !!logoBase64 }, 'Loaded business config from Firestore');
-
-  let browser = null;
-
-  try {
-    // Launch browser using Playwright
-    // Playwright handles crashpad and browser setup internally
-    browser = await chromium.launch({
-      headless: true,
-      args: CHROMIUM_ARGS,
-    });
-
-    log.debug('Browser launched');
-
-    // Create new page
-    const page = await browser.newPage();
-
-    // Build HTML content with logo
-    const html = buildInvoiceHTML(data, businessConfig, logoBase64);
-
-    // Set content with wait for fonts to load
-    await page.setContent(html, {
-      waitUntil: 'networkidle',
-    });
-
-    log.debug('HTML content loaded');
-
-    // Generate PDF
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '20mm',
-        right: '15mm',
-        bottom: '20mm',
-        left: '15mm',
-      },
-    });
-
-    log.info({ pdfSize: pdfBuffer.length }, 'PDF generated successfully');
-
-    // Playwright returns Buffer directly
-    return pdfBuffer;
-  } catch (error) {
-    log.error({ error }, 'Failed to generate PDF');
-    throw new Error(
-      `PDF generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
-  } finally {
-    if (browser) {
-      await browser.close();
-      log.debug('Browser closed');
-    }
-  }
-}
-
-/**
- * Generate PDF from invoice data with custom config
- * Used for testing/previewing without Firestore
+ * Generate PDF from invoice data with business config
+ *
+ * @param data - Invoice data
+ * @param businessConfig - Business configuration
+ * @param logoBase64 - Base64-encoded logo image (optional)
+ * @returns PDF as Buffer
  */
 export async function generateInvoicePDFWithConfig(
   data: InvoiceData,

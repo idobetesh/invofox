@@ -7,7 +7,6 @@ import {
   addUserToCustomer,
   getUserCustomers,
   userHasAccessToCustomer,
-  getUserDefaultCustomer,
   removeUserFromCustomer,
   updateUserActivity,
 } from '../../src/services/customer/user-mapping.service';
@@ -198,23 +197,6 @@ describe('User-to-Customer Mapping Service', () => {
 
       const hasAccess = await userHasAccessToCustomer(userId, -1002222222);
       expect(hasAccess).toBe(false);
-    });
-  });
-
-  describe('getUserDefaultCustomer', () => {
-    it('should return null for user with no customers', async () => {
-      const defaultCustomer = await getUserDefaultCustomer(999999);
-      expect(defaultCustomer).toBeNull();
-    });
-
-    it('should return first customer for user with multiple customers', async () => {
-      const userId = 123456;
-
-      await addUserToCustomer(userId, 'testuser', -1001111111, 'Company A');
-      await addUserToCustomer(userId, 'testuser', -1002222222, 'Company B');
-
-      const defaultCustomer = await getUserDefaultCustomer(userId);
-      expect(defaultCustomer).toBe(-1001111111);
     });
   });
 

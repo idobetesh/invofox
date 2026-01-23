@@ -86,7 +86,7 @@ export async function getBusinessConfig(
   const db = getFirestore();
   const log = logger.child({ collection: COLLECTION_NAME, chatId });
 
-  // Try chat-specific config first
+  // If chatId provided, MUST have chat-specific config (no fallback)
   if (chatId) {
     const chatDocRef = db.collection(COLLECTION_NAME).doc(getDocIdForChat(chatId));
     const chatDoc = await chatDocRef.get();
@@ -99,22 +99,25 @@ export async function getBusinessConfig(
       return config;
     }
 
-    log.debug('No chat-specific config, falling back to default');
+    // No config found - business not onboarded!
+    const error = `Business not found. Chat ${chatId} must complete onboarding first to create business_config/chat_${chatId}`;
+    log.error(error);
+    throw new Error(error);
   }
 
-  // Fall back to default config
+  // No chatId provided - only then use default (system-level operations)
   const defaultDocRef = db.collection(COLLECTION_NAME).doc(DEFAULT_DOC_ID);
   const defaultDoc = await defaultDocRef.get();
 
   if (!defaultDoc.exists) {
-    log.warn('Business config not found in Firestore, using defaults');
+    log.warn('Default config not found in Firestore, using hardcoded defaults');
     return getDefaultConfig();
   }
 
   const data = defaultDoc.data() as BusinessConfigDocument;
   const config = parseConfigDocument(data);
   configCache.set(cacheKey, config);
-  log.info('Default business config loaded');
+  log.info('Default business config loaded (system-level operation)');
   return config;
 }
 
