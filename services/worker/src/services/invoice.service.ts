@@ -368,23 +368,26 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
       driveLink
     );
 
-    // Update job step and send message
+    // CRITICAL: Mark job as completed BEFORE sending message
+    // This prevents duplicate messages if message send fails or takes long
     await Promise.all([
-      storeService.updateJobStep(chatId, messageId, currentStep, { sheetRowId }),
-      telegramService.sendMessage(chatId, ackMessage, {
-        parseMode: 'Markdown',
-        replyToMessageId: messageId,
-        disableWebPagePreview: true,
+      storeService.markJobCompleted(chatId, messageId, {
+        driveFileId: driveFileIds[0],
+        driveLink,
+        sheetRowId,
       }),
+      storeService.updateJobStep(chatId, messageId, currentStep, { sheetRowId }),
     ]);
-    log.info('ACK message sent and job step updated');
+    log.info('Job marked as completed');
 
-    // Mark job as completed
-    await storeService.markJobCompleted(chatId, messageId, {
-      driveFileId: driveFileIds[0],
-      driveLink,
-      sheetRowId,
+    // NOW send the success message (after job is marked complete)
+    // If this fails, job won't retry because it's already marked complete
+    await telegramService.sendMessage(chatId, ackMessage, {
+      parseMode: 'Markdown',
+      replyToMessageId: messageId,
+      disableWebPagePreview: true,
     });
+    log.info('ACK message sent');
 
     log.info({ isDuplicate: !!duplicate }, 'Invoice processing completed successfully');
 
