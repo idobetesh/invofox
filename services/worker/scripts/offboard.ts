@@ -9,15 +9,22 @@
  * Usage:
  *   npx ts-node scripts/offboard.ts --chat-id <chatId>
  *   npx ts-node scripts/offboard.ts --user-id <userId>
+ *
+ * Environment Variables:
+ *   GCP_PROJECT_ID              - GCP project ID (default: papertrail-invoice)
+ *   STORAGE_BUCKET              - Invoices bucket (default: papertrail-invoice-invoices)
+ *   GENERATED_INVOICES_BUCKET   - Generated invoices bucket (default: papertrail-invoice-generated-invoices)
  */
 
 import { Storage } from '@google-cloud/storage';
 import { Firestore } from '@google-cloud/firestore';
 import * as readline from 'readline';
 
-const PROJECT_ID = 'papertrail-invoice';
-const INVOICES_BUCKET = 'papertrail-invoice-invoices';
-const GENERATED_BUCKET = 'papertrail-invoice-generated-invoices';
+// Environment-aware configuration
+const PROJECT_ID = process.env.GCP_PROJECT_ID || 'papertrail-invoice';
+const INVOICES_BUCKET = process.env.STORAGE_BUCKET || 'papertrail-invoice-invoices';
+const GENERATED_BUCKET =
+  process.env.GENERATED_INVOICES_BUCKET || 'papertrail-invoice-generated-invoices';
 
 interface DeletionReport {
   mode: 'chat' | 'user';
@@ -29,6 +36,17 @@ interface DeletionReport {
     collections: Record<string, number>;
     buckets: Record<string, number>;
   };
+}
+
+/**
+ * Helper function to check if a chatId matches the target
+ * Handles both string and number comparisons
+ */
+function matchesChatId(chatId: number | string | undefined | null, target: string): boolean {
+  if (chatId === null || chatId === undefined) {
+    return false;
+  }
+  return chatId.toString() === target || chatId === parseInt(target, 10);
 }
 
 function confirm(question: string): Promise<boolean> {
@@ -78,11 +96,7 @@ async function offboardBusiness(
       const data = doc.data();
       const customers = data.customers || [];
 
-      if (
-        customers.some(
-          (c: { chatId: number }) => c.chatId.toString() === chatId || c.chatId === parseInt(chatId)
-        )
-      ) {
+      if (customers.some((c: { chatId: number }) => matchesChatId(c.chatId, chatId))) {
         associatedUserIds.add(data.userId.toString());
         console.log(`   👤 User ${data.userId} (${data.username}) has access`);
       }
@@ -113,8 +127,8 @@ async function offboardBusiness(
           doc.id === chatId ||
           doc.id.includes(`chat_${chatId}`) ||
           doc.id.includes(`${chatId}_`) ||
-          data.chatId?.toString() === chatId ||
-          data.telegramChatId?.toString() === chatId
+          matchesChatId(data.chatId, chatId) ||
+          matchesChatId(data.telegramChatId, chatId)
         ) {
           matches.push(doc.id);
         }
@@ -135,10 +149,7 @@ async function offboardBusiness(
 
     for (const doc of genSnapshot.docs) {
       const data = doc.data();
-      if (
-        data.generatedBy?.chatId?.toString() === chatId ||
-        data.generatedBy?.chatId === parseInt(chatId)
-      ) {
+      if (matchesChatId(data.generatedBy?.chatId, chatId)) {
         matches.push(doc.id);
       }
     }
@@ -305,8 +316,7 @@ async function offboardBusiness(
         if (doc.exists) {
           const data = doc.data();
           const customers = (data?.customers || []).filter(
-            (c: { chatId: number }) =>
-              c.chatId.toString() !== chatId && c.chatId !== parseInt(chatId)
+            (c: { chatId: number }) => !matchesChatId(c.chatId, chatId)
           );
 
           if (customers.length === 0) {
