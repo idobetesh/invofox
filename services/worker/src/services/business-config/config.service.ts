@@ -134,6 +134,7 @@ function parseConfigDocument(data: BusinessConfigDocument): BusinessConfig {
       email: data.business.email,
       phone: data.business.phone,
       address: data.business.address,
+      sheetId: data.business.sheetId,
     },
     invoice: {
       digitalSignatureText: data.invoice.digitalSignatureText,
