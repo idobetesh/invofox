@@ -3,6 +3,7 @@
  */
 
 import { Request, Response } from 'express';
+import { StatusCodes } from 'http-status-codes';
 import { getRetryCount, getMaxRetries } from '../middlewares/cloudTasks';
 import * as invoiceService from '../services/invoice.service';
 import * as storeService from '../services/store.service';
@@ -28,7 +29,7 @@ export async function processInvoice(req: Request, res: Response): Promise<void>
     typeof payload.fileId !== 'string'
   ) {
     logger.error({ payload }, 'Invalid payload');
-    res.status(400).json({ error: 'Invalid payload' });
+    res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid payload' });
     return;
   }
 
@@ -48,7 +49,7 @@ export async function processInvoice(req: Request, res: Response): Promise<void>
         { chatId: payload.chatId, messageId: payload.messageId },
         'Invoice already processed'
       );
-      res.status(200).json({ ok: true, action: 'already_processed' });
+      res.status(StatusCodes.OK).json({ ok: true, action: 'already_processed' });
       return;
     }
 
@@ -56,7 +57,7 @@ export async function processInvoice(req: Request, res: Response): Promise<void>
       { chatId: payload.chatId, messageId: payload.messageId, driveLink: result.driveLink },
       'Invoice processed successfully'
     );
-    res.status(200).json({ ok: true, action: 'processed' });
+    res.status(StatusCodes.OK).json({ ok: true, action: 'processed' });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error(
@@ -87,7 +88,7 @@ export async function processInvoice(req: Request, res: Response): Promise<void>
       );
 
       // Return success to prevent further retries
-      res.status(200).json({
+      res.status(StatusCodes.OK).json({
         ok: false,
         action: 'failed_permanently',
         error: lastError,
@@ -96,7 +97,7 @@ export async function processInvoice(req: Request, res: Response): Promise<void>
     }
 
     // Return 500 to trigger retry
-    res.status(500).json({
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       ok: false,
       action: 'retry',
       error: errorMessage,
@@ -117,16 +118,16 @@ export async function notifyFailure(req: Request, res: Response): Promise<void> 
   };
 
   if (!chatId || !messageId || !lastStep || !error) {
-    res.status(400).json({ error: 'Missing required fields' });
+    res.status(StatusCodes.BAD_REQUEST).json({ error: 'Missing required fields' });
     return;
   }
 
   try {
     await invoiceService.sendFailureNotification(chatId, messageId, lastStep, error);
-    res.status(200).json({ ok: true });
+    res.status(StatusCodes.OK).json({ ok: true });
   } catch (err) {
     const errMessage = err instanceof Error ? err.message : 'Unknown error';
-    res.status(500).json({ error: errMessage });
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: errMessage });
   }
 }
 
@@ -147,7 +148,7 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
   logger.info({ receivedBody: JSON.stringify(body) }, 'Callback request received');
 
   if (!callbackQueryId || !data) {
-    res.status(400).json({ error: 'Missing callback data' });
+    res.status(StatusCodes.BAD_REQUEST).json({ error: 'Missing callback data' });
     return;
   }
 
@@ -178,10 +179,10 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
 
     if (result.success) {
       log.info({ action, chatId, messageId }, 'Callback processed successfully');
-      res.status(200).json({ ok: true, action });
+      res.status(StatusCodes.OK).json({ ok: true, action });
     } else {
       log.warn({ error: result.error }, 'Callback processing failed');
-      res.status(200).json({ ok: false, error: result.error });
+      res.status(StatusCodes.OK).json({ ok: false, error: result.error });
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -197,6 +198,6 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
       // Ignore answer errors
     }
 
-    res.status(500).json({ error: errorMessage });
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: errorMessage });
   }
 }

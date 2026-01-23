@@ -3,6 +3,7 @@
  */
 
 import { Request, Response } from 'express';
+import { StatusCodes } from 'http-status-codes';
 import { getConfig } from '../config';
 import * as telegramService from '../services/telegram.service';
 import * as tasksService from '../services/tasks.service';
@@ -20,7 +21,7 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
   // Validate secret path
   if (secretPath !== config.webhookSecretPath) {
     logger.warn('Invalid webhook secret path received');
-    res.status(404).json({ error: 'Not found' });
+    res.status(StatusCodes.NOT_FOUND).json({ error: 'Not found' });
     return;
   }
 
@@ -28,7 +29,7 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
   const update = telegramService.parseUpdate(req.body);
   if (!update) {
     logger.warn({ body: req.body }, 'Invalid Telegram update received');
-    res.status(400).json({ error: 'Invalid update' });
+    res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid update' });
     return;
   }
 
@@ -66,7 +67,7 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
   // This is checked AFTER text messages so /skip can work during onboarding
   if (telegramService.isCommand(update)) {
     logger.debug('Ignoring unknown command message');
-    res.status(200).json({ ok: true, action: 'ignored_command' });
+    res.status(StatusCodes.OK).json({ ok: true, action: 'ignored_command' });
     return;
   }
 
@@ -76,7 +77,7 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
     const payload = telegramService.extractTaskPayload(update);
     if (!payload) {
       logger.error('Failed to extract payload from photo message');
-      res.status(400).json({ error: 'Failed to extract payload' });
+      res.status(StatusCodes.BAD_REQUEST).json({ error: 'Failed to extract payload' });
       return;
     }
 
@@ -93,14 +94,16 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
         const taskName = await tasksService.enqueueOnboardingPhotoTask(payload, config);
         logger.info({ taskName }, 'Onboarding photo task enqueued successfully');
 
-        res.status(200).json({
+        res.status(StatusCodes.OK).json({
           ok: true,
           action: 'onboarding_photo_enqueued',
           task: taskName,
         });
       } catch (error) {
         logger.error({ error }, 'Failed to enqueue onboarding photo task');
-        res.status(500).json({ error: 'Failed to enqueue onboarding photo task' });
+        res
+          .status(StatusCodes.INTERNAL_SERVER_ERROR)
+          .json({ error: 'Failed to enqueue onboarding photo task' });
       }
       return;
     }
@@ -115,14 +118,14 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
       const taskName = await tasksService.enqueueProcessingTask(payload, config);
       logger.info({ taskName }, 'Task enqueued successfully');
 
-      res.status(200).json({
+      res.status(StatusCodes.OK).json({
         ok: true,
         action: 'enqueued',
         task: taskName,
       });
     } catch (error) {
       logger.error({ error }, 'Failed to enqueue task');
-      res.status(500).json({ error: 'Failed to enqueue task' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to enqueue task' });
     }
     return;
   }
@@ -131,7 +134,7 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
   if (telegramService.isDocumentMessage(update)) {
     if (!telegramService.isSupportedDocument(update)) {
       logger.debug('Ignoring unsupported document type');
-      res.status(200).json({ ok: true, action: 'ignored_unsupported_document' });
+      res.status(StatusCodes.OK).json({ ok: true, action: 'ignored_unsupported_document' });
       return;
     }
 
@@ -141,7 +144,7 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
 
     if (!document || !telegramService.isFileSizeValid(document)) {
       logger.warn({ fileSize: document?.file_size }, 'Document exceeds size limit (5 MB)');
-      res.status(200).json({ ok: true, action: 'rejected_size_limit' });
+      res.status(StatusCodes.OK).json({ ok: true, action: 'rejected_size_limit' });
       return;
     }
 
@@ -149,7 +152,7 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
     const payload = telegramService.extractDocumentTaskPayload(update);
     if (!payload) {
       logger.error('Failed to extract document payload');
-      res.status(400).json({ error: 'Failed to extract payload' });
+      res.status(StatusCodes.BAD_REQUEST).json({ error: 'Failed to extract payload' });
       return;
     }
 
@@ -171,14 +174,16 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
         const taskName = await tasksService.enqueueOnboardingPhotoTask(payload, config);
         logger.info({ taskName }, 'Onboarding image document task enqueued successfully');
 
-        res.status(200).json({
+        res.status(StatusCodes.OK).json({
           ok: true,
           action: 'onboarding_photo_enqueued',
           task: taskName,
         });
       } catch (error) {
         logger.error({ error }, 'Failed to enqueue onboarding photo task');
-        res.status(500).json({ error: 'Failed to enqueue onboarding photo task' });
+        res
+          .status(StatusCodes.INTERNAL_SERVER_ERROR)
+          .json({ error: 'Failed to enqueue onboarding photo task' });
       }
       return;
     }
@@ -199,21 +204,21 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
       const taskName = await tasksService.enqueueProcessingTask(payload, config);
       logger.info({ taskName }, 'Document task enqueued successfully');
 
-      res.status(200).json({
+      res.status(StatusCodes.OK).json({
         ok: true,
         action: 'enqueued',
         task: taskName,
       });
     } catch (error) {
       logger.error({ error }, 'Failed to enqueue document task');
-      res.status(500).json({ error: 'Failed to enqueue task' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to enqueue task' });
     }
     return;
   }
 
   // Ignore all other message types
   logger.debug('Ignoring non-photo, non-document message');
-  res.status(200).json({ ok: true, action: 'ignored' });
+  res.status(StatusCodes.OK).json({ ok: true, action: 'ignored' });
 }
 
 /**
@@ -225,14 +230,14 @@ async function handleCallbackQuery(
   res: Response
 ): Promise<void> {
   if (!update) {
-    res.status(400).json({ error: 'Invalid update' });
+    res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid update' });
     return;
   }
 
   const callbackPayload = telegramService.extractCallbackPayload(update);
   if (!callbackPayload) {
     logger.error('Failed to extract callback payload');
-    res.status(400).json({ error: 'Failed to extract callback payload' });
+    res.status(StatusCodes.BAD_REQUEST).json({ error: 'Failed to extract callback payload' });
     return;
   }
 
@@ -241,7 +246,9 @@ async function handleCallbackQuery(
     const onboardingPayload = telegramService.extractInvoiceCallbackPayload(update);
     if (!onboardingPayload) {
       logger.error('Failed to extract onboarding callback payload');
-      res.status(400).json({ error: 'Failed to extract onboarding callback payload' });
+      res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ error: 'Failed to extract onboarding callback payload' });
       return;
     }
 
@@ -254,14 +261,16 @@ async function handleCallbackQuery(
       const taskName = await tasksService.enqueueOnboardCallbackTask(onboardingPayload, config);
       logger.info({ taskName }, 'Onboarding callback task enqueued successfully');
 
-      res.status(200).json({
+      res.status(StatusCodes.OK).json({
         ok: true,
         action: 'onboarding_callback_enqueued',
         task: taskName,
       });
     } catch (error) {
       logger.error({ error }, 'Failed to enqueue onboarding callback task');
-      res.status(500).json({ error: 'Failed to enqueue onboarding callback task' });
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ error: 'Failed to enqueue onboarding callback task' });
     }
     return;
   }
@@ -271,7 +280,9 @@ async function handleCallbackQuery(
     const invoicePayload = telegramService.extractInvoiceCallbackPayload(update);
     if (!invoicePayload) {
       logger.error('Failed to extract invoice callback payload');
-      res.status(400).json({ error: 'Failed to extract invoice callback payload' });
+      res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ error: 'Failed to extract invoice callback payload' });
       return;
     }
 
@@ -284,14 +295,16 @@ async function handleCallbackQuery(
       const taskName = await tasksService.enqueueInvoiceCallbackTask(invoicePayload, config);
       logger.info({ taskName }, 'Invoice callback task enqueued successfully');
 
-      res.status(200).json({
+      res.status(StatusCodes.OK).json({
         ok: true,
         action: 'invoice_callback_enqueued',
         task: taskName,
       });
     } catch (error) {
       logger.error({ error }, 'Failed to enqueue invoice callback task');
-      res.status(500).json({ error: 'Failed to enqueue invoice callback task' });
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ error: 'Failed to enqueue invoice callback task' });
     }
     return;
   }
@@ -306,14 +319,16 @@ async function handleCallbackQuery(
     const taskName = await tasksService.enqueueCallbackTask(callbackPayload, config);
     logger.info({ taskName }, 'Callback task enqueued successfully');
 
-    res.status(200).json({
+    res.status(StatusCodes.OK).json({
       ok: true,
       action: 'callback_enqueued',
       task: taskName,
     });
   } catch (error) {
     logger.error({ error }, 'Failed to enqueue callback task');
-    res.status(500).json({ error: 'Failed to enqueue callback task' });
+    res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to enqueue callback task' });
   }
 }
 
@@ -326,14 +341,16 @@ async function handleInvoiceCommand(
   res: Response
 ): Promise<void> {
   if (!update) {
-    res.status(400).json({ error: 'Invalid update' });
+    res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid update' });
     return;
   }
 
   const payload = telegramService.extractInvoiceCommandPayload(update);
   if (!payload) {
     logger.error('Failed to extract invoice command payload');
-    res.status(400).json({ error: 'Failed to extract invoice command payload' });
+    res
+      .status(StatusCodes.BAD_REQUEST)
+      .json({ error: 'Failed to extract invoice command payload' });
     return;
   }
 
@@ -346,14 +363,16 @@ async function handleInvoiceCommand(
     const taskName = await tasksService.enqueueInvoiceCommandTask(payload, config);
     logger.info({ taskName }, 'Invoice command task enqueued successfully');
 
-    res.status(200).json({
+    res.status(StatusCodes.OK).json({
       ok: true,
       action: 'invoice_command_enqueued',
       task: taskName,
     });
   } catch (error) {
     logger.error({ error }, 'Failed to enqueue invoice command task');
-    res.status(500).json({ error: 'Failed to enqueue invoice command task' });
+    res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to enqueue invoice command task' });
   }
 }
 
@@ -366,7 +385,7 @@ async function handleTextMessage(
   res: Response
 ): Promise<void> {
   if (!update) {
-    res.status(400).json({ error: 'Invalid update' });
+    res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid update' });
     return;
   }
 
@@ -374,7 +393,7 @@ async function handleTextMessage(
   if (!payload) {
     // Not a valid message
     logger.debug('Text message not suitable for processing');
-    res.status(200).json({ ok: true, action: 'ignored_text' });
+    res.status(StatusCodes.OK).json({ ok: true, action: 'ignored_text' });
     return;
   }
 
@@ -392,14 +411,16 @@ async function handleTextMessage(
       const taskName = await tasksService.enqueueOnboardMessageTask(payload, config);
       logger.info({ taskName }, 'Onboarding message task enqueued successfully');
 
-      res.status(200).json({
+      res.status(StatusCodes.OK).json({
         ok: true,
         action: 'onboarding_message_enqueued',
         task: taskName,
       });
     } catch (error) {
       logger.error({ error }, 'Failed to enqueue onboarding message task');
-      res.status(500).json({ error: 'Failed to enqueue onboarding message task' });
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ error: 'Failed to enqueue onboarding message task' });
     }
     return;
   }
@@ -418,14 +439,16 @@ async function handleTextMessage(
       const taskName = await tasksService.enqueueInvoiceMessageTask(payload, config);
       logger.info({ taskName }, 'Invoice message task enqueued successfully');
 
-      res.status(200).json({
+      res.status(StatusCodes.OK).json({
         ok: true,
         action: 'invoice_message_enqueued',
         task: taskName,
       });
     } catch (error) {
       logger.error({ error }, 'Failed to enqueue invoice message task');
-      res.status(500).json({ error: 'Failed to enqueue invoice message task' });
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ error: 'Failed to enqueue invoice message task' });
     }
   } else {
     // Not approved - route to onboarding flow
@@ -438,14 +461,16 @@ async function handleTextMessage(
       const taskName = await tasksService.enqueueOnboardMessageTask(payload, config);
       logger.info({ taskName }, 'Onboarding message task enqueued successfully');
 
-      res.status(200).json({
+      res.status(StatusCodes.OK).json({
         ok: true,
         action: 'onboarding_message_enqueued',
         task: taskName,
       });
     } catch (error) {
       logger.error({ error }, 'Failed to enqueue onboarding message task');
-      res.status(500).json({ error: 'Failed to enqueue onboarding message task' });
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ error: 'Failed to enqueue onboarding message task' });
     }
   }
 }
@@ -459,14 +484,16 @@ async function handleOnboardCommand(
   res: Response
 ): Promise<void> {
   if (!update) {
-    res.status(400).json({ error: 'Invalid update' });
+    res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid update' });
     return;
   }
 
   const payload = telegramService.extractInvoiceCommandPayload(update);
   if (!payload) {
     logger.error('Failed to extract onboard command payload');
-    res.status(400).json({ error: 'Failed to extract onboard command payload' });
+    res
+      .status(StatusCodes.BAD_REQUEST)
+      .json({ error: 'Failed to extract onboard command payload' });
     return;
   }
 
@@ -475,7 +502,7 @@ async function handleOnboardCommand(
     const status = await rateLimiter.getRateLimitStatus(payload.chatId);
     logger.warn({ chatId: payload.chatId, status }, 'Onboard command blocked: rate limit exceeded');
     // Silently ignore (no task created, no further processing)
-    res.status(200).json({
+    res.status(StatusCodes.OK).json({
       ok: true,
       action: 'ignored_rate_limited',
     });
@@ -491,13 +518,15 @@ async function handleOnboardCommand(
     const taskName = await tasksService.enqueueOnboardCommandTask(payload, config);
     logger.info({ taskName }, 'Onboard command task enqueued successfully');
 
-    res.status(200).json({
+    res.status(StatusCodes.OK).json({
       ok: true,
       action: 'onboard_command_enqueued',
       task: taskName,
     });
   } catch (error) {
     logger.error({ error }, 'Failed to enqueue onboard command task');
-    res.status(500).json({ error: 'Failed to enqueue onboard command task' });
+    res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json({ error: 'Failed to enqueue onboard command task' });
   }
 }

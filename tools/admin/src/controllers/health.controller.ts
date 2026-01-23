@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { StatusCodes } from 'http-status-codes';
 import { HealthService } from '../services/health.service';
 
 export class HealthController {
@@ -13,7 +14,7 @@ export class HealthController {
       res.json(healthStatus);
     } catch (error) {
       console.error('Error checking health:', error);
-      res.status(500).json({
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         overall: 'unhealthy',
         services: [],
         version: { sha: 'unknown', shortSha: 'unknown' },

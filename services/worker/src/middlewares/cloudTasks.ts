@@ -3,17 +3,14 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import { StatusCodes } from 'http-status-codes';
 import logger from '../logger';
 
 /**
  * Validate Cloud Tasks request headers
  * In production, verify the OIDC token
  */
-export function validateCloudTasks(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
+export function validateCloudTasks(req: Request, res: Response, next: NextFunction): void {
   // Cloud Tasks sends these headers
   const taskName = req.headers['x-cloudtasks-taskname'];
   const queueName = req.headers['x-cloudtasks-queuename'];
@@ -26,7 +23,7 @@ export function validateCloudTasks(
 
   if (!taskName || !queueName) {
     logger.warn('Invalid task request received - missing Cloud Tasks headers');
-    res.status(403).json({ error: 'Forbidden' });
+    res.status(StatusCodes.FORBIDDEN).json({ error: 'Forbidden' });
     return;
   }
 

@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { StatusCodes } from 'http-status-codes';
 
 /**
  * Optional password protection middleware
@@ -12,7 +13,9 @@ export function requireAuth(adminPassword?: string) {
 
     const authHeader = req.headers.authorization;
     if (!authHeader || authHeader !== `Bearer ${adminPassword}`) {
-      return res.status(401).json({ error: 'Unauthorized. Set ADMIN_PASSWORD env var.' });
+      return res
+        .status(StatusCodes.UNAUTHORIZED)
+        .json({ error: 'Unauthorized. Set ADMIN_PASSWORD env var.' });
     }
 
     next();

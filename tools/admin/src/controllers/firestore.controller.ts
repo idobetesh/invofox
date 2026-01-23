@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { StatusCodes } from 'http-status-codes';
 import { FirestoreService } from '../services/firestore.service';
 
 export class FirestoreController {
@@ -13,7 +14,7 @@ export class FirestoreController {
       res.json({ collections });
     } catch (error) {
       console.error('Error listing collections:', error);
-      res.status(500).json({ error: 'Failed to list collections' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to list collections' });
     }
   };
 
@@ -34,7 +35,7 @@ export class FirestoreController {
       res.json(result);
     } catch (error) {
       console.error(`Error listing documents in ${req.params.collectionName}:`, error);
-      res.status(500).json({
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         error: `Failed to list documents: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     }
@@ -49,14 +50,14 @@ export class FirestoreController {
       const document = await this.firestoreService.getDocument(collectionName, documentId);
 
       if (!document) {
-        res.status(404).json({ error: 'Document not found' });
+        res.status(StatusCodes.NOT_FOUND).json({ error: 'Document not found' });
         return;
       }
 
       res.json(document);
     } catch (error) {
       console.error('Error getting document:', error);
-      res.status(500).json({ error: 'Failed to get document' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get document' });
     }
   };
 
@@ -69,7 +70,9 @@ export class FirestoreController {
       const { confirm } = req.body;
 
       if (confirm !== true) {
-        res.status(400).json({ error: 'Deletion requires confirm: true in request body' });
+        res
+          .status(StatusCodes.BAD_REQUEST)
+          .json({ error: 'Deletion requires confirm: true in request body' });
         return;
       }
 
@@ -77,7 +80,7 @@ export class FirestoreController {
       res.json({ success: true, message: 'Document deleted successfully' });
     } catch (error) {
       console.error('Error deleting document:', error);
-      res.status(500).json({ error: 'Failed to delete document' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to delete document' });
     }
   };
 
@@ -90,12 +93,14 @@ export class FirestoreController {
       const { documentIds, confirm } = req.body;
 
       if (confirm !== true) {
-        res.status(400).json({ error: 'Deletion requires confirm: true' });
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Deletion requires confirm: true' });
         return;
       }
 
       if (!Array.isArray(documentIds) || documentIds.length === 0) {
-        res.status(400).json({ error: 'documentIds must be a non-empty array' });
+        res
+          .status(StatusCodes.BAD_REQUEST)
+          .json({ error: 'documentIds must be a non-empty array' });
         return;
       }
 
@@ -103,7 +108,7 @@ export class FirestoreController {
       res.json({ success: true, deleted: documentIds.length });
     } catch (error) {
       console.error('Error deleting documents:', error);
-      res.status(500).json({ error: 'Failed to delete documents' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to delete documents' });
     }
   };
 
@@ -114,16 +119,16 @@ export class FirestoreController {
     try {
       const { collectionName, documentId } = req.params;
       console.log(`Update request: ${req.method} ${req.path}`, { collectionName, documentId });
-      
+
       const { data, confirm } = req.body;
 
       if (confirm !== true) {
-        res.status(400).json({ error: 'Update requires confirm: true' });
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Update requires confirm: true' });
         return;
       }
 
       if (!data || typeof data !== 'object') {
-        res.status(400).json({ error: 'data must be a valid object' });
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'data must be a valid object' });
         return;
       }
 
@@ -140,7 +145,7 @@ export class FirestoreController {
       });
     } catch (error) {
       console.error('Error updating document:', error);
-      res.status(500).json({
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         error: `Failed to update document: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     }

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { StatusCodes } from 'http-status-codes';
 import { CustomerService } from '../services/customer.service';
 
 export class CustomerController {
@@ -13,7 +14,7 @@ export class CustomerController {
       res.json({ customers });
     } catch (error) {
       console.error('Error listing customers:', error);
-      res.status(500).json({
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         error: `Failed to list customers: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     }
@@ -27,7 +28,7 @@ export class CustomerController {
       const chatId = parseInt(req.params.chatId, 10);
 
       if (isNaN(chatId)) {
-        res.status(400).json({ error: 'Invalid chat ID' });
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid chat ID' });
         return;
       }
 
@@ -35,7 +36,7 @@ export class CustomerController {
       res.json(preview);
     } catch (error) {
       console.error('Error getting offboarding preview:', error);
-      res.status(500).json({
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         error: `Failed to get offboarding preview: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     }
@@ -49,7 +50,7 @@ export class CustomerController {
       const chatId = parseInt(req.params.chatId, 10);
 
       if (isNaN(chatId)) {
-        res.status(400).json({ error: 'Invalid chat ID' });
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid chat ID' });
         return;
       }
 
@@ -62,7 +63,7 @@ export class CustomerController {
       });
     } catch (error) {
       console.error('Error offboarding customer:', error);
-      res.status(500).json({
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         error: `Failed to offboard customer: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     }

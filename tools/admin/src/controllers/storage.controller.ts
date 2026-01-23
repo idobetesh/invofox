@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { StatusCodes } from 'http-status-codes';
 import { StorageService } from '../services/storage.service';
 
 export class StorageController {
@@ -13,7 +14,7 @@ export class StorageController {
       res.json({ buckets });
     } catch (error) {
       console.error('Error listing buckets:', error);
-      res.status(500).json({ error: 'Failed to list buckets' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to list buckets' });
     }
   };
 
@@ -43,7 +44,7 @@ export class StorageController {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`Error listing objects in ${req.params.bucketName}:`, error);
-      res.status(500).json({
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to list objects',
         message: errorMessage,
       });
@@ -81,14 +82,14 @@ export class StorageController {
       console.log(`Getting object: ${bucketName}/${objectPath} (from path: ${req.path})`);
 
       if (!objectPath || objectPath === '') {
-        res.status(400).json({ error: 'Object path is required' });
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Object path is required' });
         return;
       }
 
       const object = await this.storageService.getObject(bucketName, objectPath);
 
       if (!object) {
-        res.status(404).json({ error: 'Object not found' });
+        res.status(StatusCodes.NOT_FOUND).json({ error: 'Object not found' });
         return;
       }
 
@@ -99,7 +100,7 @@ export class StorageController {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Error getting object:', error);
-      res.status(500).json({
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to get object',
         message: errorMessage,
       });
@@ -137,14 +138,14 @@ export class StorageController {
       console.log(`Deleting object: ${bucketName}/${objectPath} (from path: ${req.path})`);
 
       if (!objectPath || objectPath === '') {
-        res.status(400).json({ error: 'Object path is required' });
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Object path is required' });
         return;
       }
 
       const { confirm } = req.body;
 
       if (confirm !== true) {
-        res.status(400).json({ error: 'Deletion requires confirm: true' });
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Deletion requires confirm: true' });
         return;
       }
 
@@ -153,7 +154,7 @@ export class StorageController {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Error deleting object:', error);
-      res.status(500).json({
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to delete object',
         message: errorMessage,
       });
@@ -169,12 +170,14 @@ export class StorageController {
       const { objectPaths, confirm } = req.body;
 
       if (confirm !== true) {
-        res.status(400).json({ error: 'Deletion requires confirm: true' });
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Deletion requires confirm: true' });
         return;
       }
 
       if (!Array.isArray(objectPaths) || objectPaths.length === 0) {
-        res.status(400).json({ error: 'objectPaths must be a non-empty array' });
+        res
+          .status(StatusCodes.BAD_REQUEST)
+          .json({ error: 'objectPaths must be a non-empty array' });
         return;
       }
 
@@ -182,7 +185,7 @@ export class StorageController {
       res.json({ success: true, deleted: objectPaths.length });
     } catch (error) {
       console.error('Error deleting objects:', error);
-      res.status(500).json({ error: 'Failed to delete objects' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to delete objects' });
     }
   };
 }

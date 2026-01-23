@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { StatusCodes } from 'http-status-codes';
 import { InviteCodeService } from '../services/invite-code.service';
 
 export class InviteCodeController {
@@ -14,7 +15,9 @@ export class InviteCodeController {
       const { adminUserId, adminUsername, note, expiresInDays } = req.body;
 
       if (!adminUserId || !adminUsername) {
-        res.status(400).json({ error: 'adminUserId and adminUsername are required' });
+        res
+          .status(StatusCodes.BAD_REQUEST)
+          .json({ error: 'adminUserId and adminUsername are required' });
         return;
       }
 
@@ -25,10 +28,10 @@ export class InviteCodeController {
         expiresInDays: expiresInDays ? parseInt(expiresInDays, 10) : undefined,
       });
 
-      res.status(201).json({ inviteCode });
+      res.status(StatusCodes.CREATED).json({ inviteCode });
     } catch (error) {
       console.error('Error creating invite code:', error);
-      res.status(500).json({
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         error: `Failed to create invite code: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     }
@@ -43,7 +46,7 @@ export class InviteCodeController {
       const status = (req.query.status as string) || 'all';
 
       if (!['active', 'used', 'expired', 'all'].includes(status)) {
-        res.status(400).json({ error: 'Invalid status filter' });
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid status filter' });
         return;
       }
 
@@ -54,7 +57,7 @@ export class InviteCodeController {
       res.json({ inviteCodes });
     } catch (error) {
       console.error('Error listing invite codes:', error);
-      res.status(500).json({
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         error: `Failed to list invite codes: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     }
@@ -71,14 +74,14 @@ export class InviteCodeController {
       const inviteCode = await this.inviteCodeService.getInviteCode(code);
 
       if (!inviteCode) {
-        res.status(404).json({ error: 'Invite code not found' });
+        res.status(StatusCodes.NOT_FOUND).json({ error: 'Invite code not found' });
         return;
       }
 
       res.json({ inviteCode });
     } catch (error) {
       console.error('Error getting invite code:', error);
-      res.status(500).json({
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         error: `Failed to get invite code: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     }
@@ -97,7 +100,7 @@ export class InviteCodeController {
       res.json({ success: true, message: `Invite code ${code} has been revoked` });
     } catch (error) {
       console.error('Error revoking invite code:', error);
-      res.status(500).json({
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         error: `Failed to revoke invite code: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     }
@@ -116,7 +119,7 @@ export class InviteCodeController {
       res.json({ success: true, message: `Invite code ${code} has been deleted` });
     } catch (error) {
       console.error('Error deleting invite code:', error);
-      res.status(500).json({
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         error: `Failed to delete invite code: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     }
@@ -135,7 +138,7 @@ export class InviteCodeController {
       res.json({ status });
     } catch (error) {
       console.error('Error getting onboarding status:', error);
-      res.status(500).json({
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         error: `Failed to get onboarding status: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     }
@@ -154,7 +157,7 @@ export class InviteCodeController {
       res.json({ success: true, message: `Onboarding session cleaned for ${code}` });
     } catch (error) {
       console.error('Error cleaning session:', error);
-      res.status(500).json({
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         error: `Failed to clean session: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     }
@@ -173,7 +176,7 @@ export class InviteCodeController {
       res.json({ success: true, message: `Invite code and session deleted for ${code}` });
     } catch (error) {
       console.error('Error deleting all:', error);
-      res.status(500).json({
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         error: `Failed to delete all: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     }

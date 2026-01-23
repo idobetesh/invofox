@@ -3,14 +3,10 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import { StatusCodes } from 'http-status-codes';
 import logger from '../logger';
 
-export function errorHandler(
-  err: Error,
-  _req: Request,
-  res: Response,
-  _next: NextFunction
-): void {
+export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction): void {
   logger.error({ err }, 'Unhandled error');
-  res.status(500).json({ error: 'Internal server error' });
+  res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Internal server error' });
 }

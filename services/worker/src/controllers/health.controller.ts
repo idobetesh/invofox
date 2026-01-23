@@ -3,6 +3,7 @@
  */
 
 import { Request, Response } from 'express';
+import { StatusCodes } from 'http-status-codes';
 import { Firestore } from '@google-cloud/firestore';
 import type { JobStatus } from '../../../../shared/types';
 import logger from '../logger';
@@ -19,7 +20,7 @@ function getFirestore(): Firestore {
 }
 
 export function getHealth(_req: Request, res: Response): void {
-  res.status(200).json({
+  res.status(StatusCodes.OK).json({
     status: 'healthy',
     version: VERSION,
   });
@@ -97,7 +98,7 @@ export async function getMetrics(_req: Request, res: Response): Promise<void> {
     const failedPercent = total > 0 ? (counts.failed / total) * 100 : 0;
     const healthScore = Math.max(0, Math.round(100 - failedPercent * 5)); // -5 points per 1% failure
 
-    res.status(200).json({
+    res.status(StatusCodes.OK).json({
       status: healthScore >= 80 ? 'healthy' : healthScore >= 50 ? 'degraded' : 'unhealthy',
       healthScore,
       version: VERSION,
@@ -112,7 +113,7 @@ export async function getMetrics(_req: Request, res: Response): Promise<void> {
     });
   } catch (error) {
     logger.error({ error }, 'Failed to get metrics');
-    res.status(500).json({
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       status: 'error',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
