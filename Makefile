@@ -17,7 +17,7 @@ VERSION ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "latest")
         set-webhook get-webhook-info dev-webhook dev-worker test-worker \
         logs-webhook logs-worker clean lint lint-fix test test-unit \
         version revisions rollback-webhook rollback-worker \
-        sample-invoice admin-dev
+        sample-invoice admin-dev offboard-business offboard-user
 
 # =============================================================================
 # Help
@@ -85,6 +85,10 @@ help:
 	@echo ""
 	@echo "INVOICE GENERATION"
 	@echo "  make sample-invoice       Generate sample invoice PDF"
+	@echo ""
+	@echo "DATA MANAGEMENT"
+	@echo "  make offboard-business CHAT_ID=xxx   Remove business (keeps users with other businesses)"
+	@echo "  make offboard-user USER_ID=xxx       Remove user completely (GDPR Right to Erasure)"
 	@echo ""
 	@echo "Current project: $(PROJECT_ID)"
 	@echo "Region: $(REGION)"
@@ -363,3 +367,31 @@ clean:
 	rm -rf services/worker/node_modules
 	rm -rf tools/admin/node_modules
 	@echo "Clean complete!"
+
+# =============================================================================
+# Data Management
+# =============================================================================
+
+offboard-business:
+	@if [ -z "$(CHAT_ID)" ]; then \
+		echo ""; \
+		echo "❌ Error: CHAT_ID is required"; \
+		echo ""; \
+		echo "Usage: make offboard-business CHAT_ID=<chatId>"; \
+		echo "Example: make offboard-business CHAT_ID=-1003612582263"; \
+		echo ""; \
+		exit 1; \
+	fi
+	@cd services/worker && npx ts-node scripts/offboard.ts --chat-id $(CHAT_ID)
+
+offboard-user:
+	@if [ -z "$(USER_ID)" ]; then \
+		echo ""; \
+		echo "❌ Error: USER_ID is required"; \
+		echo ""; \
+		echo "Usage: make offboard-user USER_ID=<userId>"; \
+		echo "Example: make offboard-user USER_ID=1069523608"; \
+		echo ""; \
+		exit 1; \
+	fi
+	@cd services/worker && npx ts-node scripts/offboard.ts --user-id $(USER_ID)
