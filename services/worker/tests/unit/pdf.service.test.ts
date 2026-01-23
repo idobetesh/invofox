@@ -3,7 +3,7 @@
  */
 
 import { PDFDocument, StandardFonts } from 'pdf-lib';
-import * as pdfService from '../src/services/pdf.service';
+import * as pdfService from '../../src/services/pdf.service';
 
 // Mock pdf2pic since it requires GraphicsMagick/ImageMagick installed on the system
 const mockFromBuffer = jest.fn();
@@ -56,9 +56,9 @@ describe('PDF Service', () => {
       const pdfBuffer = Buffer.from(pdfBytes);
 
       // Mock the PDFDocument.load to throw encryption error
-      const mockLoad = jest.spyOn(PDFDocument, 'load').mockRejectedValueOnce(
-        new Error('PDF is encrypted')
-      );
+      const mockLoad = jest
+        .spyOn(PDFDocument, 'load')
+        .mockRejectedValueOnce(new Error('PDF is encrypted'));
 
       const info = await pdfService.getPDFInfo(pdfBuffer);
 

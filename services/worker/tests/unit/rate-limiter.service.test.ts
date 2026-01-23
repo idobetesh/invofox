@@ -6,10 +6,10 @@
 import {
   recordFailedOnboardingAttempt,
   clearRateLimit,
-} from '../src/services/rate-limiter.service';
+} from '../../src/services/rate-limiter.service';
 
 // Mock logger
-jest.mock('../src/logger', () => ({
+jest.mock('../../src/logger', () => ({
   info: jest.fn(),
   error: jest.fn(),
   debug: jest.fn(),

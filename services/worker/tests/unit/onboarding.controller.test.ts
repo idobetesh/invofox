@@ -3,7 +3,7 @@
  * Tests for onboarding flow step handlers and callbacks
  */
 
-import type { TelegramMessage, TelegramCallbackQuery } from '../../../shared/types';
+import type { TelegramMessage, TelegramCallbackQuery } from '../../../../shared/types';
 import {
   handleOnboardCommand,
   handleLanguageSelection,
@@ -11,18 +11,18 @@ import {
   handleOnboardingPhoto,
   handleTaxStatusCallback,
   handleCounterCallback,
-} from '../src/controllers/onboarding.controller';
-import * as onboardingService from '../src/services/onboarding/onboarding.service';
-import * as telegramService from '../src/services/telegram.service';
-import * as configService from '../src/services/business-config/config.service';
-import * as counterService from '../src/services/invoice-generator/counter.service';
-import * as serviceAccountUtil from '../src/utils/service-account';
-import * as inviteCodeService from '../src/services/invite-code.service';
-import * as approvedChatsService from '../src/services/approved-chats.service';
-import * as rateLimiterService from '../src/services/rate-limiter.service';
+} from '../../src/controllers/onboarding.controller';
+import * as onboardingService from '../../src/services/onboarding/onboarding.service';
+import * as telegramService from '../../src/services/telegram.service';
+import * as configService from '../../src/services/business-config/config.service';
+import * as counterService from '../../src/services/invoice-generator/counter.service';
+import * as serviceAccountUtil from '../../src/utils/service-account';
+import * as inviteCodeService from '../../src/services/invite-code.service';
+import * as approvedChatsService from '../../src/services/approved-chats.service';
+import * as rateLimiterService from '../../src/services/rate-limiter.service';
 
 // Mock modules
-jest.mock('../src/logger', () => ({
+jest.mock('../../src/logger', () => ({
   child: jest.fn(() => ({
     info: jest.fn(),
     error: jest.fn(),
@@ -35,20 +35,21 @@ jest.mock('../src/logger', () => ({
   warn: jest.fn(),
 }));
 
-jest.mock('../src/config', () => ({
+jest.mock('../../src/config', () => ({
   getConfig: jest.fn(() => ({
     storageBucket: 'test-bucket',
   })),
 }));
 
-jest.mock('../src/services/onboarding/onboarding.service');
-jest.mock('../src/services/telegram.service');
-jest.mock('../src/services/business-config/config.service');
-jest.mock('../src/services/invoice-generator/counter.service');
-jest.mock('../src/utils/service-account');
-jest.mock('../src/services/invite-code.service');
-jest.mock('../src/services/approved-chats.service');
-jest.mock('../src/services/rate-limiter.service');
+jest.mock('../../src/services/onboarding/onboarding.service');
+jest.mock('../../src/services/telegram.service');
+jest.mock('../../src/services/business-config/config.service');
+jest.mock('../../src/services/invoice-generator/counter.service');
+jest.mock('../../src/services/customer/user-mapping.service');
+jest.mock('../../src/utils/service-account');
+jest.mock('../../src/services/invite-code.service');
+jest.mock('../../src/services/approved-chats.service');
+jest.mock('../../src/services/rate-limiter.service');
 
 // Mock googleapis
 const mockSheetsGet = jest.fn();
@@ -637,7 +638,7 @@ describe('Onboarding Controller', () => {
       );
     });
 
-    it('should allow skipping sheet step', async () => {
+    it('should not allow skipping sheet step (mandatory)', async () => {
       const msg = createMessage(-1001234567, '/skip');
 
       (onboardingService.getOnboardingSession as jest.Mock).mockResolvedValue({
@@ -647,17 +648,16 @@ describe('Onboarding Controller', () => {
         step: 'sheet',
         data: {},
       });
-      (onboardingService.updateOnboardingSession as jest.Mock).mockResolvedValue(undefined);
       (telegramService.sendMessage as jest.Mock).mockResolvedValue(undefined);
 
       await handleOnboardingMessage(msg);
 
-      expect(onboardingService.updateOnboardingSession).toHaveBeenCalledWith(-1001234567, {
-        step: 'counter',
-      });
+      // /skip should be rejected as invalid sheet ID since sheet is now mandatory
+      expect(onboardingService.updateOnboardingData).not.toHaveBeenCalled();
+      expect(onboardingService.updateOnboardingSession).not.toHaveBeenCalled();
       expect(telegramService.sendMessage).toHaveBeenCalledWith(
         -1001234567,
-        expect.stringContaining('skipped')
+        expect.stringContaining('valid')
       );
     });
 
@@ -678,7 +678,7 @@ describe('Onboarding Controller', () => {
       expect(onboardingService.updateOnboardingData).not.toHaveBeenCalled();
       expect(telegramService.sendMessage).toHaveBeenCalledWith(
         -1001234567,
-        expect.stringContaining('valid Sheet ID')
+        expect.stringContaining('valid Google Sheet ID')
       );
     });
 

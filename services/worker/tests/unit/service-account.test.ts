@@ -3,10 +3,10 @@
  * Tests for fetching service account email from GCP
  */
 
-import { getServiceAccountEmail, clearServiceAccountCache } from '../src/utils/service-account';
+import { getServiceAccountEmail, clearServiceAccountCache } from '../../src/utils/service-account';
 
 // Mock logger
-jest.mock('../src/logger', () => ({
+jest.mock('../../src/logger', () => ({
   info: jest.fn(),
   error: jest.fn(),
   debug: jest.fn(),

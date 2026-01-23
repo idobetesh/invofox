@@ -3,7 +3,7 @@
  * Tests for uploadLogo with updateConfig parameter
  */
 
-import { uploadLogo } from '../src/services/business-config/config.service';
+import { uploadLogo } from '../../src/services/business-config/config.service';
 
 // Mock Storage
 const mockSave = jest.fn();
@@ -40,7 +40,7 @@ jest.mock('@google-cloud/firestore', () => ({
   },
 }));
 
-jest.mock('../src/logger', () => ({
+jest.mock('../../src/logger', () => ({
   info: jest.fn(),
   error: jest.fn(),
   debug: jest.fn(),

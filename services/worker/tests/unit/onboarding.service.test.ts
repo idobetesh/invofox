@@ -11,7 +11,7 @@ import {
   completeOnboarding,
   cancelOnboarding,
   isInOnboarding,
-} from '../src/services/onboarding/onboarding.service';
+} from '../../src/services/onboarding/onboarding.service';
 
 // Mock Firestore
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

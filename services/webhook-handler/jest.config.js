@@ -1,15 +1,19 @@
-/** @type {import('ts-jest').JestConfigWithTsJest} */
+/**
+ * Jest configuration for unit tests
+ * Runs tests in tests/unit directory
+ * @type {import('ts-jest').JestConfigWithTsJest}
+ */
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/src', '<rootDir>/tests'],
+  roots: ['<rootDir>/tests/unit'],
   testMatch: ['**/*.test.ts'],
   moduleFileExtensions: ['ts', 'js', 'json'],
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/index.ts',
   ],
-  coverageDirectory: 'coverage',
+  coverageDirectory: 'coverage/unit',
   verbose: true,
   // Performance optimizations
   maxWorkers: '50%',

@@ -3,7 +3,7 @@
  * Tests for translation functions and language support
  */
 
-import { t, getDefaultLanguage, messages, type Language } from '../src/services/i18n/languages';
+import { t, getDefaultLanguage, messages, type Language } from '../../src/services/i18n/languages';
 
 describe('i18n Service', () => {
   describe('t (translation function)', () => {
@@ -19,7 +19,7 @@ describe('i18n Service', () => {
         expect(t('en', 'onboarding.step3Title')).toBe('📍 Step 3/7: Business Address');
         expect(t('en', 'onboarding.step4Title')).toBe('📋 Step 4/7: Tax Status');
         expect(t('en', 'onboarding.step5Title')).toBe('🖼️ Step 5/7: Logo (Optional)');
-        expect(t('en', 'onboarding.step6Title')).toBe('📊 Step 6/7: Google Sheet (Optional)');
+        expect(t('en', 'onboarding.step6Title')).toBe('📊 Step 6/7: Google Sheet (Required)');
         expect(t('en', 'onboarding.step7Title')).toBe('🔢 Step 7/7: Starting Invoice Number');
       });
 
@@ -53,7 +53,7 @@ describe('i18n Service', () => {
         expect(t('he', 'onboarding.step3Title')).toBe('📍 שלב 3/7: כתובת העסק');
         expect(t('he', 'onboarding.step4Title')).toBe('📋 שלב 4/7: סטטוס מס');
         expect(t('he', 'onboarding.step5Title')).toBe('🖼️ שלב 5/7: לוגו (אופציונלי)');
-        expect(t('he', 'onboarding.step6Title')).toBe('📊 שלב 6/7: גיליון גוגל (אופציונלי)');
+        expect(t('he', 'onboarding.step6Title')).toBe('📊 שלב 6/7: גיליון גוגל (חובה)');
         expect(t('he', 'onboarding.step7Title')).toBe('🔢 שלב 7/7: מספר חשבונית התחלתי');
       });
 

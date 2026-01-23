@@ -1,4 +1,4 @@
-import { normalizeExtraction, containsSuspiciousContent } from '../src/services/llms/utils';
+import { normalizeExtraction, containsSuspiciousContent } from '../../src/services/llms/utils';
 
 describe('Prompt Injection Defense', () => {
   describe('containsSuspiciousContent', () => {

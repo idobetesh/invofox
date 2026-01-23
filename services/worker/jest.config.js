@@ -1,22 +1,24 @@
-/** @type {import('ts-jest').JestConfigWithTsJest} */
+/**
+ * Jest configuration for unit tests
+ * Runs tests in tests/unit directory
+ * @type {import('ts-jest').JestConfigWithTsJest}
+ */
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/src', '<rootDir>/tests'],
+  roots: ['<rootDir>/tests/unit'],
   testMatch: ['**/*.test.ts'],
   moduleFileExtensions: ['ts', 'js', 'json'],
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/index.ts',
   ],
-  coverageDirectory: 'coverage',
+  coverageDirectory: 'coverage/unit',
   verbose: true,
   // Performance optimizations
   maxWorkers: '50%', // Use 50% of CPU cores (faster than default)
   cache: true,
   cacheDirectory: '<rootDir>/.jest-cache',
-  // Disable verbose mode for faster output (only show failures)
-  // verbose: false,
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
       tsconfig: {

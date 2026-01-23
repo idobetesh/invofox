@@ -2,7 +2,7 @@
  * HEIC Service Unit Tests
  */
 
-import { convertHEICToJPEG, isHEICBuffer } from '../src/services/heic.service';
+import { convertHEICToJPEG, isHEICBuffer } from '../../src/services/heic.service';
 
 describe('HEIC Service', () => {
   describe('isHEICBuffer', () => {

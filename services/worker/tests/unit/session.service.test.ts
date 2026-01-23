@@ -3,7 +3,7 @@
  * Tests for invoice generation session management
  */
 
-import * as sessionService from '../src/services/invoice-generator/session.service';
+import * as sessionService from '../../src/services/invoice-generator/session.service';
 
 // Mock Firestore
 const mockUpdate = jest.fn();

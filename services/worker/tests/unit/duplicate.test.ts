@@ -1,5 +1,8 @@
-import { formatDuplicateWarning, formatDuplicateResolved } from '../src/services/telegram.service';
-import type { DuplicateMatch, InvoiceExtraction } from '../../../shared/types';
+import {
+  formatDuplicateWarning,
+  formatDuplicateResolved,
+} from '../../src/services/telegram.service';
+import type { DuplicateMatch, InvoiceExtraction } from '../../../../shared/types';
 
 describe('Duplicate Detection', () => {
   describe('formatDuplicateWarning', () => {

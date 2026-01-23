@@ -3,7 +3,7 @@
  * Comprehensive tests for complete onboarding scenarios
  */
 
-import type { TelegramMessage, TelegramCallbackQuery } from '../../../shared/types';
+import type { TelegramMessage, TelegramCallbackQuery } from '../../../../shared/types';
 import {
   handleOnboardCommand,
   handleLanguageSelection,
@@ -11,19 +11,20 @@ import {
   handleOnboardingPhoto,
   handleTaxStatusCallback,
   handleCounterCallback,
-} from '../src/controllers/onboarding.controller';
-import { extractSheetId } from '../src/services/onboarding/validation.service';
-import * as onboardingService from '../src/services/onboarding/onboarding.service';
-import * as telegramService from '../src/services/telegram.service';
-import * as configService from '../src/services/business-config/config.service';
-import * as counterService from '../src/services/invoice-generator/counter.service';
-import * as serviceAccountUtil from '../src/utils/service-account';
-import * as inviteCodeService from '../src/services/invite-code.service';
-import * as approvedChatsService from '../src/services/approved-chats.service';
-import * as rateLimiterService from '../src/services/rate-limiter.service';
+} from '../../src/controllers/onboarding.controller';
+import { extractSheetId } from '../../src/services/onboarding/validation.service';
+import * as onboardingService from '../../src/services/onboarding/onboarding.service';
+import * as sheetVerificationService from '../../src/services/onboarding/sheet-verification.service';
+import * as telegramService from '../../src/services/telegram.service';
+import * as configService from '../../src/services/business-config/config.service';
+import * as counterService from '../../src/services/invoice-generator/counter.service';
+import * as serviceAccountUtil from '../../src/utils/service-account';
+import * as inviteCodeService from '../../src/services/invite-code.service';
+import * as approvedChatsService from '../../src/services/approved-chats.service';
+import * as rateLimiterService from '../../src/services/rate-limiter.service';
 
 // Mock modules
-jest.mock('../src/logger', () => ({
+jest.mock('../../src/logger', () => ({
   child: jest.fn(() => ({
     info: jest.fn(),
     error: jest.fn(),
@@ -36,20 +37,22 @@ jest.mock('../src/logger', () => ({
   warn: jest.fn(),
 }));
 
-jest.mock('../src/config', () => ({
+jest.mock('../../src/config', () => ({
   getConfig: jest.fn(() => ({
     storageBucket: 'test-bucket',
   })),
 }));
 
-jest.mock('../src/services/onboarding/onboarding.service');
-jest.mock('../src/services/telegram.service');
-jest.mock('../src/services/business-config/config.service');
-jest.mock('../src/services/invoice-generator/counter.service');
-jest.mock('../src/utils/service-account');
-jest.mock('../src/services/invite-code.service');
-jest.mock('../src/services/approved-chats.service');
-jest.mock('../src/services/rate-limiter.service');
+jest.mock('../../src/services/onboarding/onboarding.service');
+jest.mock('../../src/services/onboarding/sheet-verification.service');
+jest.mock('../../src/services/telegram.service');
+jest.mock('../../src/services/business-config/config.service');
+jest.mock('../../src/services/invoice-generator/counter.service');
+jest.mock('../../src/services/customer/user-mapping.service');
+jest.mock('../../src/utils/service-account');
+jest.mock('../../src/services/invite-code.service');
+jest.mock('../../src/services/approved-chats.service');
+jest.mock('../../src/services/rate-limiter.service');
 
 // Mock googleapis
 const mockSheetsGet = jest.fn();
@@ -358,7 +361,7 @@ describe('Onboarding E2E Tests', () => {
       );
     });
 
-    it('should complete onboarding skipping optional steps', async () => {
+    it('should complete onboarding with logo skipped (sheet is mandatory)', async () => {
       // Setup mocks
       (configService.hasBusinessConfig as jest.Mock).mockResolvedValue(false);
       (approvedChatsService.isChatApproved as jest.Mock).mockResolvedValue(true); // Already approved
@@ -461,7 +464,7 @@ describe('Onboarding E2E Tests', () => {
         step: 'sheet',
       });
 
-      // Skip sheet
+      // Provide sheet ID (now mandatory)
       (onboardingService.getOnboardingSession as jest.Mock).mockResolvedValue({
         chatId: CHAT_ID,
         userId: USER_ID,
@@ -477,7 +480,11 @@ describe('Onboarding E2E Tests', () => {
           taxStatus: 'Licensed Business (עוסק מורשה)',
         },
       });
-      await handleOnboardingMessage(createMessage('/skip'));
+
+      // Mock sheet verification
+      (sheetVerificationService.verifySheetAccess as jest.Mock).mockResolvedValue(['Invoices']);
+
+      await handleOnboardingMessage(createMessage('1abc_XyZ123-456def789012'));
 
       expect(onboardingService.updateOnboardingSession).toHaveBeenCalledWith(CHAT_ID, {
         step: 'counter',
@@ -696,7 +703,7 @@ describe('Onboarding E2E Tests', () => {
 
       expect(telegramService.sendMessage).toHaveBeenCalledWith(
         CHAT_ID,
-        expect.stringContaining('valid Sheet ID')
+        expect.stringContaining('valid Google Sheet ID')
       );
       expect(onboardingService.updateOnboardingData).not.toHaveBeenCalled();
     });

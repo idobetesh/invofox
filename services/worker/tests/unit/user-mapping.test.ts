@@ -10,10 +10,10 @@ import {
   getUserDefaultCustomer,
   removeUserFromCustomer,
   updateUserActivity,
-} from '../src/services/customer/user-mapping.service';
+} from '../../src/services/customer/user-mapping.service';
 
 // Mock Firestore
-const mockData: Record<string, any> = {};
+const mockData: Record<string, Record<string, unknown>> = {};
 
 const mockGet = jest.fn((docPath: string) => {
   return Promise.resolve({
@@ -22,12 +22,12 @@ const mockGet = jest.fn((docPath: string) => {
   });
 });
 
-const mockSet = jest.fn((docPath: string, data: any) => {
+const mockSet = jest.fn((docPath: string, data: Record<string, unknown>) => {
   mockData[docPath] = data;
   return Promise.resolve();
 });
 
-const mockUpdate = jest.fn((docPath: string, data: any) => {
+const mockUpdate = jest.fn((docPath: string, data: Record<string, unknown>) => {
   const existing = mockData[docPath] || {};
 
   // Handle arrayUnion
@@ -35,7 +35,7 @@ const mockUpdate = jest.fn((docPath: string, data: any) => {
     const newCustomer = data.customers.arrayUnion;
     const existingCustomers = existing.customers || [];
     // Add if not already present
-    if (!existingCustomers.some((c: any) => c.chatId === newCustomer.chatId)) {
+    if (!existingCustomers.some((c: { chatId: number }) => c.chatId === newCustomer.chatId)) {
       existing.customers = [...existingCustomers, newCustomer];
     }
     delete data.customers; // Remove arrayUnion marker
@@ -54,8 +54,8 @@ const mockDoc = jest.fn((docId: string) => {
   const docPath = `user_customer_mapping/${docId}`;
   return {
     get: () => mockGet(docPath),
-    set: (data: any) => mockSet(docPath, data),
-    update: (data: any) => mockUpdate(docPath, data),
+    set: (data: Record<string, unknown>) => mockSet(docPath, data),
+    update: (data: Record<string, unknown>) => mockUpdate(docPath, data),
     delete: () => mockDelete(docPath),
   };
 });

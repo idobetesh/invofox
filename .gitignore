@@ -41,6 +41,8 @@ coverage/
 
 # Test cache
 .jest-cache/
+.jest-cache-*/
+**/jest-transform-cache-*/
 
 # Playwright/Chromium crash reports
 .crashpad/

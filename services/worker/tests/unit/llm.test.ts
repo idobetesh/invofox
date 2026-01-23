@@ -1,5 +1,5 @@
-import { needsReview } from '../src/services/llm.service';
-import type { InvoiceExtraction } from '../../../shared/types';
+import { needsReview } from '../../src/services/llm.service';
+import type { InvoiceExtraction } from '../../../../shared/types';
 
 describe('LLM Utilities', () => {
   describe('needsReview', () => {

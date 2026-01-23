@@ -3,7 +3,7 @@
  * Tests for Google Sheets URL/ID parsing
  */
 
-import { extractSheetId } from '../src/services/onboarding/validation.service';
+import { extractSheetId } from '../../src/services/onboarding/validation.service';
 
 describe('extractSheetId', () => {
   describe('URL formats', () => {

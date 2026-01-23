@@ -1,4 +1,4 @@
-import { escapeHtml } from '../src/services/invoice-generator/template';
+import { escapeHtml } from '../../src/services/invoice-generator/template';
 
 describe('Template Utilities', () => {
   describe('escapeHtml', () => {

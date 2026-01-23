@@ -3,8 +3,8 @@
  * Tests for invoice generation and Firestore saving
  */
 
-import { generateInvoice } from '../src/services/invoice-generator';
-import type { InvoiceSession } from '../../../shared/types';
+import { generateInvoice } from '../../src/services/invoice-generator';
+import type { InvoiceSession } from '../../../../shared/types';
 
 // Mock dependencies
 const mockSet = jest.fn();
@@ -50,31 +50,31 @@ jest.mock('@google-cloud/storage', () => {
   };
 });
 
-jest.mock('../src/services/invoice-generator/pdf.generator', () => ({
+jest.mock('../../src/services/invoice-generator/pdf.generator', () => ({
   generateInvoicePDFWithConfig: jest.fn(() => mockGeneratePDF()),
 }));
 
-jest.mock('../src/services/invoice-generator/counter.service', () => ({
+jest.mock('../../src/services/invoice-generator/counter.service', () => ({
   getNextInvoiceNumber: jest.fn(() => mockGetNextInvoiceNumber()),
 }));
 
-jest.mock('../src/services/business-config/config.service', () => ({
+jest.mock('../../src/services/business-config/config.service', () => ({
   getBusinessConfig: jest.fn(),
   getLogoBase64: jest.fn(),
 }));
 
-jest.mock('../src/services/sheets.service', () => ({
+jest.mock('../../src/services/sheets.service', () => ({
   appendGeneratedInvoiceRow: jest.fn(() => mockAppendGeneratedInvoiceRow()),
 }));
 
-jest.mock('../src/config', () => ({
+jest.mock('../../src/config', () => ({
   getConfig: jest.fn(() => ({
     generatedInvoicesBucket: 'test-bucket',
   })),
 }));
 
 // Import the mocked modules to set up the mocks
-import * as configService from '../src/services/business-config/config.service';
+import * as configService from '../../src/services/business-config/config.service';
 
 describe('Invoice Generator', () => {
   beforeEach(() => {

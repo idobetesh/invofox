@@ -3,7 +3,7 @@
  * Tests for Cloud Storage path generation and per-customer isolation
  */
 
-import { uploadInvoiceImage, getMimeType } from '../src/services/storage.service';
+import { uploadInvoiceImage, getMimeType } from '../../src/services/storage.service';
 
 // Mock dependencies
 const mockSave = jest.fn().mockResolvedValue(undefined);
@@ -23,7 +23,7 @@ jest.mock('@google-cloud/storage', () => {
   };
 });
 
-jest.mock('../src/config', () => ({
+jest.mock('../../src/config', () => ({
   getConfig: jest.fn(() => ({
     storageBucket: 'test-bucket',
   })),

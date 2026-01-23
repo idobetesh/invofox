@@ -32,6 +32,15 @@ module.exports = [
       'no-var': 'error',
       eqeqeq: ['error', 'always'],
       curly: ['error', 'all'],
+
+      // Import rules
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ImportExpression',
+          message: 'Dynamic imports are not allowed. All imports must be at the top of the file.',
+        },
+      ],
     },
   },
 ];

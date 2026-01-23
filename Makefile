@@ -61,8 +61,9 @@ help:
 	@echo "  make get-webhook-info Get current webhook info"
 	@echo ""
 	@echo "TESTING"
-	@echo "  make test             Run all tests"
+	@echo "  make test             Run all tests (unit + integration)"
 	@echo "  make test-unit        Run unit tests only"
+	@echo "  make test-integration Run integration tests only"
 	@echo ""
 	@echo "LOCAL DEVELOPMENT"
 	@echo "  make dev-webhook      Run webhook-handler locally"
@@ -246,17 +247,27 @@ delete-webhook:
 # Testing
 # =============================================================================
 
-test: test-unit
-	@echo "All tests passed!"
+test: test-unit test-integration
+	@echo ""
+	@echo "✅ All tests passed!"
 
 test-unit:
 	@echo "Running unit tests..."
 	@echo ""
-	@echo "=== Webhook Handler Tests ==="
-	cd services/webhook-handler && npm run test:fast
+	@echo "=== Webhook Handler Unit Tests ==="
+	cd services/webhook-handler && npm run test:unit
 	@echo ""
-	@echo "=== Worker Tests ==="
+	@echo "=== Worker Unit Tests ==="
 	cd services/worker && npm run test:fast
+
+test-integration:
+	@echo "Running integration tests..."
+	@echo ""
+	@echo "=== Webhook Handler Integration Tests ==="
+	cd services/webhook-handler && npm run test:integration
+	@echo ""
+	@echo "=== Worker Integration Tests ==="
+	cd services/worker && npm run test:integration
 
 # =============================================================================
 # Local Development
