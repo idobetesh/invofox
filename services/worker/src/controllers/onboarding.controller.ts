@@ -155,21 +155,33 @@ export async function handleTaxStatusCallback(query: TelegramCallbackQuery): Pro
  * Handle counter selection
  */
 export async function handleCounterCallback(query: TelegramCallbackQuery): Promise<void> {
+  const log = logger.child({ function: 'handleCounterCallback', queryId: query.id });
+  log.info({ data: query.data }, 'Counter callback received');
+
   if (!query.message || !query.data) {
+    log.warn('Missing message or data');
     return;
   }
 
   const chatId = query.message.chat.id;
+  log.info({ chatId }, 'Got chat ID');
+
   const session = await getOnboardingSession(chatId);
+  log.info({ hasSession: !!session, language: session?.language }, 'Session retrieved');
 
   if (!session || !session.language) {
+    log.warn('No session or language');
     return;
   }
 
   const startFromOne = query.data === 'onboard_counter_1';
+  log.info({ startFromOne }, 'Determined counter choice');
 
   await answerCallbackQuery(query.id);
-  await handleCounterSelection(chatId, startFromOne, session.language);
+  log.info('Answered callback query');
+
+  await handleCounterSelection(chatId, startFromOne, session.language, session);
+  log.info('Counter selection handled');
 
   logger.info({ chatId, choice: query.data }, 'Counter selected');
 }
@@ -207,7 +219,7 @@ export async function handleOnboardingMessage(msg: TelegramMessage): Promise<voi
         await handleSheetStep(chatId, text, language);
         break;
       case 'counter':
-        await handleCounterStep(chatId, text, language);
+        await handleCounterStep(chatId, text, language, session);
         break;
       default:
         log.warn('Unknown step');
@@ -328,7 +340,9 @@ export async function handleOnboardingCallbackExpress(req: Request, res: Respons
 
     res.status(StatusCodes.OK).json({ ok: true });
   } catch (error) {
-    logger.error({ error }, 'Error handling callback');
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    logger.error({ error: errorMessage, stack: errorStack, payload }, 'Error handling callback');
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Internal server error' });
   }
 }

@@ -266,7 +266,8 @@ export async function handleSheetStep(
 export async function handleCounterStep(
   chatId: number,
   text: string,
-  language: Language
+  language: Language,
+  sessionParam?: Awaited<ReturnType<typeof getOnboardingSession>>
 ): Promise<void> {
   if (!text) {
     return;
@@ -292,8 +293,8 @@ export async function handleCounterStep(
 
   await updateOnboardingData(chatId, { startingCounter });
 
-  // Fetch complete session data for finalization
-  const session = await getOnboardingSession(chatId);
+  // Use provided session or fetch if not provided
+  const session = sessionParam || (await getOnboardingSession(chatId));
   if (
     !session?.data?.businessName ||
     !session?.data?.ownerName ||
@@ -307,18 +308,23 @@ export async function handleCounterStep(
   }
 
   // Now finalize onboarding
-  await finalizeOnboarding(chatId, language, {
-    businessName: session.data.businessName,
-    ownerName: session.data.ownerName,
-    ownerIdNumber: session.data.ownerIdNumber,
-    phone: session.data.phone,
-    email: session.data.email,
-    address: session.data.address,
-    taxStatus: session.data.taxStatus,
-    logoUrl: session.data.logoUrl,
-    sheetId: session.data.sheetId,
-    startingCounter,
-  });
+  await finalizeOnboarding(
+    chatId,
+    language,
+    {
+      businessName: session.data.businessName,
+      ownerName: session.data.ownerName,
+      ownerIdNumber: session.data.ownerIdNumber,
+      phone: session.data.phone,
+      email: session.data.email,
+      address: session.data.address,
+      taxStatus: session.data.taxStatus,
+      logoUrl: session.data.logoUrl,
+      sheetId: session.data.sheetId,
+      startingCounter,
+    },
+    session
+  );
 }
 
 /**
@@ -348,14 +354,15 @@ export async function handleTaxStatusSelection(
 export async function handleCounterSelection(
   chatId: number,
   startFromOne: boolean,
-  language: Language
+  language: Language,
+  sessionParam?: Awaited<ReturnType<typeof getOnboardingSession>>
 ): Promise<void> {
   if (startFromOne) {
     // Start from 1 - finalize immediately
     await updateOnboardingData(chatId, { startingCounter: 0 });
 
-    // Fetch complete session data for finalization
-    const session = await getOnboardingSession(chatId);
+    // Use provided session or fetch if not provided
+    const session = sessionParam || (await getOnboardingSession(chatId));
     if (
       !session?.data?.businessName ||
       !session?.data?.ownerName ||
@@ -368,18 +375,23 @@ export async function handleCounterSelection(
       throw new Error('Incomplete session data');
     }
 
-    await finalizeOnboarding(chatId, language, {
-      businessName: session.data.businessName,
-      ownerName: session.data.ownerName,
-      ownerIdNumber: session.data.ownerIdNumber,
-      phone: session.data.phone,
-      email: session.data.email,
-      address: session.data.address,
-      taxStatus: session.data.taxStatus,
-      logoUrl: session.data.logoUrl,
-      sheetId: session.data.sheetId,
-      startingCounter: 0,
-    });
+    await finalizeOnboarding(
+      chatId,
+      language,
+      {
+        businessName: session.data.businessName,
+        ownerName: session.data.ownerName,
+        ownerIdNumber: session.data.ownerIdNumber,
+        phone: session.data.phone,
+        email: session.data.email,
+        address: session.data.address,
+        taxStatus: session.data.taxStatus,
+        logoUrl: session.data.logoUrl,
+        sheetId: session.data.sheetId,
+        startingCounter: 0,
+      },
+      session
+    );
   } else {
     // User has existing invoices - ask for the number
     await sendMessage(
@@ -407,10 +419,11 @@ async function finalizeOnboarding(
     logoUrl?: string;
     sheetId?: string;
     startingCounter?: number;
-  }
+  },
+  sessionParam?: Awaited<ReturnType<typeof getOnboardingSession>>
 ): Promise<void> {
-  // Get session to retrieve userId for user-customer mapping
-  const session = await getOnboardingSession(chatId);
+  // Use provided session or fetch if not provided
+  const session = sessionParam || (await getOnboardingSession(chatId));
   if (!session?.userId) {
     throw new Error('Session userId not found during finalization');
   }
