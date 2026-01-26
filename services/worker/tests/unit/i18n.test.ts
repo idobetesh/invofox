@@ -10,7 +10,7 @@ describe('i18n Service', () => {
     describe('English translations', () => {
       it('should translate onboarding welcome message', () => {
         const result = t('en', 'onboarding.welcome');
-        expect(result).toBe('🚀 Welcome to Invofox!');
+        expect(result).toBe('Welcome to Invofox! 🦊');
       });
 
       it('should translate step titles', () => {
@@ -44,7 +44,7 @@ describe('i18n Service', () => {
     describe('Hebrew translations', () => {
       it('should translate onboarding welcome message', () => {
         const result = t('he', 'onboarding.welcome');
-        expect(result).toBe('🚀 ברוכים הבאים ל-Invofox!');
+        expect(result).toBe('🦊 ברוכים הבאים ל-Invofox!');
       });
 
       it('should translate step titles', () => {
@@ -131,12 +131,12 @@ describe('i18n Service', () => {
 
       it('should handle empty parameters object', () => {
         const result = t('en', 'onboarding.welcome', {});
-        expect(result).toBe('🚀 Welcome to Invofox!');
+        expect(result).toBe('Welcome to Invofox! 🦊');
       });
 
       it('should handle undefined parameters', () => {
         const result = t('en', 'onboarding.welcome');
-        expect(result).toBe('🚀 Welcome to Invofox!');
+        expect(result).toBe('Welcome to Invofox! 🦊');
       });
     });
 

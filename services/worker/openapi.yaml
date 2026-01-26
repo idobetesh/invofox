@@ -43,6 +43,8 @@ tags:
     description: Invoice generation flow endpoints
   - name: Onboarding
     description: Customer onboarding flow endpoints
+  - name: Reports
+    description: Financial report generation endpoints
   - name: Callbacks
     description: Telegram callback handling
 
@@ -376,6 +378,271 @@ paths:
         "200":
           description: Photo handled
 
+  /report/command:
+    post:
+      tags:
+        - Reports
+      summary: Handle /report command
+      description: |
+        Starts the multi-step financial report generation flow.
+
+        **Multi-Step Conversation Flow:**
+        1. **Type Selection**: User selects Revenue or Expenses (inline buttons)
+        2. **Date Selection**: User selects date preset (inline buttons)
+           - this_month, last_month, this_quarter, last_quarter, ytd, this_year
+        3. **Format Selection**: User selects PDF, Excel, or CSV (inline buttons)
+        4. **Generation**: Report is generated and sent to user
+
+        **Report Formats:**
+        - **PDF**: Professional report with bar chart, summary metrics, and invoice table
+        - **Excel**: Multi-sheet workbook (Summary + Invoice Details) with RTL support
+        - **CSV**: UTF-8 with BOM for Excel Hebrew compatibility
+
+        **Report Metrics:**
+        - Total revenue/expenses
+        - Invoice count
+        - Average per invoice
+        - Min/Max amounts
+        - Multi-currency breakdown (automatic grouping)
+        - Payment method breakdown
+        - Revenue trend chart (by month or day depending on date range)
+
+        **Session Management:**
+        - Each user can have one active report session at a time
+        - Sessions expire after 30 minutes
+        - Sessions are validated by chatId + userId + sessionId
+
+        **Rate Limiting:**
+        - Enforced during format selection (before report generation)
+        - Limit: 3 reports per day per chat
+        - Resets daily at midnight
+
+        **Security:**
+        - Validates user has access to chat via user-mapping
+        - Checks session ownership before processing callbacks
+        - Prevents expired session usage
+      operationId: handleReportCommand
+      security:
+        - cloudTasks: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportCommandPayload"
+            example:
+              type: command
+              chatId: -1001234567890
+              messageId: 42
+              userId: 123456
+              username: johndoe
+              firstName: John
+              text: /report
+              receivedAt: "2026-01-26T10:30:00Z"
+      responses:
+        "200":
+          description: Report generated and sent to user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportResponse"
+              examples:
+                success:
+                  summary: Report generated successfully
+                  value:
+                    ok: true
+                    action: report_generated
+                    invoiceCount: 15
+        "403":
+          description: User does not have access to this chat
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: No access
+        "429":
+          description: Rate limit exceeded (3 reports per day)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: Rate limit exceeded
+        "500":
+          description: Report generation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: Failed to generate report
+
+  /report/callback:
+    post:
+      tags:
+        - Reports
+      summary: Handle report callback interactions
+      description: |
+        Handles inline button callbacks for the multi-step report generation flow.
+
+        **Multi-Step Flow:**
+        1. **Type Selection**: User selects Revenue or Expenses
+           - Callback data: `{"action": "select_type", "sessionId": "...", "value": "revenue"|"expenses"}`
+        2. **Date Selection**: User selects date preset
+           - Callback data: `{"action": "select_date", "sessionId": "...", "value": "this_month"|"last_month"|...}`
+           - Available presets: this_month, last_month, this_quarter, last_quarter, ytd, this_year
+        3. **Format Selection**: User selects report format
+           - Callback data: `{"action": "select_format", "sessionId": "...", "value": "pdf"|"excel"|"csv"}`
+           - Then generates and sends the report
+        4. **Cancel**: User cancels report generation
+           - Callback data: `{"action": "cancel", "sessionId": "..."}`
+
+        **Session Management:**
+        - Each user can have one active report session at a time
+        - Sessions expire after 30 minutes
+        - Sessions are validated by chatId + userId + sessionId
+
+        **Rate Limiting:**
+        - Enforced during format selection (before report generation)
+        - Limit: 3 reports per day per chat
+        - Resets daily at midnight
+
+        **Security:**
+        - Validates session belongs to requesting user
+        - Checks user has access to chat via user-mapping
+        - Prevents expired session usage
+      operationId: handleReportCallback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - chatId
+                - messageId
+                - userId
+                - callbackQueryId
+                - data
+              properties:
+                chatId:
+                  type: integer
+                  description: Telegram chat ID
+                messageId:
+                  type: integer
+                  description: Message ID containing the inline keyboard
+                userId:
+                  type: integer
+                  description: User ID who clicked the button
+                username:
+                  type: string
+                  description: Username
+                firstName:
+                  type: string
+                  description: User's first name
+                callbackQueryId:
+                  type: string
+                  description: Telegram callback query ID (for answering)
+                data:
+                  type: string
+                  description: JSON-stringified callback data with action, sessionId, and value
+                receivedAt:
+                  type: string
+                  format: date-time
+            examples:
+              typeSelection:
+                summary: Type selection callback
+                value:
+                  chatId: -1001234567890
+                  messageId: 42
+                  userId: 123456
+                  username: johndoe
+                  firstName: John
+                  callbackQueryId: "callback_abc123"
+                  data: '{"action":"select_type","sessionId":"sess_xyz789","value":"revenue"}'
+                  receivedAt: "2026-01-26T10:30:00Z"
+              dateSelection:
+                summary: Date selection callback
+                value:
+                  chatId: -1001234567890
+                  messageId: 43
+                  userId: 123456
+                  username: johndoe
+                  firstName: John
+                  callbackQueryId: "callback_def456"
+                  data: '{"action":"select_date","sessionId":"sess_xyz789","value":"this_month"}'
+                  receivedAt: "2026-01-26T10:31:00Z"
+              formatSelection:
+                summary: Format selection callback (triggers report generation)
+                value:
+                  chatId: -1001234567890
+                  messageId: 44
+                  userId: 123456
+                  username: johndoe
+                  firstName: John
+                  callbackQueryId: "callback_ghi789"
+                  data: '{"action":"select_format","sessionId":"sess_xyz789","value":"pdf"}'
+                  receivedAt: "2026-01-26T10:32:00Z"
+      responses:
+        "200":
+          description: Callback handled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  action:
+                    type: string
+                    enum: [type_selected, dates_selected, format_selected, report_generated, cancelled, session_expired]
+              examples:
+                typeSelected:
+                  summary: Type selected, moving to dates
+                  value:
+                    ok: true
+                    action: type_selected
+                dateSelected:
+                  summary: Date selected, moving to format
+                  value:
+                    ok: true
+                    action: dates_selected
+                reportGenerated:
+                  summary: Report generated and sent
+                  value:
+                    ok: true
+                    action: report_generated
+                sessionExpired:
+                  summary: Session no longer valid
+                  value:
+                    ok: true
+                    action: session_expired
+        "403":
+          description: User does not have access to this chat
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: No access
+        "429":
+          description: Rate limit exceeded during report generation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: Rate limit exceeded
+        "500":
+          description: Callback handling failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: Failed to handle callback
+
 components:
   securitySchemes:
     cloudTasks:
@@ -590,6 +857,77 @@ components:
           type: string
         data:
           type: string
+
+    ReportCommandPayload:
+      type: object
+      required:
+        - type
+        - chatId
+        - messageId
+        - userId
+        - username
+        - firstName
+        - text
+        - receivedAt
+      properties:
+        type:
+          type: string
+          enum: [command]
+          description: Payload type identifier
+        chatId:
+          type: integer
+          description: Telegram chat ID
+          example: -1001234567890
+        chatTitle:
+          type: string
+          description: Group/channel title (undefined for private chats)
+          example: "Acme Corp Finance"
+        messageId:
+          type: integer
+          description: Telegram message ID
+          example: 42
+        userId:
+          type: integer
+          description: Telegram user ID who sent the command
+          example: 123456
+        username:
+          type: string
+          description: Telegram username or full name
+          example: johndoe
+        firstName:
+          type: string
+          description: User's first name
+          example: John
+        text:
+          type: string
+          description: Full command text
+          example: /report
+        receivedAt:
+          type: string
+          format: date-time
+          description: ISO timestamp when command was received
+          example: "2026-01-26T10:30:00Z"
+
+    ReportResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          description: Indicates if report was generated successfully
+        action:
+          type: string
+          enum: [report_generated, ignored, error]
+          description: Action taken by the worker
+        invoiceCount:
+          type: integer
+          description: Number of invoices included in the report
+          example: 15
+        task:
+          type: string
+          description: Cloud Task name (if applicable)
+        error:
+          type: string
+          description: Error message if generation failed
 
     ErrorResponse:
       type: object

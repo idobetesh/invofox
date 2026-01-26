@@ -28,7 +28,7 @@ export function getLanguageSelectionKeyboard(): TelegramInlineKeyboardMarkup {
  * Get language selection message
  */
 export function getLanguageSelectionMessage(): string {
-  return '🚀 ברוכים הבאים ל-Invofox!\n\nאנא בחרו שפה:';
+  return '🦊 ברוכים הבאים ל-Invofox!\n\nאנא בחרו שפה:';
 }
 
 /**
