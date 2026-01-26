@@ -1,5 +1,5 @@
 /**
- * Standalone script to generate a sample invoice PDF
+ * Standalone script to generate a sample invoice PDF with processed logo
  * Run with: npx ts-node scripts/invoice/generate-sample-invoice.ts
  */
 
@@ -7,12 +7,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { chromium } from 'playwright';
 import { buildInvoiceHTML } from '../../src/services/invoice-generator/template';
+import { processLogoForCircularDisplay } from '../../src/services/business-config/logo-processor.service';
 import type { InvoiceData, BusinessConfig } from '../../../../shared/types';
 
 // Demo business config (generic for GitHub)
 const sampleBusinessConfig: BusinessConfig = {
   business: {
-    name: 'העסק שלי בע״מ',
+    name: 'העסק שלי',
     taxId: '512345678',
     taxStatus: 'עוסק מורשה',
     email: 'demo@example.com',
@@ -21,7 +22,7 @@ const sampleBusinessConfig: BusinessConfig = {
   },
   invoice: {
     digitalSignatureText: 'מסמך ממוחשב חתום דיגיטלית',
-    generatedByText: 'הופק ע"י Papertrail',
+    generatedByText: 'הופק ע"י Invofox',
   },
 };
 
@@ -40,31 +41,84 @@ const sampleInvoiceData: InvoiceData = {
 async function generateSampleInvoice(): Promise<void> {
   console.log('🔧 Generating sample invoice...\n');
 
-  // For the demo sample, we don't include a logo (shows placeholder icon instead)
-  // This keeps real business logos out of the git repo
-  const logoBase64: string | null = null;
-  console.log('🖼️  Using placeholder logo (no custom logo for demo)');
+  // Load and process logo from docs/assets
+  let logoBase64: string | null = null;
+  // __dirname is services/worker/scripts/invoice, so go up 3 levels to root, then docs/assets
+  const assetsDir = path.join(__dirname, '../../../../docs/assets');
+  const logoFiles = ['logo.png', 'invoice-logo.jpeg'].filter((file) => {
+    const filePath = path.join(assetsDir, file);
+    return fs.existsSync(filePath);
+  });
 
-  // Build HTML with logo
+  if (logoFiles.length > 0) {
+    const logoFile = logoFiles[0]; // Use first available logo
+    const logoPath = path.join(assetsDir, logoFile);
+    console.log(`🖼️  Loading logo: ${logoFile}`);
+
+    try {
+      const logoBuffer = fs.readFileSync(logoPath);
+      console.log('   Processing logo to circular format...');
+      const processedLogo = await processLogoForCircularDisplay(logoBuffer);
+      logoBase64 = `data:image/png;base64,${processedLogo.toString('base64')}`;
+      console.log('   ✓ Logo processed and converted to base64');
+    } catch (error) {
+      console.warn(`   ⚠️  Failed to load/process logo: ${error}`);
+      console.log('   Using placeholder logo instead');
+    }
+  } else {
+    console.log('🖼️  No logo found in docs/assets, using placeholder');
+  }
+
+  // Build HTML (used internally by Playwright to generate PDF)
   const html = buildInvoiceHTML(sampleInvoiceData, sampleBusinessConfig, logoBase64);
 
-  // Save HTML for debugging (output folder)
+  // Prepare output folder
   const outputDir = path.join(__dirname, '..', 'output');
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
-  const htmlPath = path.join(outputDir, 'sample-invoice.html');
-  fs.writeFileSync(htmlPath, html);
-  console.log(`📄 HTML saved to: ${htmlPath}`);
 
-  console.log('🌐 Using Playwright Chromium (auto-installed)');
+  console.log('🌐 Generating PDF using Playwright...');
 
   // Launch browser using Playwright
-  // Playwright manages its own Chromium browser installation
-  const browser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
+  // If browser is not installed, it will show a helpful error message
+  let browser;
+  try {
+    browser = await chromium.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+  } catch (error: any) {
+    if (
+      error.message?.includes("Executable doesn't exist") ||
+      error.message?.includes('Executable')
+    ) {
+      console.error('❌ Playwright browser not installed!');
+      console.log('\n📦 To install Playwright browsers, run:');
+      console.log('   npx playwright install chromium\n');
+      console.log('Or the script will attempt to install it automatically...\n');
+
+      // Try to install automatically
+      const { execSync } = require('child_process');
+      try {
+        console.log('📦 Installing Playwright browsers...');
+        execSync('npx playwright install chromium', { stdio: 'inherit' });
+        console.log('✅ Playwright browsers installed successfully!\n');
+
+        // Try launching again after installation
+        browser = await chromium.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        });
+      } catch (installError) {
+        console.error('\n❌ Failed to install Playwright browsers automatically');
+        console.error('Please run manually: npx playwright install chromium');
+        throw installError;
+      }
+    } else {
+      throw error;
+    }
+  }
 
   try {
     const page = await browser.newPage();
@@ -84,7 +138,7 @@ async function generateSampleInvoice(): Promise<void> {
       },
     });
 
-    // Save PDF (output folder)
+    // Save PDF (output folder) - PRIMARY OUTPUT
     const pdfPath = path.join(outputDir, 'sample-invoice.pdf');
     fs.writeFileSync(pdfPath, pdfBuffer);
 

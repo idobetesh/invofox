@@ -9,6 +9,7 @@ import { Storage } from '@google-cloud/storage';
 import type { BusinessConfig } from '../../../../../shared/types';
 import logger from '../../logger';
 import { getConfig } from '../../config';
+import { processLogoForCircularDisplay } from './logo-processor.service';
 
 const COLLECTION_NAME = 'business_config';
 const DEFAULT_DOC_ID = 'default';
@@ -110,8 +111,9 @@ export async function getBusinessConfig(
   const defaultDoc = await defaultDocRef.get();
 
   if (!defaultDoc.exists) {
-    log.warn('Default config not found in Firestore, using hardcoded defaults');
-    return getDefaultConfig();
+    const error = `Default business config not found in Firestore. Document ${COLLECTION_NAME}/${DEFAULT_DOC_ID} must exist for system-level operations.`;
+    log.error(error);
+    throw new Error(error);
   }
 
   const data = defaultDoc.data() as BusinessConfigDocument;
@@ -302,17 +304,22 @@ export async function uploadLogo(
   const config = getConfig();
   const gcs = getStorage();
 
+  // Process logo for better circular display (always outputs PNG with transparent background)
+  const processedBuffer = await processLogoForCircularDisplay(buffer);
+
   // Logos go to generated-invoices bucket (permanent assets)
   const bucketName = config.generatedInvoicesBucket;
   const bucket = gcs.bucket(bucketName);
 
   // Organize logos by chat ID for multi-customer support
   const logoFolder = chatId ? `logos/${chatId}` : 'logos';
-  const filePath = `${logoFolder}/${filename}`;
+  // Always save as PNG since processLogoForCircularDisplay outputs PNG
+  const pngFilename = filename.replace(/\.(jpg|jpeg|png|webp|heic|heif)$/i, '.png');
+  const filePath = `${logoFolder}/${pngFilename}`;
   const file = bucket.file(filePath);
 
-  await file.save(buffer, {
-    contentType: filename.endsWith('.png') ? 'image/png' : 'image/jpeg',
+  await file.save(processedBuffer, {
+    contentType: 'image/png', // Always PNG since we process to circular PNG
   });
 
   // Note: Bucket has uniform bucket-level access with public read enabled via Terraform
@@ -358,26 +365,6 @@ export function clearConfigCache(chatId?: number): void {
     configCache.clear();
     logoCache.clear();
   }
-}
-
-/**
- * Get default configuration (fallback)
- */
-function getDefaultConfig(): BusinessConfig {
-  return {
-    business: {
-      name: 'עסק לדוגמה',
-      taxId: '000000000',
-      taxStatus: 'עוסק פטור מס',
-      email: 'example@example.com',
-      phone: '050-0000000',
-      address: 'כתובת לדוגמה',
-    },
-    invoice: {
-      digitalSignatureText: 'מסמך ממוחשב חתום דיגיטלית',
-      generatedByText: 'הופק ע"י Papertrail',
-    },
-  };
 }
 
 /**

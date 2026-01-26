@@ -1,4 +1,4 @@
-# Papertrail Admin Tool
+# Invofox Admin Tool
 
 ⚠️ **SECURITY WARNING** ⚠️
 

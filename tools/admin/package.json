@@ -1,7 +1,7 @@
 {
-  "name": "papertrail-admin",
+  "name": "@invofox/admin",
   "version": "1.0.0",
-  "description": "Local admin tool for managing GCP Firestore and Cloud Storage",
+  "description": "Local admin tool for managing GCP Firestore and Cloud Storage for Invofox",
   "main": "server.ts",
   "author": "Ido Betesh",
   "scripts": {

@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/assets/logo.png" alt="Papertrail" width="400">
+  <img src="docs/assets/logo.png" alt="Invofox" width="400">
 </p>
 
-<h1 align="center">Papertrail Invoice Bot</h1>
+<h1 align="center">Invofox Invoice Bot</h1>
 
 <p align="center">
   A serverless Telegram bot that automatically processes invoice images<br>
@@ -10,8 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/idobetesh/papertrail/actions/workflows/ci.yml"><img src="https://github.com/idobetesh/papertrail/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.com/idobetesh/papertrail/actions/workflows/deploy.yml"><img src="https://github.com/idobetesh/papertrail/actions/workflows/deploy.yml/badge.svg" alt="Deploy"></a>
+  <a href="https://github.com/idobetesh/invofox/actions/workflows/ci.yml"><img src="https://github.com/idobetesh/invofox/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/idobetesh/invofox/actions/workflows/deploy.yml"><img src="https://github.com/idobetesh/invofox/actions/workflows/deploy.yml/badge.svg" alt="Deploy"></a>
   <br>
   <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fwebhook-handler-gm27rejjwa-uc.a.run.app%2Fhealth&query=%24.version&label=version&color=blue&style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fwebhook-handler-gm27rejjwa-uc.a.run.app%2Fhealth&query=%24.status&label=status&color=brightgreen&style=flat-square" alt="Status">
@@ -20,7 +20,7 @@
 ## Features
 
 - 📸 **Photo Processing** - Send invoice photos to Telegram group
-- 🤖 **AI Vision** - Gemini/GPT-4o extracts invoice data (Hebrew + English)
+- 🤖 **AI Vision** - LLM extracts invoice data (Hebrew + English)
 - 🧾 **Invoice Generation** - Create professional PDF invoices via `/invoice`
 - ☁️ **Cloud Storage** - Auto-organized by `YYYY/MM/`
 - 📊 **Sheets Logging** - All extracted data logged automatically

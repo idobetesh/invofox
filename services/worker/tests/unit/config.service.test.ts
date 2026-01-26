@@ -54,6 +54,11 @@ jest.mock('../../src/config', () => ({
   })),
 }));
 
+// Mock logo processor - returns the buffer as-is (simulating processed PNG)
+jest.mock('../../src/services/business-config/logo-processor.service', () => ({
+  processLogoForCircularDisplay: jest.fn((buffer: Buffer) => Promise.resolve(buffer)),
+}));
+
 describe('uploadLogo', () => {
   const buffer = Buffer.from('test image data');
   const filename = 'logo.png';
@@ -111,8 +116,10 @@ describe('uploadLogo', () => {
 
       await uploadLogo(buffer, jpegFilename, 123456);
 
-      expect(mockSave).toHaveBeenCalledWith(buffer, {
-        contentType: 'image/jpeg',
+      // Logo is processed to PNG format, so filename and content type change
+      expect(mockFile).toHaveBeenCalledWith('logos/123456/logo.png');
+      expect(mockSave).toHaveBeenCalledWith(expect.any(Buffer), {
+        contentType: 'image/png',
       });
     });
 
@@ -121,8 +128,10 @@ describe('uploadLogo', () => {
 
       await uploadLogo(buffer, jpgFilename, 123456);
 
-      expect(mockSave).toHaveBeenCalledWith(buffer, {
-        contentType: 'image/jpeg',
+      // Logo is processed to PNG format, so filename and content type change
+      expect(mockFile).toHaveBeenCalledWith('logos/123456/logo.png');
+      expect(mockSave).toHaveBeenCalledWith(expect.any(Buffer), {
+        contentType: 'image/png',
       });
     });
   });
@@ -164,8 +173,10 @@ describe('uploadLogo', () => {
     it('should handle different file types when skipping config update', async () => {
       await uploadLogo(buffer, 'logo.jpg', 123456, false);
 
-      expect(mockSave).toHaveBeenCalledWith(buffer, {
-        contentType: 'image/jpeg',
+      // Logo is processed to PNG format, so filename and content type change
+      expect(mockFile).toHaveBeenCalledWith('logos/123456/logo.png');
+      expect(mockSave).toHaveBeenCalledWith(expect.any(Buffer), {
+        contentType: 'image/png',
       });
       expect(mockSet).not.toHaveBeenCalled();
     });

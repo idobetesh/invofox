@@ -1,7 +1,7 @@
 {
-  "name": "webhook-handler",
+  "name": "@invofox/webhook-handler",
   "version": "1.0.0",
-  "description": "Telegram webhook handler for Papertrail Invoice Bot",
+  "description": "Telegram webhook handler for Invofox Invoice Bot",
   "main": "dist/index.js",
   "author": "Ido Betesh",
   "scripts": {
