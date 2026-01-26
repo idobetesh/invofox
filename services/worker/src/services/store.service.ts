@@ -314,14 +314,15 @@ export async function getPendingDecisionJob(
 
 /**
  * Find potential duplicate invoices by vendor + amount + date
- * Returns matches from the last 90 days
+ * Returns matches from the last 90 days within the same customer (chatId)
  */
 export async function findDuplicateInvoice(
+  chatId: number,
   extraction: InvoiceExtraction,
   currentJobId: string
 ): Promise<DuplicateMatch | null> {
   const db = getFirestore();
-  const log = logger.child({ currentJobId });
+  const log = logger.child({ currentJobId, chatId });
 
   // Need at least vendor and amount to detect duplicates
   if (!extraction.vendor_name || extraction.total_amount === null) {
@@ -333,12 +334,13 @@ export async function findDuplicateInvoice(
     // Query for processed invoices with same vendor (case-insensitive via lowercase)
     const vendorLower = extraction.vendor_name.toLowerCase().trim();
 
-    // Get all processed jobs from last 90 days
+    // Get all processed jobs from last 90 days for this customer only
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
     const snapshot = await db
       .collection(COLLECTION_NAME)
+      .where('chatId', '==', chatId)
       .where('status', '==', 'processed')
       .where('createdAt', '>=', Timestamp.fromDate(ninetyDaysAgo))
       .get();

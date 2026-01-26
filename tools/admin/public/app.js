@@ -1292,29 +1292,70 @@ function displayOffboardingPreview(preview) {
   const content = document.getElementById('offboard-preview-content');
   const { summary, totalItems, customerName } = preview;
 
+  // Build list of items to delete (only show items that exist)
+  const items = [];
+
+  if (summary.businessConfig) {
+    items.push({ label: 'Business Configuration', detail: '' });
+  }
+  if (summary.logo.exists) {
+    const filename = summary.logo.path?.split('/').pop() || 'logo file';
+    items.push({ label: 'Logo', detail: filename });
+  }
+  if (summary.onboardingSession) {
+    items.push({ label: 'Onboarding Session', detail: '' });
+  }
+  if (summary.counters.count > 0) {
+    items.push({ label: 'Invoice Counters', detail: `${summary.counters.count} document${summary.counters.count !== 1 ? 's' : ''}` });
+  }
+  if (summary.generatedInvoices.count > 0) {
+    items.push({ label: 'Generated Invoices', detail: `${summary.generatedInvoices.count} document${summary.generatedInvoices.count !== 1 ? 's' : ''}` });
+  }
+  if (summary.generatedPDFs.count > 0) {
+    items.push({ label: 'Generated PDFs', detail: `${summary.generatedPDFs.count} file${summary.generatedPDFs.count !== 1 ? 's' : ''}` });
+  }
+  if (summary.receivedInvoices.count > 0) {
+    items.push({ label: 'Received Invoices', detail: `${summary.receivedInvoices.count} file${summary.receivedInvoices.count !== 1 ? 's' : ''}` });
+  }
+  if (summary.userMappings.count > 0) {
+    items.push({ label: 'User Mappings', detail: `${summary.userMappings.count} user${summary.userMappings.count !== 1 ? 's' : ''}` });
+  }
+  if (summary.processingJobs.count > 0) {
+    items.push({ label: 'Processing Jobs', detail: `${summary.processingJobs.count} job${summary.processingJobs.count !== 1 ? 's' : ''}` });
+  }
+
   content.innerHTML = `
-    <div style="margin-bottom: 20px;">
-      <p style="margin-bottom: 10px;"><strong>Customer:</strong> ${escapeHtml(customerName)} (Chat ID: ${preview.chatId})</p>
-      <p style="color: #dc2626; font-weight: 600;">⚠️ This will permanently delete ALL data for this customer. This action cannot be undone!</p>
+    <div style="margin-bottom: 24px;">
+      <p style="margin-bottom: 12px; font-size: 15px;">
+        <strong>Customer:</strong> ${escapeHtml(customerName)}
+        <span style="color: #6b7280;">(Chat ID: ${preview.chatId})</span>
+      </p>
+      <p style="color: #dc2626; font-weight: 600; font-size: 14px; line-height: 1.5;">
+        ⚠️ This will permanently delete ALL data for this customer. This action cannot be undone!
+      </p>
     </div>
 
-    <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-      <h4 style="margin: 0 0 15px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280;">Data to be deleted:</h4>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px;">
-        <div>${summary.businessConfig ? '✓' : '✗'} Business Configuration</div>
-        <div>${summary.logo.exists ? '✓' : '✗'} Logo (${summary.logo.exists ? summary.logo.path : 'none'})</div>
-        <div>${summary.onboardingSession ? '✓' : '✗'} Onboarding Session</div>
-        <div>${summary.counters.count > 0 ? '✓' : '✗'} Invoice Counters (${summary.counters.count})</div>
-        <div>${summary.generatedInvoices.count > 0 ? '✓' : '✗'} Generated Invoices (${summary.generatedInvoices.count})</div>
-        <div>${summary.generatedPDFs.count > 0 ? '✓' : '✗'} Generated PDFs (${summary.generatedPDFs.count})</div>
-        <div>${summary.receivedInvoices.count > 0 ? '✓' : '✗'} Received Invoices (${summary.receivedInvoices.count})</div>
-        <div>${summary.userMappings.count > 0 ? '✓' : '✗'} User Mappings (${summary.userMappings.count})</div>
-        <div>${summary.processingJobs.count > 0 ? '✓' : '✗'} Processing Jobs (${summary.processingJobs.count})</div>
+    <div style="margin-bottom: 20px;">
+      <h4 style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; font-weight: 600;">
+        Data to be deleted:
+      </h4>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        ${items.map(item => `
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #f3f4f6; border-radius: 6px; font-size: 14px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="color: #10b981; font-weight: bold;">✓</span>
+              <span style="font-weight: 500; color: #111827;">${item.label}</span>
+            </div>
+            ${item.detail ? `<span style="color: #4b5563; font-size: 13px;">${item.detail}</span>` : ''}
+          </div>
+        `).join('')}
       </div>
     </div>
 
-    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 15px;">
-      <p style="margin: 0; font-weight: 600; color: #991b1b;">Total items to delete: ${totalItems}</p>
+    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; text-align: center;">
+      <p style="margin: 0; font-weight: 700; color: #991b1b; font-size: 15px;">
+        Total items to delete: ${totalItems}
+      </p>
     </div>
   `;
 }

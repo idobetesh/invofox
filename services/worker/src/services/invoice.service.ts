@@ -280,7 +280,7 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
 
     const [, duplicate] = await Promise.all([
       storeService.storeExtraction(chatId, messageId, extraction),
-      storeService.findDuplicateInvoice(extraction, jobId),
+      storeService.findDuplicateInvoice(chatId, extraction, jobId),
     ]);
 
     // If duplicate found, pause for user decision

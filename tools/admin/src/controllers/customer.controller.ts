@@ -38,9 +38,10 @@ export class CustomerController {
       }
 
       if (this.offboardingService) {
-        // Use new comprehensive service
+        // Use new comprehensive service and transform to UI format
         const preview = await this.offboardingService.previewBusinessOffboarding(chatId);
-        res.json(preview);
+        const uiPreview = this.transformPreviewForUI(chatId, preview);
+        res.json(uiPreview);
       } else {
         // Fallback to old service (backward compatibility)
         const preview = await this.customerService.getOffboardingPreview(chatId);
@@ -53,6 +54,49 @@ export class CustomerController {
       });
     }
   };
+
+  /**
+   * Transform new OffboardingService preview format to old UI-compatible format
+   */
+  private transformPreviewForUI(chatId: number, preview: any) {
+    return {
+      chatId,
+      customerName: preview.name,
+      summary: {
+        businessConfig: (preview.collections['business_config']?.count || 0) > 0,
+        logo: {
+          exists: (preview.storage['logos']?.count || 0) > 0,
+          path: preview.storage['logos']?.paths?.[0],
+        },
+        onboardingSession: (preview.collections['onboarding_sessions']?.count || 0) > 0,
+        counters: {
+          count: preview.collections['invoice_counters']?.count || 0,
+          docIds: preview.collections['invoice_counters']?.docIds || [],
+        },
+        generatedInvoices: {
+          count: preview.collections['generated_invoices']?.count || 0,
+          docIds: preview.collections['generated_invoices']?.docIds || [],
+        },
+        generatedPDFs: {
+          count: preview.storage['generated_pdfs']?.count || 0,
+          paths: preview.storage['generated_pdfs']?.paths || [],
+        },
+        receivedInvoices: {
+          count: preview.storage['received_invoices']?.count || 0,
+          paths: preview.storage['received_invoices']?.paths || [],
+        },
+        userMappings: {
+          count: preview.collections['user_customer_mapping']?.count || 0,
+          userIds: preview.collections['user_customer_mapping']?.docIds || [],
+        },
+        processingJobs: {
+          count: preview.collections['invoice_jobs']?.count || 0,
+          docIds: preview.collections['invoice_jobs']?.docIds || [],
+        },
+      },
+      totalItems: preview.totalItems,
+    };
+  }
 
   /**
    * Offboard a customer (delete all their data)
