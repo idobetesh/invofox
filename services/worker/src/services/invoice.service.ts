@@ -277,11 +277,17 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
 
     // Check for duplicate invoices
     const jobId = storeService.getJobId(chatId, messageId);
+    log.info(
+      { jobId, vendor: extraction.vendor_name, amount: extraction.total_amount },
+      'Checking for duplicate invoices'
+    );
 
     const [, duplicate] = await Promise.all([
       storeService.storeExtraction(chatId, messageId, extraction),
       storeService.findDuplicateInvoice(chatId, extraction, jobId),
     ]);
+
+    log.info({ isDuplicate: !!duplicate }, 'Duplicate check completed');
 
     // If duplicate found, pause for user decision
     if (duplicate) {

@@ -338,12 +338,19 @@ export async function findDuplicateInvoice(
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
+    log.info(
+      { vendorLower, amount: extraction.total_amount, date: extraction.invoice_date },
+      'Querying for duplicates'
+    );
+
     const snapshot = await db
       .collection(COLLECTION_NAME)
       .where('chatId', '==', chatId)
       .where('status', 'in', ['processed', 'processing', 'pending_decision'])
       .where('createdAt', '>=', Timestamp.fromDate(ninetyDaysAgo))
       .get();
+
+    log.info({ jobsFound: snapshot.docs.length }, 'Query completed');
 
     for (const doc of snapshot.docs) {
       // Skip current job
