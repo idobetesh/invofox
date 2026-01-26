@@ -1,15 +1,24 @@
 /**
  * Webhook controller - handles Telegram webhook requests
+ * Delegates to specialized handlers for each command type
  */
 
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { getConfig } from '../config';
-import * as telegramService from '../services/telegram.service';
+import * as telegramService from '../services/telegram';
 import * as tasksService from '../services/tasks.service';
-import * as rateLimiter from '../services/rate-limiter.service';
 import * as approvedChatsService from '../services/approved-chats.service';
 import logger from '../logger';
+
+// Import specialized handlers
+import {
+  handleCallbackQuery,
+  handleInvoiceCommand,
+  handleTextMessage,
+  handleOnboardCommand,
+  handleReportCommand,
+} from '../handlers';
 
 /**
  * Handle incoming Telegram webhook updates
@@ -53,6 +62,13 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
   if (telegramService.isOnboardCommand(update)) {
     logger.info('Processing /onboard command');
     await handleOnboardCommand(update, config, res);
+    return;
+  }
+
+  // Handle /report command
+  if (telegramService.isReportCommand(update)) {
+    logger.info('Processing /report command');
+    await handleReportCommand(update, config, res);
     return;
   }
 
@@ -108,96 +124,40 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Not in onboarding - process as invoice
+    // Regular invoice photo processing
     logger.info(
-      { chatId: payload.chatId, messageId: payload.messageId, uploader: payload.uploaderUsername },
-      'Processing photo message for invoice'
+      { chatId: payload.chatId, messageId: payload.messageId },
+      'Enqueueing photo message for worker'
     );
 
     try {
       const taskName = await tasksService.enqueueProcessingTask(payload, config);
-      logger.info({ taskName }, 'Task enqueued successfully');
+      logger.info({ taskName }, 'Photo task enqueued successfully');
 
       res.status(StatusCodes.OK).json({
         ok: true,
-        action: 'enqueued',
+        action: 'photo_enqueued',
         task: taskName,
       });
     } catch (error) {
-      logger.error({ error }, 'Failed to enqueue task');
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to enqueue task' });
+      logger.error({ error }, 'Failed to enqueue photo task');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to enqueue photo task' });
     }
     return;
   }
 
-  // Process document files (PDF, images)
+  // Process document messages (PDF invoices)
   if (telegramService.isDocumentMessage(update)) {
-    if (!telegramService.isSupportedDocument(update)) {
-      logger.debug('Ignoring unsupported document type');
-      res.status(StatusCodes.OK).json({ ok: true, action: 'ignored_unsupported_document' });
-      return;
-    }
-
-    // Extract document info for validation
-    const message = update.message || update.channel_post;
-    const document = message?.document;
-
-    if (!document || !telegramService.isFileSizeValid(document)) {
-      logger.warn({ fileSize: document?.file_size }, 'Document exceeds size limit (5 MB)');
-      res.status(StatusCodes.OK).json({ ok: true, action: 'rejected_size_limit' });
-      return;
-    }
-
-    // Extract payload for worker
-    const payload = telegramService.extractDocumentTaskPayload(update);
+    const payload = telegramService.extractTaskPayload(update);
     if (!payload) {
-      logger.error('Failed to extract document payload');
+      logger.error('Failed to extract payload from document message');
       res.status(StatusCodes.BAD_REQUEST).json({ error: 'Failed to extract payload' });
       return;
     }
 
-    // Check if this document is for onboarding (logo upload or just image document)
-    const inOnboarding = await approvedChatsService.isInOnboarding(payload.chatId);
-
-    if (inOnboarding && telegramService.isSupportedImageDocument(update)) {
-      // Image document during onboarding - treat as logo upload
-      logger.info(
-        {
-          chatId: payload.chatId,
-          messageId: payload.messageId,
-          fileName: document.file_name,
-        },
-        'Processing image document for onboarding (logo upload)'
-      );
-
-      try {
-        const taskName = await tasksService.enqueueOnboardingPhotoTask(payload, config);
-        logger.info({ taskName }, 'Onboarding image document task enqueued successfully');
-
-        res.status(StatusCodes.OK).json({
-          ok: true,
-          action: 'onboarding_photo_enqueued',
-          task: taskName,
-        });
-      } catch (error) {
-        logger.error({ error }, 'Failed to enqueue onboarding photo task');
-        res
-          .status(StatusCodes.INTERNAL_SERVER_ERROR)
-          .json({ error: 'Failed to enqueue onboarding photo task' });
-      }
-      return;
-    }
-
-    // Not in onboarding - process as invoice
     logger.info(
-      {
-        chatId: payload.chatId,
-        messageId: payload.messageId,
-        uploader: payload.uploaderUsername,
-        fileName: document.file_name,
-        mimeType: document.mime_type,
-      },
-      'Processing document for invoice'
+      { chatId: payload.chatId, messageId: payload.messageId },
+      'Enqueueing document message for worker'
     );
 
     try {
@@ -206,327 +166,19 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
 
       res.status(StatusCodes.OK).json({
         ok: true,
-        action: 'enqueued',
+        action: 'document_enqueued',
         task: taskName,
       });
     } catch (error) {
       logger.error({ error }, 'Failed to enqueue document task');
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to enqueue task' });
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ error: 'Failed to enqueue document task' });
     }
     return;
   }
 
-  // Ignore all other message types
-  logger.debug('Ignoring non-photo, non-document message');
+  // Ignore all other updates (stickers, voice messages, etc.)
+  logger.debug('Ignoring non-processable update');
   res.status(StatusCodes.OK).json({ ok: true, action: 'ignored' });
-}
-
-/**
- * Handle callback query by enqueueing task for worker
- */
-async function handleCallbackQuery(
-  update: ReturnType<typeof telegramService.parseUpdate>,
-  config: ReturnType<typeof getConfig>,
-  res: Response
-): Promise<void> {
-  if (!update) {
-    res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid update' });
-    return;
-  }
-
-  const callbackPayload = telegramService.extractCallbackPayload(update);
-  if (!callbackPayload) {
-    logger.error('Failed to extract callback payload');
-    res.status(StatusCodes.BAD_REQUEST).json({ error: 'Failed to extract callback payload' });
-    return;
-  }
-
-  // Check if this is an onboarding-related callback
-  if (telegramService.isOnboardingCallback(callbackPayload.data)) {
-    const onboardingPayload = telegramService.extractInvoiceCallbackPayload(update);
-    if (!onboardingPayload) {
-      logger.error('Failed to extract onboarding callback payload');
-      res
-        .status(StatusCodes.BAD_REQUEST)
-        .json({ error: 'Failed to extract onboarding callback payload' });
-      return;
-    }
-
-    logger.info(
-      { callbackQueryId: onboardingPayload.callbackQueryId },
-      'Enqueueing onboarding callback for worker'
-    );
-
-    try {
-      const taskName = await tasksService.enqueueOnboardCallbackTask(onboardingPayload, config);
-      logger.info({ taskName }, 'Onboarding callback task enqueued successfully');
-
-      res.status(StatusCodes.OK).json({
-        ok: true,
-        action: 'onboarding_callback_enqueued',
-        task: taskName,
-      });
-    } catch (error) {
-      logger.error({ error }, 'Failed to enqueue onboarding callback task');
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ error: 'Failed to enqueue onboarding callback task' });
-    }
-    return;
-  }
-
-  // Check if this is an invoice-related callback
-  if (telegramService.isInvoiceCallback(callbackPayload.data)) {
-    const invoicePayload = telegramService.extractInvoiceCallbackPayload(update);
-    if (!invoicePayload) {
-      logger.error('Failed to extract invoice callback payload');
-      res
-        .status(StatusCodes.BAD_REQUEST)
-        .json({ error: 'Failed to extract invoice callback payload' });
-      return;
-    }
-
-    logger.info(
-      { callbackQueryId: invoicePayload.callbackQueryId },
-      'Enqueueing invoice callback for worker'
-    );
-
-    try {
-      const taskName = await tasksService.enqueueInvoiceCallbackTask(invoicePayload, config);
-      logger.info({ taskName }, 'Invoice callback task enqueued successfully');
-
-      res.status(StatusCodes.OK).json({
-        ok: true,
-        action: 'invoice_callback_enqueued',
-        task: taskName,
-      });
-    } catch (error) {
-      logger.error({ error }, 'Failed to enqueue invoice callback task');
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ error: 'Failed to enqueue invoice callback task' });
-    }
-    return;
-  }
-
-  // Regular callback (duplicate handling, etc.)
-  logger.info(
-    { callbackQueryId: callbackPayload.callbackQueryId },
-    'Enqueueing callback query for worker'
-  );
-
-  try {
-    const taskName = await tasksService.enqueueCallbackTask(callbackPayload, config);
-    logger.info({ taskName }, 'Callback task enqueued successfully');
-
-    res.status(StatusCodes.OK).json({
-      ok: true,
-      action: 'callback_enqueued',
-      task: taskName,
-    });
-  } catch (error) {
-    logger.error({ error }, 'Failed to enqueue callback task');
-    res
-      .status(StatusCodes.INTERNAL_SERVER_ERROR)
-      .json({ error: 'Failed to enqueue callback task' });
-  }
-}
-
-/**
- * Handle /invoice command
- */
-async function handleInvoiceCommand(
-  update: ReturnType<typeof telegramService.parseUpdate>,
-  config: ReturnType<typeof getConfig>,
-  res: Response
-): Promise<void> {
-  if (!update) {
-    res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid update' });
-    return;
-  }
-
-  const payload = telegramService.extractInvoiceCommandPayload(update);
-  if (!payload) {
-    logger.error('Failed to extract invoice command payload');
-    res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ error: 'Failed to extract invoice command payload' });
-    return;
-  }
-
-  logger.info(
-    { chatId: payload.chatId, userId: payload.userId },
-    'Enqueueing invoice command for worker'
-  );
-
-  try {
-    const taskName = await tasksService.enqueueInvoiceCommandTask(payload, config);
-    logger.info({ taskName }, 'Invoice command task enqueued successfully');
-
-    res.status(StatusCodes.OK).json({
-      ok: true,
-      action: 'invoice_command_enqueued',
-      task: taskName,
-    });
-  } catch (error) {
-    logger.error({ error }, 'Failed to enqueue invoice command task');
-    res
-      .status(StatusCodes.INTERNAL_SERVER_ERROR)
-      .json({ error: 'Failed to enqueue invoice command task' });
-  }
-}
-
-/**
- * Handle text message (might be part of invoice conversation or onboarding)
- */
-async function handleTextMessage(
-  update: ReturnType<typeof telegramService.parseUpdate>,
-  config: ReturnType<typeof getConfig>,
-  res: Response
-): Promise<void> {
-  if (!update) {
-    res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid update' });
-    return;
-  }
-
-  const payload = telegramService.extractInvoiceMessagePayload(update);
-  if (!payload) {
-    // Not a valid message
-    logger.debug('Text message not suitable for processing');
-    res.status(StatusCodes.OK).json({ ok: true, action: 'ignored_text' });
-    return;
-  }
-
-  // Check if chat has active onboarding session first (takes priority)
-  const inOnboarding = await approvedChatsService.isInOnboarding(payload.chatId);
-
-  if (inOnboarding) {
-    // In active onboarding - route to onboarding flow
-    logger.info(
-      { chatId: payload.chatId, userId: payload.userId },
-      'Enqueueing onboarding message for worker'
-    );
-
-    try {
-      const taskName = await tasksService.enqueueOnboardMessageTask(payload, config);
-      logger.info({ taskName }, 'Onboarding message task enqueued successfully');
-
-      res.status(StatusCodes.OK).json({
-        ok: true,
-        action: 'onboarding_message_enqueued',
-        task: taskName,
-      });
-    } catch (error) {
-      logger.error({ error }, 'Failed to enqueue onboarding message task');
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ error: 'Failed to enqueue onboarding message task' });
-    }
-    return;
-  }
-
-  // Not in onboarding - check if chat is approved for invoice flow
-  const isApproved = await approvedChatsService.isChatApproved(payload.chatId);
-
-  if (isApproved) {
-    // Approved chat - route to invoice flow
-    logger.info(
-      { chatId: payload.chatId, userId: payload.userId },
-      'Enqueueing invoice message for worker'
-    );
-
-    try {
-      const taskName = await tasksService.enqueueInvoiceMessageTask(payload, config);
-      logger.info({ taskName }, 'Invoice message task enqueued successfully');
-
-      res.status(StatusCodes.OK).json({
-        ok: true,
-        action: 'invoice_message_enqueued',
-        task: taskName,
-      });
-    } catch (error) {
-      logger.error({ error }, 'Failed to enqueue invoice message task');
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ error: 'Failed to enqueue invoice message task' });
-    }
-  } else {
-    // Not approved - route to onboarding flow
-    logger.info(
-      { chatId: payload.chatId, userId: payload.userId },
-      'Enqueueing onboarding message for worker'
-    );
-
-    try {
-      const taskName = await tasksService.enqueueOnboardMessageTask(payload, config);
-      logger.info({ taskName }, 'Onboarding message task enqueued successfully');
-
-      res.status(StatusCodes.OK).json({
-        ok: true,
-        action: 'onboarding_message_enqueued',
-        task: taskName,
-      });
-    } catch (error) {
-      logger.error({ error }, 'Failed to enqueue onboarding message task');
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ error: 'Failed to enqueue onboarding message task' });
-    }
-  }
-}
-
-/**
- * Handle /onboard command
- */
-async function handleOnboardCommand(
-  update: ReturnType<typeof telegramService.parseUpdate>,
-  config: ReturnType<typeof getConfig>,
-  res: Response
-): Promise<void> {
-  if (!update) {
-    res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid update' });
-    return;
-  }
-
-  const payload = telegramService.extractInvoiceCommandPayload(update);
-  if (!payload) {
-    logger.error('Failed to extract onboard command payload');
-    res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ error: 'Failed to extract onboard command payload' });
-    return;
-  }
-
-  // Rate limiting: Check if chat is blocked due to too many unauthorized attempts
-  if (await rateLimiter.isRateLimited(payload.chatId)) {
-    const status = await rateLimiter.getRateLimitStatus(payload.chatId);
-    logger.warn({ chatId: payload.chatId, status }, 'Onboard command blocked: rate limit exceeded');
-    // Silently ignore (no task created, no further processing)
-    res.status(StatusCodes.OK).json({
-      ok: true,
-      action: 'ignored_rate_limited',
-    });
-    return;
-  }
-
-  logger.info(
-    { chatId: payload.chatId, userId: payload.userId },
-    'Enqueueing onboard command for worker'
-  );
-
-  try {
-    const taskName = await tasksService.enqueueOnboardCommandTask(payload, config);
-    logger.info({ taskName }, 'Onboard command task enqueued successfully');
-
-    res.status(StatusCodes.OK).json({
-      ok: true,
-      action: 'onboard_command_enqueued',
-      task: taskName,
-    });
-  } catch (error) {
-    logger.error({ error }, 'Failed to enqueue onboard command task');
-    res
-      .status(StatusCodes.INTERNAL_SERVER_ERROR)
-      .json({ error: 'Failed to enqueue onboard command task' });
-  }
 }
