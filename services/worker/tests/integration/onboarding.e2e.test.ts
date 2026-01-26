@@ -162,7 +162,7 @@ describe('Onboarding E2E Tests', () => {
       expect(onboardingService.startOnboarding).toHaveBeenCalledWith(CHAT_ID, USER_ID);
       expect(telegramService.sendMessage).toHaveBeenCalledWith(
         CHAT_ID,
-        expect.stringContaining('Welcome'),
+        expect.stringContaining('🚀 ברוכים הבאים ל-Invofox!'),
         expect.objectContaining({ replyMarkup: expect.any(Object) })
       );
 
