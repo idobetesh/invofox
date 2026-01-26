@@ -396,7 +396,7 @@ export async function handleCounterSelection(
     // User has existing invoices - ask for the number
     await sendMessage(
       chatId,
-      t(language, 'onboarding.step7Title') + '\n' + 'Please send the starting invoice number:'
+      t(language, 'onboarding.step7Title') + '\n' + t(language, 'onboarding.step7PromptNumber')
     );
     // Stay in counter step to receive the number
   }
