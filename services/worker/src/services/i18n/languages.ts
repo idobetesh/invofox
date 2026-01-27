@@ -8,7 +8,7 @@ export type Language = 'en' | 'he';
 export const messages = {
   en: {
     onboarding: {
-      welcome: '🚀 Welcome to Invofox!',
+      welcome: 'Welcome to Invofox! 🦊',
       selectLanguage: 'Please select your language:',
       languageSet: '✅ Language: English',
 
@@ -144,7 +144,7 @@ You're ready to go! Try these commands:
 
   he: {
     onboarding: {
-      welcome: '🚀 ברוכים הבאים ל-Invofox!',
+      welcome: '🦊 ברוכים הבאים ל-Invofox!',
       selectLanguage: 'אנא בחרו שפה:',
       languageSet: '✅ שפה: עברית',
 

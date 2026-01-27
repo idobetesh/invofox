@@ -8,6 +8,7 @@ import * as healthController from '../controllers/health.controller';
 import * as processController from '../controllers/process.controller';
 import * as invoiceController from '../controllers/invoice.controller';
 import * as onboardingController from '../controllers/onboarding.controller';
+import * as reportController from '../controllers/report.controller';
 
 const router = Router();
 
@@ -36,5 +37,9 @@ router.post('/onboard/command', onboardingController.handleOnboardCommandExpress
 router.post('/onboard/message', onboardingController.handleOnboardingMessageExpress);
 router.post('/onboard/callback', onboardingController.handleOnboardingCallbackExpress);
 router.post('/onboard/photo', onboardingController.handleOnboardingPhotoExpress);
+
+// Report generation endpoints
+router.post('/report/command', reportController.handleReportCommand);
+router.post('/report/callback', reportController.handleReportCallback);
 
 export default router;

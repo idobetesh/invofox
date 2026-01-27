@@ -14,8 +14,8 @@ import {
   getBestPhoto,
   extractTaskPayload,
   extractDocumentTaskPayload,
-} from '../../src/services/telegram.service';
-import type { TelegramUpdate, TelegramDocument } from '../../src/services/telegram.service';
+} from '../../src/services/telegram';
+import type { TelegramUpdate, TelegramDocument } from '../../src/services/telegram';
 import type { TelegramPhotoSize } from '../../../../shared/types';
 
 describe('Telegram Service', () => {

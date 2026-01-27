@@ -1,0 +1,525 @@
+/**
+ * Report HTML Template
+ * Template for generating PDF reports with Hebrew RTL support
+ */
+
+import type { ReportData, DateRange } from '../../../../../shared/report.types';
+
+/**
+ * Get currency symbol for display
+ */
+function getCurrencySymbol(currency: string): string {
+  const symbols: Record<string, string> = {
+    ILS: '₪',
+    USD: '$',
+    EUR: '€',
+    GBP: '£',
+    JPY: '¥',
+  };
+  return symbols[currency] || currency + ' ';
+}
+
+/**
+ * Escape HTML special characters
+ */
+function escapeHtml(text: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  };
+  return text.replace(/[&<>"']/g, (m) => map[m]);
+}
+
+/**
+ * Format date range for display (dd/mm/yyyy - dd/mm/yyyy)
+ */
+function formatDateRange(range: DateRange): string {
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  return `${formatDate(range.start)} - ${formatDate(range.end)}`;
+}
+
+/**
+ * Format invoice date for display (dd/mm/yyyy)
+ */
+function formatInvoiceDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+/**
+ * Group invoices by time period (day or month)
+ */
+function groupInvoicesByPeriod(
+  invoices: ReportData['invoices'],
+  dateRange: DateRange
+): { labels: string[]; data: number[] } {
+  const preset = dateRange.preset;
+  const groupByMonth = preset === 'ytd' || preset === 'this_year';
+
+  // Create a map to store totals by period
+  const periodMap = new Map<string, number>();
+
+  // Group invoices
+  invoices.forEach((inv) => {
+    const date = new Date(inv.date);
+    let key: string;
+
+    if (groupByMonth) {
+      // Group by month (e.g., "2026-01" for January 2026)
+      key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    } else {
+      // Group by day (e.g., "2026-01-15")
+      key = inv.date;
+    }
+
+    const current = periodMap.get(key) || 0;
+    periodMap.set(key, current + inv.amount);
+  });
+
+  // Fill in missing periods with zeros
+  const start = new Date(dateRange.start);
+  const end = new Date(dateRange.end);
+  const filledMap = new Map<string, number>();
+
+  if (groupByMonth) {
+    // Fill months
+    const currentDate = new Date(start);
+    while (currentDate <= end) {
+      const key = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+      filledMap.set(key, periodMap.get(key) || 0);
+      currentDate.setMonth(currentDate.getMonth() + 1);
+    }
+  } else {
+    // Fill days
+    const currentDate = new Date(start);
+    while (currentDate <= end) {
+      const key = currentDate.toISOString().split('T')[0];
+      filledMap.set(key, periodMap.get(key) || 0);
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+  }
+
+  // Convert to arrays and format labels
+  const labels: string[] = [];
+  const data: number[] = [];
+
+  filledMap.forEach((value, key) => {
+    if (groupByMonth) {
+      // Format as "mm/yy" (e.g., "01/26", "02/26")
+      const [year, month] = key.split('-');
+      const shortYear = year.slice(-2); // Last 2 digits of year
+      labels.push(`${month}/${shortYear}`);
+    } else {
+      // Format as "dd/mm" with padding (e.g., "03/01", "15/01")
+      const date = new Date(key);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      labels.push(`${day}/${month}`);
+    }
+    data.push(value);
+  });
+
+  return { labels, data };
+}
+
+/**
+ * Generate chart configuration as JSON
+ */
+function generateChartConfig(
+  labels: string[],
+  data: number[],
+  reportType: string,
+  currency: string
+): string {
+  const title = reportType === 'revenue' ? 'מגמת הכנסות' : 'מגמת הוצאות';
+  const currencySymbol = getCurrencySymbol(currency);
+  // Use nicer colors with gradients
+  const backgroundColor =
+    reportType === 'revenue' ? 'rgba(59, 130, 246, 0.8)' : 'rgba(239, 68, 68, 0.8)';
+  const borderColor = reportType === 'revenue' ? 'rgb(37, 99, 235)' : 'rgb(220, 38, 38)';
+  const hoverColor = reportType === 'revenue' ? 'rgba(37, 99, 235, 0.9)' : 'rgba(220, 38, 38, 0.9)';
+
+  const config = {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: title,
+          data,
+          backgroundColor: backgroundColor,
+          borderColor: borderColor,
+          borderWidth: 2,
+          hoverBackgroundColor: hoverColor,
+          borderRadius: 6,
+          borderSkipped: false,
+        },
+      ],
+    },
+    options: {
+      responsive: false,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: {
+          display: false,
+        },
+        title: {
+          display: false,
+        },
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            font: {
+              size: 14,
+              weight: 500,
+            },
+            // Use a marker string that will be replaced with the actual callback function
+            callback: '__CURRENCY_CALLBACK_PLACEHOLDER__' as unknown as (value: number) => string,
+          },
+        },
+        x: {
+          ticks: {
+            font: {
+              size: 14,
+              weight: 500,
+            },
+            maxRotation: 45,
+            minRotation: 45,
+          },
+        },
+      },
+    },
+  };
+
+  // JSON.stringify drops functions, so we need to manually build the config string
+  // with the callback function included
+  const configStr = JSON.stringify(config);
+  // Replace the placeholder marker with the actual callback function that includes currency symbol
+  return configStr.replace(
+    '"callback":"__CURRENCY_CALLBACK_PLACEHOLDER__"',
+    `"callback":function(value){return '${currencySymbol}'+value.toLocaleString();}`
+  );
+}
+
+/**
+ * Generate complete HTML for PDF report
+ */
+export function generateReportHTML(data: ReportData): string {
+  const { metrics, dateRange, businessName, logoUrl, invoices, reportType } = data;
+
+  // Dynamic titles based on report type
+  const reportTitle = reportType === 'revenue' ? 'דוח הכנסות' : 'דוח הוצאות';
+  const totalLabel = reportType === 'revenue' ? 'סה"כ הכנסות' : 'סה"כ הוצאות';
+
+  // Generate chart data
+  const chartData = groupInvoicesByPeriod(invoices, dateRange);
+  // Use primary currency (highest revenue) for chart
+  const primaryCurrency = metrics.currencies[0]?.currency || 'ILS';
+  const chartConfig = generateChartConfig(
+    chartData.labels,
+    chartData.data,
+    reportType,
+    primaryCurrency
+  );
+
+  return `
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${reportTitle}</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Arial', sans-serif;
+      direction: rtl;
+      padding: 20px;
+      color: #333;
+      font-size: 14px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 30px;
+      border-bottom: 3px solid #2563eb;
+      padding-bottom: 20px;
+    }
+    .header-right {
+      text-align: right;
+      flex: 1;
+    }
+    .header-right h1 { font-size: 24px; color: #2563eb; margin-bottom: 10px; }
+    .header-right .business { font-size: 15px; color: #666; margin-bottom: 5px; }
+    .header-right .period { font-size: 12px; color: #999; }
+    .header-left {
+      display: flex;
+      align-items: center;
+      margin-left: 20px;
+    }
+    .logo {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .logo-placeholder {
+      width: 80px;
+      height: 80px;
+      background: #e5e7eb;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      color: #666;
+    }
+
+    .table-container { margin-bottom: 30px; }
+    .table-container h2 { color: #2563eb; margin-bottom: 15px; font-size: 18px; }
+
+    .chart-container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      page-break-inside: avoid;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .chart-container h2 { color: #2563eb; margin-bottom: 15px; font-size: 18px; }
+    .chart-wrapper {
+      position: relative;
+      width: 100%;
+      height: 200px;
+    }
+    #revenueChart {
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      font-size: 13px;
+    }
+    th {
+      background: #2563eb;
+      color: white;
+      padding: 10px;
+      text-align: right;
+      font-weight: bold;
+      font-size: 13px;
+    }
+    td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: right;
+      font-size: 13px;
+    }
+    tr:hover { background: #f9fafb; }
+    a {
+      color: #2563eb;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    a:hover {
+      color: #1d4ed8;
+      text-decoration: underline;
+    }
+
+    .summary {
+      background: #f3f4f6;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 30px;
+      page-break-before: always;
+      page-break-after: avoid;
+    }
+    .summary h2 { color: #2563eb; margin-bottom: 15px; font-size: 18px; }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+    .metric {
+      background: white;
+      padding: 15px;
+      border-radius: 6px;
+      border-right: 4px solid #2563eb;
+    }
+    .metric .label { font-size: 12px; color: #666; margin-bottom: 5px; }
+    .metric .value { font-size: 20px; font-weight: bold; color: #111; }
+
+    .footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 2px solid #e5e7eb;
+      text-align: center;
+      color: #999;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-right">
+      <h1>${reportTitle}</h1>
+      <div class="business">${escapeHtml(businessName)}</div>
+      <div class="period">${formatDateRange(dateRange)}</div>
+    </div>
+    <div class="header-left">
+      ${
+        logoUrl
+          ? `<img src="${escapeHtml(logoUrl)}" class="logo" alt="Logo" />`
+          : '<div class="logo-placeholder">📄</div>'
+      }
+    </div>
+  </div>
+
+  <div class="table-container">
+    <h2>פירוט חשבוניות</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>תאריך</th>
+          <th>לקוח</th>
+          <th>סכום</th>
+          <th>קטגוריה</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${invoices
+          .map(
+            (inv) => `
+          <tr>
+            <td>${formatInvoiceDate(inv.date)}</td>
+            <td>${
+              inv.driveLink
+                ? `<a href="${escapeHtml(inv.driveLink)}" target="_blank" title="לחץ לפתיחת החשבונית">${escapeHtml(inv.customerName)}</a>`
+                : escapeHtml(inv.customerName)
+            }</td>
+            <td>${getCurrencySymbol(inv.currency)}${inv.amount.toLocaleString()}</td>
+            <td>${escapeHtml(inv.category || 'כללי')}</td>
+          </tr>
+        `
+          )
+          .join('')}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="summary">
+    <h2>סיכום ${reportType === 'revenue' ? 'הכנסות' : 'הוצאות'}</h2>
+
+    ${
+      metrics.currencies.length > 1
+        ? `
+    <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 6px; border-right: 4px solid #2563eb;">
+      <div style="font-size: 14px; font-weight: bold; color: #2563eb; margin-bottom: 10px;">${totalLabel} (לפי מטבע)</div>
+      ${metrics.currencies
+        .map((curr) => {
+          const symbol = getCurrencySymbol(curr.currency);
+          return `<div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+          <span style="color: #666; font-size: 13px;">${curr.currency}</span>
+          <span style="font-weight: bold; font-size: 16px;">${symbol}${curr.totalRevenue.toLocaleString()}</span>
+        </div>`;
+        })
+        .join('')}
+    </div>
+    `
+        : ''
+    }
+
+    <div class="summary-grid">
+      ${
+        metrics.currencies.length === 1
+          ? `
+      <div class="metric">
+        <div class="label">${totalLabel}</div>
+        <div class="value">${getCurrencySymbol(metrics.currencies[0].currency)}${metrics.totalRevenue.toLocaleString()}</div>
+      </div>
+      `
+          : `
+      <div class="metric">
+        <div class="label">סה"כ חשבוניות</div>
+        <div class="value">${invoices.length}</div>
+      </div>
+      `
+      }
+      <div class="metric">
+        <div class="label">מספר חשבוניות (${metrics.currencies[0].currency})</div>
+        <div class="value">${metrics.invoiceCount}</div>
+      </div>
+      <div class="metric">
+        <div class="label">ממוצע לחשבונית (${metrics.currencies[0].currency})</div>
+        <div class="value">${getCurrencySymbol(metrics.currencies[0].currency)}${Math.round(metrics.avgInvoice).toLocaleString()}</div>
+      </div>
+      <div class="metric">
+        <div class="label">חשבונית מקסימלית (${metrics.currencies[0].currency})</div>
+        <div class="value">${getCurrencySymbol(metrics.currencies[0].currency)}${metrics.maxInvoice.toLocaleString()}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-container">
+    <h2>מגמת ${reportType === 'revenue' ? 'הכנסות' : 'הוצאות'} לאורך זמן</h2>
+    <div class="chart-wrapper">
+      <canvas id="revenueChart"></canvas>
+    </div>
+  </div>
+
+  <script>
+    // Wait for Chart.js to load and then render the chart with high DPI
+    // @ts-ignore - This code runs in the browser, not Node.js
+    window.addEventListener('load', function() {
+      const canvas = document.getElementById('revenueChart');
+      const ctx = canvas.getContext('2d');
+
+      // Get the display size
+      const wrapper = canvas.parentElement;
+      const displayWidth = wrapper.clientWidth;
+      const displayHeight = 200;
+
+      // Set the size in memory (scaled to account for DPI)
+      const scale = 3; // 3x for retina displays
+      canvas.width = displayWidth * scale;
+      canvas.height = displayHeight * scale;
+
+      // Normalize coordinate system to use CSS pixels
+      canvas.style.width = displayWidth + 'px';
+      canvas.style.height = displayHeight + 'px';
+      ctx.scale(scale, scale);
+
+      const config = ${chartConfig};
+      new Chart(ctx, config);
+    });
+  </script>
+
+  <div class="footer">
+    נוצר ב-${new Date().toLocaleDateString('he-IL')} | נוצר על ידי Invofox 🦊
+  </div>
+</body>
+</html>
+  `.trim();
+}

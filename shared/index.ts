@@ -27,3 +27,6 @@ export * from './invoice.types';
 
 // Security and access control
 export * from './security.types';
+
+// Report generation
+export * from './report.types';

@@ -168,6 +168,7 @@ export class OffboardingService {
       this.scanUserMapping(userId, preview),
       this.scanUserInvoiceSessions(userId, preview),
       this.scanUserOnboardingSessions(userId, preview),
+      this.scanUserInvoiceJobs(userId, preview),
     ]);
 
     // Calculate total
@@ -230,6 +231,7 @@ export class OffboardingService {
     await this.deleteUserInvoiceSessions(userId, report);
     await this.deleteUserOnboardingSessions(userId, report);
     await this.anonymizeGeneratedInvoices(userId, report);
+    await this.anonymizeInvoiceJobs(userId, report);
 
     return report;
   }
@@ -451,6 +453,40 @@ export class OffboardingService {
           count: docs.length,
           docIds: docs.map((d) => d.id),
         };
+      }
+    } catch (error) {
+      // Collection doesn't exist
+    }
+  }
+
+  private async scanUserInvoiceJobs(userId: number, preview: OffboardingPreview): Promise<void> {
+    try {
+      // Get username from user_customer_mapping
+      let username: string | null = null;
+      try {
+        const userDoc = await this.firestore
+          .collection('user_customer_mapping')
+          .doc(`user_${userId}`)
+          .get();
+        if (userDoc.exists) {
+          username = userDoc.data()?.username || null;
+        }
+      } catch (error) {
+        // User mapping might not exist
+      }
+
+      if (username) {
+        const snapshot = await this.firestore.collection('invoice_jobs').get();
+        const docs = snapshot.docs.filter((doc) => {
+          const data = doc.data();
+          return data.uploaderUsername === username;
+        });
+        if (docs.length > 0) {
+          preview.collections['invoice_jobs'] = {
+            count: docs.length,
+            docIds: docs.map((d) => d.id),
+          };
+        }
       }
     } catch (error) {
       // Collection doesn't exist
@@ -823,6 +859,57 @@ export class OffboardingService {
       }
     } catch (error) {
       report.errors.push(`generated_invoices_anonymization: ${error}`);
+    }
+  }
+
+  /**
+   * Anonymize invoice_jobs for a user
+   * Note: InvoiceJob doesn't have telegramUserId, so we match by uploaderUsername
+   * This requires getting the username from user_customer_mapping first
+   */
+  private async anonymizeInvoiceJobs(userId: number, report: OffboardingReport): Promise<void> {
+    try {
+      // First, get the username from user_customer_mapping
+      let username: string | null = null;
+      try {
+        const userDoc = await this.firestore
+          .collection('user_customer_mapping')
+          .doc(`user_${userId}`)
+          .get();
+        if (userDoc.exists) {
+          username = userDoc.data()?.username || null;
+        }
+      } catch (error) {
+        // User mapping might already be deleted, try to find username from invoice_jobs directly
+      }
+
+      // If we have a username, anonymize all invoice_jobs with that username
+      if (username) {
+        const snapshot = await this.firestore.collection('invoice_jobs').get();
+        let count = 0;
+        for (const doc of snapshot.docs) {
+          const data = doc.data();
+          if (data.uploaderUsername === username) {
+            await doc.ref.update({
+              uploaderUsername: '[deleted]',
+              uploaderFirstName: '[deleted]',
+            });
+            count++;
+          }
+        }
+        if (count > 0) {
+          report.firestoreUpdates += count;
+          report.details.collections['invoice_jobs_anonymized'] = count;
+        }
+      } else {
+        // If username not found, we can't reliably match invoice_jobs
+        // This could happen if user mapping was already deleted
+        report.errors.push(
+          `invoice_jobs_anonymization: Could not find username for userId ${userId} - invoice_jobs may not be anonymized`
+        );
+      }
+    } catch (error) {
+      report.errors.push(`invoice_jobs_anonymization: ${error}`);
     }
   }
 }

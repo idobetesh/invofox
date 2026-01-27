@@ -10,6 +10,7 @@ import type {
   InvoiceCommandPayload,
   InvoiceMessagePayload,
   InvoiceCallbackPayload,
+  ReportCommandPayload,
 } from '../../../../shared/types';
 import type { Config } from '../config';
 import logger from '../logger';
@@ -21,13 +22,6 @@ function getClient(): CloudTasksClient {
     tasksClient = new CloudTasksClient();
   }
   return tasksClient;
-}
-
-/**
- * Check if running in local development mode
- */
-function isLocalMode(): boolean {
-  return process.env.SKIP_CLOUD_TASKS === 'true' || process.env.NODE_ENV === 'development';
 }
 
 /**
@@ -57,45 +51,9 @@ function buildCloudTask(
 }
 
 /**
- * Helper to POST JSON to worker endpoint (local mode)
- */
-async function postToWorker(workerUrl: string, endpoint: string, payload: unknown): Promise<void> {
-  const response = await fetch(`${workerUrl}${endpoint}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Worker returned ${response.status}: ${text}`);
-  }
-}
-
-/**
- * Call worker directly for local development
- */
-async function callWorkerDirectly(payload: TaskPayload, workerUrl: string): Promise<string> {
-  logger.info({ workerUrl }, 'Calling worker directly (local mode)');
-  await postToWorker(workerUrl, '/process', payload);
-  const taskId = `local-${payload.chatId}-${payload.messageId}`;
-  logger.info({ taskId }, 'Worker processed task (local mode)');
-  return taskId;
-}
-
-/**
  * Create a Cloud Task to process an invoice
- * In local mode, calls the worker directly instead
  */
 export async function enqueueProcessingTask(payload: TaskPayload, config: Config): Promise<string> {
-  // Local development mode - call worker directly
-  if (isLocalMode()) {
-    return callWorkerDirectly(payload, config.workerUrl);
-  }
-
-  // Production mode - use Cloud Tasks
   const client = getClient();
 
   const parent = client.queuePath(config.projectId, config.location, config.queueName);
@@ -124,30 +82,12 @@ export async function enqueueProcessingTask(payload: TaskPayload, config: Config
 }
 
 /**
- * Call worker callback endpoint directly for local development
- */
-async function callCallbackDirectly(payload: CallbackPayload, workerUrl: string): Promise<string> {
-  logger.info({ workerUrl }, 'Calling worker callback directly (local mode)');
-  await postToWorker(workerUrl, '/callback', payload);
-  const taskId = `local-callback-${payload.callbackQueryId}`;
-  logger.info({ taskId }, 'Worker processed callback (local mode)');
-  return taskId;
-}
-
-/**
  * Create a Cloud Task to process a callback query
- * In local mode, calls the worker directly instead
  */
 export async function enqueueCallbackTask(
   payload: CallbackPayload,
   config: Config
 ): Promise<string> {
-  // Local development mode - call worker directly
-  if (isLocalMode()) {
-    return callCallbackDirectly(payload, config.workerUrl);
-  }
-
-  // Production mode - use Cloud Tasks
   const client = getClient();
 
   const parent = client.queuePath(config.projectId, config.location, config.queueName);
@@ -180,21 +120,6 @@ export async function enqueueCallbackTask(
 // ============================================================================
 
 /**
- * Generic function to call invoice endpoints directly (local mode)
- */
-async function callInvoiceEndpointDirectly(
-  endpoint: string,
-  payload: InvoiceCommandPayload | InvoiceMessagePayload | InvoiceCallbackPayload,
-  workerUrl: string
-): Promise<string> {
-  logger.info({ workerUrl, endpoint }, 'Calling invoice endpoint directly (local mode)');
-  await postToWorker(workerUrl, `/invoice/${endpoint}`, payload);
-  const taskId = `local-invoice-${endpoint}-${payload.chatId}-${Date.now()}`;
-  logger.info({ taskId }, 'Invoice endpoint processed (local mode)');
-  return taskId;
-}
-
-/**
  * Generic function to create invoice Cloud Task
  */
 async function enqueueInvoiceTask(
@@ -203,12 +128,6 @@ async function enqueueInvoiceTask(
   payload: InvoiceCommandPayload | InvoiceMessagePayload | InvoiceCallbackPayload,
   config: Config
 ): Promise<string> {
-  // Local development mode - call worker directly
-  if (isLocalMode()) {
-    return callInvoiceEndpointDirectly(endpoint, payload, config.workerUrl);
-  }
-
-  // Production mode - use Cloud Tasks
   const client = getClient();
 
   const parent = client.queuePath(config.projectId, config.location, config.queueName);
@@ -277,12 +196,6 @@ async function enqueueOnboardingTask(
   payload: InvoiceCommandPayload | InvoiceMessagePayload | InvoiceCallbackPayload,
   config: Config
 ): Promise<string> {
-  // Local development mode - call worker directly
-  if (isLocalMode()) {
-    return callOnboardingEndpointDirectly(endpoint, payload, config.workerUrl);
-  }
-
-  // Production mode - use Cloud Tasks
   const client = getClient();
 
   const parent = client.queuePath(config.projectId, config.location, config.queueName);
@@ -306,34 +219,6 @@ async function enqueueOnboardingTask(
     }
     throw error;
   }
-}
-
-/**
- * Call onboarding endpoint directly (local mode)
- */
-async function callOnboardingEndpointDirectly(
-  endpoint: string,
-  payload: InvoiceCommandPayload | InvoiceMessagePayload | InvoiceCallbackPayload,
-  workerUrl: string
-): Promise<string> {
-  const url = `${workerUrl}/onboard/${endpoint}`;
-
-  logger.info({ url, endpoint }, 'Calling onboarding endpoint directly (local mode)');
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Onboarding endpoint call failed: ${response.status} ${text}`);
-  }
-
-  return `local-onboard-${endpoint}`;
 }
 
 /**
@@ -383,12 +268,6 @@ export async function enqueueOnboardingPhotoTask(
   payload: TaskPayload,
   config: Config
 ): Promise<string> {
-  // Local development mode - call worker directly
-  if (isLocalMode()) {
-    return callOnboardingPhotoDirectly(payload, config.workerUrl);
-  }
-
-  // Production mode - use Cloud Tasks
   const client = getClient();
 
   const parent = client.queuePath(config.projectId, config.location, config.queueName);
@@ -414,29 +293,33 @@ export async function enqueueOnboardingPhotoTask(
   }
 }
 
+// ============================================================================
+// Report Tasks
+// ============================================================================
+
 /**
- * Call onboarding photo endpoint directly (local mode)
+ * Enqueue report command task for worker processing
  */
-async function callOnboardingPhotoDirectly(
-  payload: TaskPayload,
-  workerUrl: string
+export async function enqueueReportCommandTask(
+  payload: ReportCommandPayload,
+  config: Config
 ): Promise<string> {
-  const url = `${workerUrl}/onboard/photo`;
+  const endpoint = 'command';
+  const taskNameSuffix = `${payload.chatId}-${payload.messageId}`;
+  const client = getClient();
+  const parent = client.queuePath(config.projectId, config.location, config.queueName);
+  const taskName = `${parent}/tasks/report-${endpoint}-${taskNameSuffix}`;
+  const task = buildCloudTask(taskName, `/report/${endpoint}`, payload, config);
 
-  logger.info({ url }, 'Calling onboarding photo endpoint directly (local mode)');
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Onboarding photo endpoint call failed: ${response.status} ${text}`);
+  try {
+    const [response] = await client.createTask({ parent, task });
+    logger.info({ taskName: response.name }, 'Report Cloud Task created');
+    return response.name || taskName;
+  } catch (error: unknown) {
+    if (error instanceof Error && 'code' in error && (error as { code: number }).code === 6) {
+      logger.info({ taskName }, 'Report task already exists (duplicate)');
+      return taskName;
+    }
+    throw error;
   }
-
-  return `local-onboard-photo`;
 }
