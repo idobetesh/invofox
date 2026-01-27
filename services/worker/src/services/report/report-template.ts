@@ -138,8 +138,14 @@ function groupInvoicesByPeriod(
 /**
  * Generate chart configuration as JSON
  */
-function generateChartConfig(labels: string[], data: number[], reportType: string): string {
+function generateChartConfig(
+  labels: string[],
+  data: number[],
+  reportType: string,
+  currency: string
+): string {
   const title = reportType === 'revenue' ? 'מגמת הכנסות' : 'מגמת הוצאות';
+  const currencySymbol = getCurrencySymbol(currency);
   // Use nicer colors with gradients
   const backgroundColor =
     reportType === 'revenue' ? 'rgba(59, 130, 246, 0.8)' : 'rgba(239, 68, 68, 0.8)';
@@ -183,9 +189,7 @@ function generateChartConfig(labels: string[], data: number[], reportType: strin
               size: 14,
               weight: 500,
             },
-            callback: function (value: number) {
-              return '₪' + value.toLocaleString();
-            },
+            callback: null as unknown as (value: number) => string, // Placeholder - will be replaced with actual function
           },
         },
         x: {
@@ -202,7 +206,14 @@ function generateChartConfig(labels: string[], data: number[], reportType: strin
     },
   };
 
-  return JSON.stringify(config);
+  // JSON.stringify drops functions, so we need to manually build the config string
+  // with the callback function included
+  const configStr = JSON.stringify(config);
+  // Replace the placeholder with the actual callback function that includes currency symbol
+  return configStr.replace(
+    '"callback":null',
+    `"callback":function(value){return '${currencySymbol}'+value.toLocaleString();}`
+  );
 }
 
 /**
@@ -217,7 +228,14 @@ export function generateReportHTML(data: ReportData): string {
 
   // Generate chart data
   const chartData = groupInvoicesByPeriod(invoices, dateRange);
-  const chartConfig = generateChartConfig(chartData.labels, chartData.data, reportType);
+  // Use primary currency (highest revenue) for chart
+  const primaryCurrency = metrics.currencies[0]?.currency || 'ILS';
+  const chartConfig = generateChartConfig(
+    chartData.labels,
+    chartData.data,
+    reportType,
+    primaryCurrency
+  );
 
   return `
 <!DOCTYPE html>
@@ -400,7 +418,7 @@ export function generateReportHTML(data: ReportData): string {
                 ? `<a href="${escapeHtml(inv.driveLink)}" target="_blank" title="לחץ לפתיחת החשבונית">${escapeHtml(inv.customerName)}</a>`
                 : escapeHtml(inv.customerName)
             }</td>
-            <td>₪${inv.amount.toLocaleString()}</td>
+            <td>${getCurrencySymbol(inv.currency)}${inv.amount.toLocaleString()}</td>
             <td>${escapeHtml(inv.category || 'כללי')}</td>
           </tr>
         `
