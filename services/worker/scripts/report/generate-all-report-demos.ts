@@ -56,7 +56,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'העברה בנקאית',
       category: 'שירותי ייעוץ',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-001.pdf',
     },
     {
       invoiceNumber: '2026-002',
@@ -66,7 +66,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'מזומן',
       category: 'פיתוח תוכנה',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-002.pdf',
     },
     {
       invoiceNumber: '2026-003',
@@ -76,7 +76,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'כרטיס אשראי',
       category: 'תחזוקה שוטפת',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-003.pdf',
     },
     {
       invoiceNumber: '2026-004',
@@ -86,7 +86,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'מזומן',
       category: 'עיצוב גרפי',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-004.pdf',
     },
     {
       invoiceNumber: '2026-005',
@@ -96,7 +96,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'העברה בנקאית',
       category: 'פיתוח אתר',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-005.pdf',
     },
     {
       invoiceNumber: '2026-006',
@@ -106,7 +106,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'העברה בנקאית',
       category: 'ייעוץ טכני',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-006.pdf',
     },
     {
       invoiceNumber: '2026-007',
@@ -116,7 +116,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'כרטיס אשראי',
       category: 'אינטגרציה',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-007.pdf',
     },
     {
       invoiceNumber: '2026-008',
@@ -126,7 +126,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'מזומן',
       category: 'ניהול מערכות',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-008.pdf',
     },
     {
       invoiceNumber: '2026-009',
@@ -136,7 +136,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: "צ'ק",
       category: 'מערכת הזמנות',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-009.pdf',
     },
     {
       invoiceNumber: '2026-010',
@@ -146,7 +146,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'העברה בנקאית',
       category: 'אפליקציה ניידת',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-010.pdf',
     },
     {
       invoiceNumber: '2026-011',
@@ -156,7 +156,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'מזומן',
       category: 'בדיקות איכות',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-011.pdf',
     },
     {
       invoiceNumber: '2026-012',
@@ -166,7 +166,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'העברה בנקאית',
       category: 'אוטומציה',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-012.pdf',
     },
     {
       invoiceNumber: '2026-013',
@@ -176,7 +176,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'מזומן',
       category: 'מערכת ניהול',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-013.pdf',
     },
     {
       invoiceNumber: '2026-014',
@@ -186,7 +186,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'כרטיס אשראי',
       category: 'פלטפורמת למידה',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-014.pdf',
     },
     {
       invoiceNumber: '2026-015',
@@ -196,7 +196,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'העברה בנקאית',
       category: 'מעקב משלוחים',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-015.pdf',
     },
     {
       invoiceNumber: '2026-016',
@@ -206,7 +206,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'מזומן',
       category: 'אתר הזמנות',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-016.pdf',
     },
     {
       invoiceNumber: '2026-017',
@@ -216,7 +216,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'מזומן',
       category: 'חנות מקוונת',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-017.pdf',
     },
     {
       invoiceNumber: '2026-018',
@@ -226,7 +226,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'העברה בנקאית',
       category: 'מערכת CRM',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-018.pdf',
     },
     {
       invoiceNumber: '2026-019',
@@ -236,7 +236,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'העברה בנקאית',
       category: 'דוחות פיננסיים',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-019.pdf',
     },
     {
       invoiceNumber: '2026-020',
@@ -246,7 +246,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'מזומן',
       category: 'ניהול מדיה',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-020.pdf',
     },
     {
       invoiceNumber: '2026-021',
@@ -256,7 +256,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'מזומן',
       category: 'אפליקציית כושר',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-021.pdf',
     },
     {
       invoiceNumber: '2026-022',
@@ -266,7 +266,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'מזומן',
       category: 'ניטור מערכות',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-022.pdf',
     },
     {
       invoiceNumber: '2026-023',
@@ -276,7 +276,7 @@ const revenueReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'מזומן',
       category: 'תיקון באג',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-023.pdf',
     },
   ],
 };
@@ -339,7 +339,7 @@ const expensesReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'כרטיס אשראי',
       category: 'שירותי ענן',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-001.pdf',
     },
     {
       invoiceNumber: 'EXP-002',
@@ -349,7 +349,7 @@ const expensesReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'העברה בנקאית',
       category: 'שירותים מקצועיים',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-002.pdf',
     },
     {
       invoiceNumber: 'EXP-003',
@@ -359,7 +359,7 @@ const expensesReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'כרטיס אשראי',
       category: 'ציוד משרדי',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-003.pdf',
     },
     {
       invoiceNumber: 'EXP-004',
@@ -369,7 +369,7 @@ const expensesReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'העברה בנקאית',
       category: 'חשבונות',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-004.pdf',
     },
     {
       invoiceNumber: 'EXP-005',
@@ -379,7 +379,7 @@ const expensesReportData: ReportData = {
       currency: 'USD',
       paymentMethod: 'כרטיס אשראי',
       category: 'תוכנה',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-005.pdf',
     },
     {
       invoiceNumber: 'EXP-006',
@@ -389,7 +389,7 @@ const expensesReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'העברה בנקאית',
       category: 'שירותים משפטיים',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-006.pdf',
     },
     {
       invoiceNumber: 'EXP-007',
@@ -399,7 +399,7 @@ const expensesReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'כרטיס אשראי',
       category: 'שיווק',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-007.pdf',
     },
     {
       invoiceNumber: 'EXP-008',
@@ -409,7 +409,7 @@ const expensesReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'העברה בנקאית',
       category: 'תקשורת',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-008.pdf',
     },
     {
       invoiceNumber: 'EXP-009',
@@ -419,7 +419,7 @@ const expensesReportData: ReportData = {
       currency: 'USD',
       paymentMethod: 'כרטיס אשראי',
       category: 'תוכנה',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-009.pdf',
     },
     {
       invoiceNumber: 'EXP-010',
@@ -429,7 +429,7 @@ const expensesReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'מזומן',
       category: 'אירוח',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-010.pdf',
     },
     {
       invoiceNumber: 'EXP-011',
@@ -439,7 +439,7 @@ const expensesReportData: ReportData = {
       currency: 'EUR',
       paymentMethod: 'כרטיס אשראי',
       category: 'שירותי ענן',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-011.pdf',
     },
     {
       invoiceNumber: 'EXP-012',
@@ -449,7 +449,7 @@ const expensesReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'מזומן',
       category: 'תחבורה',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-012.pdf',
     },
     {
       invoiceNumber: 'EXP-013',
@@ -459,7 +459,7 @@ const expensesReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'כרטיס אשראי',
       category: 'תוכנה',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-013.pdf',
     },
     {
       invoiceNumber: 'EXP-014',
@@ -469,7 +469,7 @@ const expensesReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'העברה בנקאית',
       category: 'ביטוח',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-014.pdf',
     },
     {
       invoiceNumber: 'EXP-015',
@@ -479,20 +479,98 @@ const expensesReportData: ReportData = {
       currency: 'ILS',
       paymentMethod: 'כרטיס אשראי',
       category: 'תחזוקה',
-      driveLink: 'https://drive.google.com/file/d/xxx',
+      driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-015.pdf',
     },
   ],
 };
+
+/**
+ * Generate date range for preset
+ */
+function getDateRangeForPreset(preset: 'this_month' | 'last_month' | 'ytd' | 'this_year'): {
+  start: string;
+  end: string;
+  preset: 'this_month' | 'last_month' | 'ytd' | 'this_year';
+} {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0-indexed
+
+  switch (preset) {
+    case 'this_month': {
+      const start = new Date(year, month, 1);
+      const end = new Date(year, month + 1, 0);
+      return {
+        start: formatDate(start),
+        end: formatDate(end),
+        preset: 'this_month' as const,
+      };
+    }
+    case 'last_month': {
+      const start = new Date(year, month - 1, 1);
+      const end = new Date(year, month, 0);
+      return {
+        start: formatDate(start),
+        end: formatDate(end),
+        preset: 'last_month' as const,
+      };
+    }
+    case 'ytd': {
+      const start = new Date(year, 0, 1);
+      const end = new Date(year, month, now.getDate());
+      return {
+        start: formatDate(start),
+        end: formatDate(end),
+        preset: 'ytd' as const,
+      };
+    }
+    case 'this_year': {
+      return {
+        start: `${year}-01-01`,
+        end: `${year}-12-31`,
+        preset: 'this_year' as const,
+      };
+    }
+  }
+}
+
+function formatDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Adjust invoice dates to match date range
+ */
+function adjustInvoiceDates(
+  invoices: typeof revenueReportData.invoices,
+  dateRange: { start: string; end: string }
+): typeof revenueReportData.invoices {
+  const start = new Date(dateRange.start);
+  const end = new Date(dateRange.end);
+  const rangeDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+
+  return invoices.map((inv, index) => {
+    // Distribute invoices evenly across the date range
+    const dayOffset = Math.floor((index / invoices.length) * rangeDays);
+    const invoiceDate = new Date(start);
+    invoiceDate.setDate(invoiceDate.getDate() + dayOffset);
+
+    return {
+      ...inv,
+      date: formatDate(invoiceDate),
+    };
+  });
+}
 
 async function generateAllDemos() {
   console.log('🚀 Generating all report format demos...\n');
   console.log('✅ Using PRODUCTION template from: src/services/report/report-template.ts');
   console.log('   (Same template used by report.controller.ts in production)\n');
 
-  const outputDir = path.join(__dirname, 'output');
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-  }
+  const baseOutputDir = path.join(__dirname, 'output');
 
   // VERIFICATION: Test that we can access the production template directly
   const testHTML = generateReportHTML(revenueReportData);
@@ -517,7 +595,6 @@ async function generateAllDemos() {
 
   // Load and process logo from docs/assets
   let logoBase64: string | null = null;
-  // __dirname is services/worker/scripts/report, so go up 3 levels to root, then docs/assets
   const assetsDir = path.join(__dirname, '../../../../docs/assets');
   const logoFiles = ['logo.png', 'invoice-logo.jpeg'].filter((file) => {
     const filePath = path.join(assetsDir, file);
@@ -525,7 +602,7 @@ async function generateAllDemos() {
   });
 
   if (logoFiles.length > 0) {
-    const logoFile = logoFiles[0]; // Use first available logo
+    const logoFile = logoFiles[0];
     const logoPath = path.join(assetsDir, logoFile);
     console.log(`🖼️  Loading logo: ${logoFile}`);
 
@@ -543,73 +620,113 @@ async function generateAllDemos() {
     console.log('🖼️  No logo found in docs/assets, using placeholder\n');
   }
 
-  // Update report data with processed logo
-  if (logoBase64) {
-    revenueReportData.logoUrl = logoBase64;
-    expensesReportData.logoUrl = logoBase64;
-  }
-
   try {
-    // Generate Revenue Reports
-    console.log('📊 Generating Revenue Reports...');
+    const reportTypes: Array<{
+      type: 'revenue' | 'expenses';
+      emoji: string;
+      baseData: ReportData;
+    }> = [
+      {
+        type: 'revenue',
+        emoji: '📊',
+        baseData: { ...revenueReportData, logoUrl: logoBase64 || undefined },
+      },
+      {
+        type: 'expenses',
+        emoji: '💸',
+        baseData: { ...expensesReportData, logoUrl: logoBase64 || undefined },
+      },
+    ];
 
-    console.log('  📄 Creating Revenue PDF...');
-    const revenuePdf = await reportGeneratorService.generatePDFReport(revenueReportData);
-    fs.writeFileSync(path.join(outputDir, 'demo-revenue-report.pdf'), revenuePdf);
-    console.log(
-      `     ✅ Saved: demo-revenue-report.pdf (${(revenuePdf.length / 1024).toFixed(2)} KB)`
-    );
+    const datePresets: Array<'this_month' | 'last_month' | 'ytd' | 'this_year'> = [
+      'this_month',
+      'last_month',
+      'ytd',
+      'this_year',
+    ];
 
-    console.log('  📊 Creating Revenue Excel...');
-    const revenueExcel = await reportGeneratorService.generateExcelReport(revenueReportData);
-    fs.writeFileSync(path.join(outputDir, 'demo-revenue-report.xlsx'), revenueExcel);
-    console.log(
-      `     ✅ Saved: demo-revenue-report.xlsx (${(revenueExcel.length / 1024).toFixed(2)} KB)`
-    );
+    let totalGenerated = 0;
 
-    console.log('  📝 Creating Revenue CSV...');
-    const revenueCsv = await reportGeneratorService.generateCSVReport(revenueReportData);
-    fs.writeFileSync(path.join(outputDir, 'demo-revenue-report.csv'), revenueCsv);
-    console.log(
-      `     ✅ Saved: demo-revenue-report.csv (${(revenueCsv.length / 1024).toFixed(2)} KB)`
-    );
+    // Generate all combinations
+    for (const { type, emoji, baseData } of reportTypes) {
+      console.log(`\n${emoji} Generating ${type.toUpperCase()} Reports...\n`);
 
-    // Generate Expenses Reports
-    console.log('\n💸 Generating Expenses Reports...');
+      for (const preset of datePresets) {
+        const dateRange = getDateRangeForPreset(preset);
+        const presetLabel = preset.replace('_', ' ').toUpperCase();
+        console.log(`  📅 ${presetLabel} (${dateRange.start} to ${dateRange.end})`);
 
-    console.log('  📄 Creating Expenses PDF...');
-    const expensesPdf = await reportGeneratorService.generatePDFReport(expensesReportData);
-    fs.writeFileSync(path.join(outputDir, 'demo-expenses-report.pdf'), expensesPdf);
-    console.log(
-      `     ✅ Saved: demo-expenses-report.pdf (${(expensesPdf.length / 1024).toFixed(2)} KB)`
-    );
+        // Create subfolder: output/revenue/this_month/
+        const outputDir = path.join(baseOutputDir, type, preset);
+        if (!fs.existsSync(outputDir)) {
+          fs.mkdirSync(outputDir, { recursive: true });
+        }
 
-    console.log('  📊 Creating Expenses Excel...');
-    const expensesExcel = await reportGeneratorService.generateExcelReport(expensesReportData);
-    fs.writeFileSync(path.join(outputDir, 'demo-expenses-report.xlsx'), expensesExcel);
-    console.log(
-      `     ✅ Saved: demo-expenses-report.xlsx (${(expensesExcel.length / 1024).toFixed(2)} KB)`
-    );
+        // Adjust invoice dates to match the preset
+        const adjustedInvoices = adjustInvoiceDates(baseData.invoices, dateRange);
 
-    console.log('  📝 Creating Expenses CSV...');
-    const expensesCsv = await reportGeneratorService.generateCSVReport(expensesReportData);
-    fs.writeFileSync(path.join(outputDir, 'demo-expenses-report.csv'), expensesCsv);
-    console.log(
-      `     ✅ Saved: demo-expenses-report.csv (${(expensesCsv.length / 1024).toFixed(2)} KB)`
-    );
+        // Create report data for this preset
+        const reportData: ReportData = {
+          ...baseData,
+          dateRange,
+          invoices: adjustedInvoices,
+          generatedAt: new Date().toISOString(),
+        };
+
+        // Generate PDF
+        console.log('     📄 PDF...');
+        const pdf = await reportGeneratorService.generatePDFReport(reportData);
+        const pdfPath = path.join(outputDir, `${type}-${preset}.pdf`);
+        fs.writeFileSync(pdfPath, pdf);
+        console.log(`        ✅ ${type}-${preset}.pdf (${(pdf.length / 1024).toFixed(2)} KB)`);
+        totalGenerated++;
+
+        // Generate Excel
+        console.log('     📊 Excel...');
+        const excel = await reportGeneratorService.generateExcelReport(reportData);
+        const excelPath = path.join(outputDir, `${type}-${preset}.xlsx`);
+        fs.writeFileSync(excelPath, excel);
+        console.log(`        ✅ ${type}-${preset}.xlsx (${(excel.length / 1024).toFixed(2)} KB)`);
+        totalGenerated++;
+
+        // Generate CSV
+        console.log('     📝 CSV...');
+        const csv = await reportGeneratorService.generateCSVReport(reportData);
+        const csvPath = path.join(outputDir, `${type}-${preset}.csv`);
+        fs.writeFileSync(csvPath, csv);
+        console.log(`        ✅ ${type}-${preset}.csv (${(csv.length / 1024).toFixed(2)} KB)`);
+        totalGenerated++;
+
+        console.log('');
+      }
+    }
 
     // Summary
     console.log('\n✅ All demo reports generated successfully!\n');
-    console.log('📁 Output directory:', outputDir);
-    console.log('\n📊 Generated files:');
-    console.log('   Revenue:');
-    console.log('   - demo-revenue-report.pdf   (PDF with charts and formatting)');
-    console.log('   - demo-revenue-report.xlsx  (Excel with multiple sheets)');
-    console.log('   - demo-revenue-report.csv   (CSV with UTF-8 BOM)');
-    console.log('   Expenses:');
-    console.log('   - demo-expenses-report.pdf  (PDF with charts and formatting)');
-    console.log('   - demo-expenses-report.xlsx (Excel with multiple sheets)');
-    console.log('   - demo-expenses-report.csv  (CSV with UTF-8 BOM)');
+    console.log(`📁 Output directory: ${baseOutputDir}`);
+    console.log(`📊 Total files generated: ${totalGenerated}\n`);
+    console.log('📂 Folder structure:');
+    console.log('   output/');
+    console.log('   ├── revenue/');
+    console.log('   │   ├── this_month/');
+    console.log('   │   │   ├── revenue-this_month.pdf');
+    console.log('   │   │   ├── revenue-this_month.xlsx');
+    console.log('   │   │   └── revenue-this_month.csv');
+    console.log('   │   ├── last_month/');
+    console.log('   │   │   └── ...');
+    console.log('   │   ├── ytd/');
+    console.log('   │   │   └── ...');
+    console.log('   │   └── this_year/');
+    console.log('   │       └── ...');
+    console.log('   └── expenses/');
+    console.log('       ├── this_month/');
+    console.log('       │   └── ...');
+    console.log('       ├── last_month/');
+    console.log('       │   └── ...');
+    console.log('       ├── ytd/');
+    console.log('       │   └── ...');
+    console.log('       └── this_year/');
+    console.log('           └── ...');
     console.log('\n💡 Open the PDF files to view the reports!');
   } catch (error) {
     console.error('\n❌ Error generating demo reports:');

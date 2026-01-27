@@ -34,19 +34,29 @@ function escapeHtml(text: string): string {
 }
 
 /**
- * Format date range for display
+ * Format date range for display (dd/mm/yyyy - dd/mm/yyyy)
  */
 function formatDateRange(range: DateRange): string {
-  const start = new Date(range.start).toLocaleDateString('he-IL');
-  const end = new Date(range.end).toLocaleDateString('he-IL');
-  return `${start} - ${end}`;
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  return `${formatDate(range.start)} - ${formatDate(range.end)}`;
 }
 
 /**
- * Format invoice date for display
+ * Format invoice date for display (dd/mm/yyyy)
  */
 function formatInvoiceDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('he-IL');
+  const date = new Date(dateStr);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
 }
 
 /**
@@ -108,16 +118,15 @@ function groupInvoicesByPeriod(
 
   filledMap.forEach((value, key) => {
     if (groupByMonth) {
-      // Format as "ינואר 2026" (Hebrew month name)
+      // Format as "mm/yy" (e.g., "01/26", "02/26")
       const [year, month] = key.split('-');
-      const date = new Date(parseInt(year), parseInt(month) - 1, 1);
-      const monthName = date.toLocaleDateString('he-IL', { month: 'long' });
-      labels.push(monthName);
+      const shortYear = year.slice(-2); // Last 2 digits of year
+      labels.push(`${month}/${shortYear}`);
     } else {
-      // Format as "15/01" (day/month)
+      // Format as "dd/mm" with padding (e.g., "03/01", "15/01")
       const date = new Date(key);
-      const day = date.getDate();
-      const month = date.getMonth() + 1;
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
       labels.push(`${day}/${month}`);
     }
     data.push(value);
@@ -248,14 +257,14 @@ export function generateReportHTML(data: ReportData): string {
       margin-left: 20px;
     }
     .logo {
-      width: 110px;
-      height: 110px;
+      width: 80px;
+      height: 80px;
       border-radius: 50%;
       object-fit: cover;
     }
     .logo-placeholder {
-      width: 110px;
-      height: 110px;
+      width: 80px;
+      height: 80px;
       background: #e5e7eb;
       border-radius: 50%;
       display: flex;
@@ -310,6 +319,15 @@ export function generateReportHTML(data: ReportData): string {
       font-size: 13px;
     }
     tr:hover { background: #f9fafb; }
+    a {
+      color: #2563eb;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    a:hover {
+      color: #1d4ed8;
+      text-decoration: underline;
+    }
 
     .summary {
       background: #f3f4f6;
@@ -377,7 +395,11 @@ export function generateReportHTML(data: ReportData): string {
             (inv) => `
           <tr>
             <td>${formatInvoiceDate(inv.date)}</td>
-            <td>${escapeHtml(inv.customerName)}</td>
+            <td>${
+              inv.driveLink
+                ? `<a href="${escapeHtml(inv.driveLink)}" target="_blank" title="לחץ לפתיחת החשבונית">${escapeHtml(inv.customerName)}</a>`
+                : escapeHtml(inv.customerName)
+            }</td>
             <td>₪${inv.amount.toLocaleString()}</td>
             <td>${escapeHtml(inv.category || 'כללי')}</td>
           </tr>

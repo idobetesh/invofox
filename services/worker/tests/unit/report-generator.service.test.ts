@@ -78,7 +78,8 @@ describe('Report Generator Service', () => {
         currency: 'ILS',
         paymentMethod: 'Cash',
         category: 'Services',
-        driveLink: 'https://drive.google.com/...',
+        driveLink:
+          'https://storage.googleapis.com/papertrail-invoice-generated-invoices/-1001234567890/2026/20001.pdf',
       },
       {
         invoiceNumber: '002',
@@ -88,7 +89,8 @@ describe('Report Generator Service', () => {
         currency: 'ILS',
         paymentMethod: 'Transfer',
         category: 'Products',
-        driveLink: 'https://drive.google.com/...',
+        driveLink:
+          'https://storage.googleapis.com/papertrail-invoice-invoices/invoices/-1001234567890/2026/01/invoice_-1001234567890_42_1737811200000.pdf',
       },
       {
         invoiceNumber: '003',
@@ -98,7 +100,8 @@ describe('Report Generator Service', () => {
         currency: 'ILS',
         paymentMethod: 'Cash',
         category: 'Services',
-        driveLink: 'https://drive.google.com/...',
+        driveLink:
+          'https://storage.googleapis.com/papertrail-invoice-generated-invoices/-1001234567890/2026/20003.pdf',
       },
     ],
   };
