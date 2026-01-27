@@ -197,9 +197,9 @@ describe('Report API Integration Tests', () => {
             callback_query: {
               id: baseCallbackPayload.callbackQueryId,
               data: JSON.stringify({
-                action: 'select_type',
-                sessionId: 'test_session_123',
-                value: 'revenue',
+                a: 'type',
+                s: 'test_session_123',
+                v: 'rev',
               }),
               message: {
                 chat: {
@@ -233,9 +233,9 @@ describe('Report API Integration Tests', () => {
             callback_query: {
               id: baseCallbackPayload.callbackQueryId,
               data: JSON.stringify({
-                action: 'select_type',
-                sessionId: 'test_session_123',
-                value: 'expenses',
+                a: 'type',
+                s: 'test_session_123',
+                v: 'exp',
               }),
               message: {
                 chat: {
@@ -270,9 +270,9 @@ describe('Report API Integration Tests', () => {
             callback_query: {
               id: baseCallbackPayload.callbackQueryId,
               data: JSON.stringify({
-                action: 'select_type',
-                sessionId: 'test_session_123',
-                value: 'invalid',
+                a: 'type',
+                s: 'test_session_123',
+                v: 'invalid',
               }),
               message: {
                 chat: {
@@ -340,15 +340,23 @@ describe('Report API Integration Tests', () => {
             ],
           });
 
+          // Map preset to abbreviated format
+          const presetMap: Record<string, string> = {
+            this_month: 'tm',
+            last_month: 'lm',
+            ytd: 'ytd',
+            this_year: 'ty',
+          };
+
           const response = await request(app)
             .post('/report/callback')
             .send({
               callback_query: {
                 id: baseCallbackPayload.callbackQueryId,
                 data: JSON.stringify({
-                  action: 'select_date',
-                  sessionId: 'test_session_123',
-                  value: preset,
+                  a: 'date',
+                  s: 'test_session_123',
+                  v: presetMap[preset],
                 }),
                 message: {
                   chat: {
@@ -385,9 +393,9 @@ describe('Report API Integration Tests', () => {
             callback_query: {
               id: baseCallbackPayload.callbackQueryId,
               data: JSON.stringify({
-                action: 'select_date',
-                sessionId: 'test_session_123',
-                value: 'invalid_preset',
+                a: 'date',
+                s: 'test_session_123',
+                v: 'invalid_preset',
               }),
               message: {
                 chat: {
@@ -464,9 +472,9 @@ describe('Report API Integration Tests', () => {
             callback_query: {
               id: baseCallbackPayload.callbackQueryId,
               data: JSON.stringify({
-                action: 'select_format',
-                sessionId: 'test_session_123',
-                value: 'pdf',
+                a: 'fmt',
+                s: 'test_session_123',
+                v: 'pdf',
               }),
               message: {
                 chat: {
@@ -493,9 +501,9 @@ describe('Report API Integration Tests', () => {
             callback_query: {
               id: baseCallbackPayload.callbackQueryId,
               data: JSON.stringify({
-                action: 'select_format',
-                sessionId: 'test_session_123',
-                value: 'excel',
+                a: 'fmt',
+                s: 'test_session_123',
+                v: 'xls',
               }),
               message: {
                 chat: {
@@ -519,9 +527,9 @@ describe('Report API Integration Tests', () => {
             callback_query: {
               id: baseCallbackPayload.callbackQueryId,
               data: JSON.stringify({
-                action: 'select_format',
-                sessionId: 'test_session_123',
-                value: 'csv',
+                a: 'fmt',
+                s: 'test_session_123',
+                v: 'csv',
               }),
               message: {
                 chat: {
@@ -545,9 +553,9 @@ describe('Report API Integration Tests', () => {
             callback_query: {
               id: baseCallbackPayload.callbackQueryId,
               data: JSON.stringify({
-                action: 'select_format',
-                sessionId: 'test_session_123',
-                value: 'pdf',
+                a: 'fmt',
+                s: 'test_session_123',
+                v: 'pdf',
               }),
               message: {
                 chat: {
@@ -572,9 +580,9 @@ describe('Report API Integration Tests', () => {
             callback_query: {
               id: baseCallbackPayload.callbackQueryId,
               data: JSON.stringify({
-                action: 'select_format',
-                sessionId: 'test_session_123',
-                value: 'pdf',
+                a: 'fmt',
+                s: 'test_session_123',
+                v: 'pdf',
               }),
               message: {
                 chat: {
@@ -599,9 +607,9 @@ describe('Report API Integration Tests', () => {
             callback_query: {
               id: baseCallbackPayload.callbackQueryId,
               data: JSON.stringify({
-                action: 'select_format',
-                sessionId: 'test_session_123',
-                value: 'invalid',
+                a: 'fmt',
+                s: 'test_session_123',
+                v: 'invalid',
               }),
               message: {
                 chat: {
@@ -627,9 +635,9 @@ describe('Report API Integration Tests', () => {
             callback_query: {
               id: baseCallbackPayload.callbackQueryId,
               data: JSON.stringify({
-                action: 'select_type',
-                sessionId: 'test_session_123',
-                value: 'revenue',
+                a: 'type',
+                s: 'test_session_123',
+                v: 'rev',
               }),
               message: {
                 chat: {
@@ -655,9 +663,9 @@ describe('Report API Integration Tests', () => {
             callback_query: {
               id: baseCallbackPayload.callbackQueryId,
               data: JSON.stringify({
-                action: 'select_type',
-                sessionId: 'test_session_123',
-                value: 'revenue',
+                a: 'type',
+                s: 'test_session_123',
+                v: 'rev',
               }),
               message: {
                 chat: {
@@ -682,9 +690,9 @@ describe('Report API Integration Tests', () => {
             callback_query: {
               id: baseCallbackPayload.callbackQueryId,
               data: JSON.stringify({
-                action: 'select_type',
-                sessionId: 'test_session_123',
-                value: 'revenue',
+                a: 'type',
+                s: 'test_session_123',
+                v: 'rev',
               }),
               message: {
                 chat: {
@@ -729,8 +737,8 @@ describe('Report API Integration Tests', () => {
             callback_query: {
               id: baseCallbackPayload.callbackQueryId,
               data: JSON.stringify({
-                action: 'cancel',
-                sessionId: 'test_session_123',
+                a: 'cancel',
+                s: 'test_session_123',
               }),
               message: {
                 chat: {
@@ -754,8 +762,8 @@ describe('Report API Integration Tests', () => {
             callback_query: {
               id: baseCallbackPayload.callbackQueryId,
               data: JSON.stringify({
-                action: 'cancel',
-                sessionId: 'test_session_123',
+                a: 'cancel',
+                s: 'test_session_123',
               }),
               message: {
                 chat: {
