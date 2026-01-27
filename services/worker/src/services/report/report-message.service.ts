@@ -17,17 +17,17 @@ export async function sendTypeSelectionMessage(chatId: number, sessionId: string
         {
           text: '📈 הכנסות',
           callback_data: JSON.stringify({
-            action: 'select_type',
-            sessionId,
-            value: 'revenue',
+            a: 'type',
+            s: sessionId,
+            v: 'rev',
           }),
         },
         {
           text: '💸 הוצאות',
           callback_data: JSON.stringify({
-            action: 'select_type',
-            sessionId,
-            value: 'expenses',
+            a: 'type',
+            s: sessionId,
+            v: 'exp',
           }),
         },
       ],
@@ -35,8 +35,8 @@ export async function sendTypeSelectionMessage(chatId: number, sessionId: string
         {
           text: '❌ ביטול',
           callback_data: JSON.stringify({
-            action: 'cancel',
-            sessionId,
+            a: 'cancel',
+            s: sessionId,
           }),
         },
       ],
@@ -59,17 +59,17 @@ export async function sendDateSelectionMessage(chatId: number, sessionId: string
         {
           text: '📆 החודש',
           callback_data: JSON.stringify({
-            action: 'select_date',
-            sessionId,
-            value: 'this_month',
+            a: 'date',
+            s: sessionId,
+            v: 'tm',
           }),
         },
         {
           text: '📆 חודש שעבר',
           callback_data: JSON.stringify({
-            action: 'select_date',
-            sessionId,
-            value: 'last_month',
+            a: 'date',
+            s: sessionId,
+            v: 'lm',
           }),
         },
       ],
@@ -77,17 +77,17 @@ export async function sendDateSelectionMessage(chatId: number, sessionId: string
         {
           text: '📆 שנה עד היום (YTD)',
           callback_data: JSON.stringify({
-            action: 'select_date',
-            sessionId,
-            value: 'ytd',
+            a: 'date',
+            s: sessionId,
+            v: 'ytd',
           }),
         },
         {
           text: '📆 שנה זו',
           callback_data: JSON.stringify({
-            action: 'select_date',
-            sessionId,
-            value: 'this_year',
+            a: 'date',
+            s: sessionId,
+            v: 'ty',
           }),
         },
       ],
@@ -95,8 +95,8 @@ export async function sendDateSelectionMessage(chatId: number, sessionId: string
         {
           text: '❌ ביטול',
           callback_data: JSON.stringify({
-            action: 'cancel',
-            sessionId,
+            a: 'cancel',
+            s: sessionId,
           }),
         },
       ],
@@ -123,25 +123,25 @@ export async function sendFormatSelectionMessage(
         {
           text: '📄 PDF',
           callback_data: JSON.stringify({
-            action: 'select_format',
-            sessionId,
-            value: 'pdf',
+            a: 'fmt',
+            s: sessionId,
+            v: 'pdf',
           }),
         },
         {
           text: '📊 Excel',
           callback_data: JSON.stringify({
-            action: 'select_format',
-            sessionId,
-            value: 'excel',
+            a: 'fmt',
+            s: sessionId,
+            v: 'xls',
           }),
         },
         {
           text: '📝 CSV',
           callback_data: JSON.stringify({
-            action: 'select_format',
-            sessionId,
-            value: 'csv',
+            a: 'fmt',
+            s: sessionId,
+            v: 'csv',
           }),
         },
       ],
@@ -149,8 +149,8 @@ export async function sendFormatSelectionMessage(
         {
           text: '❌ ביטול',
           callback_data: JSON.stringify({
-            action: 'cancel',
-            sessionId,
+            a: 'cancel',
+            s: sessionId,
           }),
         },
       ],

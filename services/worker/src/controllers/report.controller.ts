@@ -99,6 +99,48 @@ export async function handleReportCommand(req: Request, res: Response): Promise<
 }
 
 /**
+ * Map abbreviated callback data to full values
+ * Abbreviated format: {a: action, s: sessionId, v: value}
+ */
+function parseCallbackData(rawData: string): {
+  action: string;
+  sessionId: string;
+  value?: string;
+} {
+  const data = JSON.parse(rawData);
+
+  // Action mapping
+  const actionMap: Record<string, string> = {
+    type: 'select_type',
+    date: 'select_date',
+    fmt: 'select_format',
+    cancel: 'cancel',
+  };
+
+  // Value mapping
+  const valueMap: Record<string, string> = {
+    // Type values
+    rev: 'revenue',
+    exp: 'expenses',
+    // Date presets
+    tm: 'this_month',
+    lm: 'last_month',
+    ytd: 'ytd',
+    ty: 'this_year',
+    // Formats
+    pdf: 'pdf',
+    xls: 'excel',
+    csv: 'csv',
+  };
+
+  return {
+    action: actionMap[data.a] || data.a,
+    sessionId: data.s,
+    value: data.v ? valueMap[data.v] || data.v : undefined,
+  };
+}
+
+/**
  * Handle callback query from inline buttons
  */
 export async function handleReportCallback(req: Request, res: Response): Promise<void> {
@@ -115,7 +157,7 @@ export async function handleReportCallback(req: Request, res: Response): Promise
 
     const callbackQueryId = callbackQuery.id;
     const chatId = callbackQuery.message?.chat?.id;
-    const data = JSON.parse(callbackQuery.data);
+    const data = parseCallbackData(callbackQuery.data);
 
     if (!chatId) {
       res.status(StatusCodes.BAD_REQUEST).json({ error: 'No chatId in callback' });

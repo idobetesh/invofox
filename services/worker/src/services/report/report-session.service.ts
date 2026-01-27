@@ -50,10 +50,14 @@ export interface ReportSession {
 }
 
 /**
- * Generate session ID
+ * Generate session ID (shortened for Telegram's 64-byte callback_data limit)
+ * Format: {timestamp_base36}{random2}
+ * Example: ld3k8ma9x (13 chars max)
  */
-function generateSessionId(chatId: number, userId: number): string {
-  return `report_${chatId}_${userId}_${Date.now()}`;
+function generateSessionId(): string {
+  const timestamp = Date.now().toString(36); // Convert to base36 (shorter)
+  const random = Math.random().toString(36).substring(2, 4); // 2 random chars
+  return `${timestamp}${random}`;
 }
 
 /**
@@ -70,7 +74,7 @@ function getExpirationTime(): Date {
  */
 export async function createReportSession(chatId: number, userId: number): Promise<ReportSession> {
   const db = getFirestore();
-  const sessionId = generateSessionId(chatId, userId);
+  const sessionId = generateSessionId();
   const now = Timestamp.now();
   const expiresAt = Timestamp.fromDate(getExpirationTime());
 
