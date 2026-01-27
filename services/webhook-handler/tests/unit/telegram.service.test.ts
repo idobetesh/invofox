@@ -14,6 +14,8 @@ import {
   getBestPhoto,
   extractTaskPayload,
   extractDocumentTaskPayload,
+  isReportCallback,
+  extractReportCallbackPayload,
 } from '../../src/services/telegram';
 import type { TelegramUpdate, TelegramDocument } from '../../src/services/telegram';
 import type { TelegramPhotoSize } from '../../../../shared/types';
@@ -769,6 +771,128 @@ describe('Telegram Service', () => {
 
       it('should return false for object without update_id', () => {
         expect(isValidUpdate({ message: {} })).toBe(false);
+      });
+    });
+  });
+
+  describe('Report Callbacks', () => {
+    describe('isReportCallback', () => {
+      it('should return true for report type callback', () => {
+        const data = JSON.stringify({ a: 'type', s: 'session123', v: 'rev' });
+        expect(isReportCallback(data)).toBe(true);
+      });
+
+      it('should return true for report date callback', () => {
+        const data = JSON.stringify({ a: 'date', s: 'session123', v: 'tm' });
+        expect(isReportCallback(data)).toBe(true);
+      });
+
+      it('should return true for report format callback', () => {
+        const data = JSON.stringify({ a: 'fmt', s: 'session123', v: 'pdf' });
+        expect(isReportCallback(data)).toBe(true);
+      });
+
+      it('should return true for report cancel callback', () => {
+        const data = JSON.stringify({ a: 'cancel', s: 'session123' });
+        expect(isReportCallback(data)).toBe(true);
+      });
+
+      it('should return false for non-report callback (invoice)', () => {
+        const data = JSON.stringify({ action: 'skip_extraction', sessionId: 'inv_123' });
+        expect(isReportCallback(data)).toBe(false);
+      });
+
+      it('should return false for invalid JSON', () => {
+        expect(isReportCallback('not a json')).toBe(false);
+      });
+
+      it('should return false for callback without abbreviated action field', () => {
+        const data = JSON.stringify({ action: 'type', s: 'session123' });
+        expect(isReportCallback(data)).toBe(false);
+      });
+
+      it('should return false for unknown action', () => {
+        const data = JSON.stringify({ a: 'unknown', s: 'session123' });
+        expect(isReportCallback(data)).toBe(false);
+      });
+    });
+
+    describe('extractReportCallbackPayload', () => {
+      it('should extract callback payload with all fields', () => {
+        const update: TelegramUpdate = {
+          update_id: 123456,
+          callback_query: {
+            id: 'callback_123',
+            from: { id: 67890, is_bot: false, first_name: 'John' },
+            message: {
+              message_id: 1,
+              date: 1704067200,
+              chat: { id: -12345, type: 'group', title: 'Test Group' },
+              text: 'Select report type',
+            },
+            data: JSON.stringify({ a: 'type', s: 'session123', v: 'rev' }),
+            chat_instance: 'chat_inst_123',
+          },
+        };
+
+        const payload = extractReportCallbackPayload(update);
+
+        expect(payload).not.toBeNull();
+        expect(payload?.callback_query.id).toBe('callback_123');
+        expect(payload?.callback_query.data).toBe(
+          JSON.stringify({ a: 'type', s: 'session123', v: 'rev' })
+        );
+        expect(payload?.callback_query.message.chat.id).toBe(-12345);
+      });
+
+      it('should return null for update without callback_query', () => {
+        const update: TelegramUpdate = {
+          update_id: 123456,
+          message: {
+            message_id: 1,
+            date: 1704067200,
+            chat: { id: 12345, type: 'private' },
+            text: '/report',
+          },
+        };
+
+        const payload = extractReportCallbackPayload(update);
+        expect(payload).toBeNull();
+      });
+
+      it('should return null for callback without data', () => {
+        const update: TelegramUpdate = {
+          update_id: 123456,
+          callback_query: {
+            id: 'callback_123',
+            from: { id: 67890, is_bot: false, first_name: 'John' },
+            message: {
+              message_id: 1,
+              date: 1704067200,
+              chat: { id: -12345, type: 'group' },
+              text: 'Select report type',
+            },
+            chat_instance: 'chat_inst_123',
+          },
+        };
+
+        const payload = extractReportCallbackPayload(update);
+        expect(payload).toBeNull();
+      });
+
+      it('should return null for callback without message', () => {
+        const update: TelegramUpdate = {
+          update_id: 123456,
+          callback_query: {
+            id: 'callback_123',
+            from: { id: 67890, is_bot: false, first_name: 'John' },
+            data: JSON.stringify({ a: 'type', s: 'session123', v: 'rev' }),
+            chat_instance: 'chat_inst_123',
+          },
+        };
+
+        const payload = extractReportCallbackPayload(update);
+        expect(payload).toBeNull();
       });
     });
   });
