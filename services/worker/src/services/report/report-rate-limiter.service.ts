@@ -7,7 +7,11 @@ import { Firestore, Timestamp } from '@google-cloud/firestore';
 import logger from '../../logger';
 
 const COLLECTION_NAME = 'rate_limits';
-const MAX_REPORTS_PER_DAY = parseInt(process.env.REPORT_MAX_PER_DAY || '3', 10);
+
+// Parse and validate MAX_REPORTS_PER_DAY from environment variable
+const parsedMaxReports = parseInt(process.env.REPORT_MAX_PER_DAY || '3', 10);
+const MAX_REPORTS_PER_DAY =
+  Number.isNaN(parsedMaxReports) || parsedMaxReports <= 0 ? 3 : parsedMaxReports;
 
 let firestore: Firestore | null = null;
 

@@ -189,7 +189,8 @@ function generateChartConfig(
               size: 14,
               weight: 500,
             },
-            callback: null as unknown as (value: number) => string, // Placeholder - will be replaced with actual function
+            // Use a marker string that will be replaced with the actual callback function
+            callback: '__CURRENCY_CALLBACK_PLACEHOLDER__' as unknown as (value: number) => string,
           },
         },
         x: {
@@ -209,9 +210,9 @@ function generateChartConfig(
   // JSON.stringify drops functions, so we need to manually build the config string
   // with the callback function included
   const configStr = JSON.stringify(config);
-  // Replace the placeholder with the actual callback function that includes currency symbol
+  // Replace the placeholder marker with the actual callback function that includes currency symbol
   return configStr.replace(
-    '"callback":null',
+    '"callback":"__CURRENCY_CALLBACK_PLACEHOLDER__"',
     `"callback":function(value){return '${currencySymbol}'+value.toLocaleString();}`
   );
 }
