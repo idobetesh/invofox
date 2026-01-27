@@ -21,9 +21,7 @@ export const ReportSessionSchema = z.object({
 
   // User selections (filled as flow progresses)
   reportType: z.enum(['revenue', 'expenses']).optional(),
-  datePreset: z
-    .enum(['this_month', 'last_month', 'this_quarter', 'last_quarter', 'ytd', 'this_year'])
-    .optional(),
+  datePreset: z.enum(['this_month', 'last_month', 'ytd', 'this_year']).optional(),
   format: z.enum(['pdf', 'excel', 'csv']).optional(),
 
   // Timestamps

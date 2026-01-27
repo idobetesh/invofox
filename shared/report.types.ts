@@ -5,15 +5,7 @@
 
 export type ReportType = 'revenue' | 'expenses';
 export type ReportFormat = 'pdf' | 'excel' | 'csv';
-export type DatePreset =
-  | 'this_month'
-  | 'last_month'
-  | 'this_quarter'
-  | 'last_quarter'
-  | 'ytd'
-  | 'this_year'
-  | 'last_year'
-  | 'custom';
+export type DatePreset = 'this_month' | 'last_month' | 'ytd' | 'this_year';
 
 export interface DateRange {
   start: string; // YYYY-MM-DD

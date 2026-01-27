@@ -120,6 +120,20 @@ export async function getActiveSession(
 }
 
 /**
+ * Get report session by ID
+ */
+export async function getReportSession(sessionId: string): Promise<ReportSession | null> {
+  const db = getFirestore();
+  const doc = await db.collection(COLLECTION_NAME).doc(sessionId).get();
+
+  if (!doc.exists) {
+    return null;
+  }
+
+  return doc.data() as ReportSession;
+}
+
+/**
  * Update session with new data
  */
 export async function updateReportSession(

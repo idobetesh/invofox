@@ -67,7 +67,7 @@ function groupInvoicesByPeriod(
   dateRange: DateRange
 ): { labels: string[]; data: number[] } {
   const preset = dateRange.preset;
-  const groupByMonth = preset === 'ytd' || preset === 'this_year' || preset === 'last_year';
+  const groupByMonth = preset === 'ytd' || preset === 'this_year';
 
   // Create a map to store totals by period
   const periodMap = new Map<string, number>();
