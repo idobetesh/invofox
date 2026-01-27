@@ -61,6 +61,40 @@ export async function handleCallbackQuery(
     return;
   }
 
+  // Check if this is a report-related callback
+  if (telegramService.isReportCallback(callbackPayload.data)) {
+    const reportPayload = telegramService.extractReportCallbackPayload(update);
+    if (!reportPayload) {
+      logger.error('Failed to extract report callback payload');
+      res
+        .status(StatusCodes.BAD_REQUEST)
+        .json({ error: 'Failed to extract report callback payload' });
+      return;
+    }
+
+    logger.info(
+      { callbackQueryId: reportPayload.callback_query.id },
+      'Enqueueing report callback for worker'
+    );
+
+    try {
+      const taskName = await tasksService.enqueueReportCallbackTask(reportPayload, config);
+      logger.info({ taskName }, 'Report callback task enqueued successfully');
+
+      res.status(StatusCodes.OK).json({
+        ok: true,
+        action: 'report_callback_enqueued',
+        task: taskName,
+      });
+    } catch (error) {
+      logger.error({ error }, 'Failed to enqueue report callback task');
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ error: 'Failed to enqueue report callback task' });
+    }
+    return;
+  }
+
   // Check if this is an invoice-related callback
   if (telegramService.isInvoiceCallback(callbackPayload.data)) {
     const invoicePayload = telegramService.extractInvoiceCallbackPayload(update);

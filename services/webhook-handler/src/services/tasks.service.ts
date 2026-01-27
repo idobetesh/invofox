@@ -323,3 +323,27 @@ export async function enqueueReportCommandTask(
     throw error;
   }
 }
+
+/**
+ * Enqueue report callback task for worker processing
+ */
+export async function enqueueReportCallbackTask(payload: any, config: Config): Promise<string> {
+  const endpoint = 'callback';
+  const callbackQueryId = payload.callback_query.id;
+  const client = getClient();
+  const parent = client.queuePath(config.projectId, config.location, config.queueName);
+  const taskName = `${parent}/tasks/report-${endpoint}-${callbackQueryId}`;
+  const task = buildCloudTask(taskName, `/report/${endpoint}`, payload, config);
+
+  try {
+    const [response] = await client.createTask({ parent, task });
+    logger.info({ taskName: response.name }, 'Report callback Cloud Task created');
+    return response.name || taskName;
+  } catch (error: unknown) {
+    if (error instanceof Error && 'code' in error && (error as { code: number }).code === 6) {
+      logger.info({ taskName }, 'Report callback task already exists (duplicate)');
+      return taskName;
+    }
+    throw error;
+  }
+}
