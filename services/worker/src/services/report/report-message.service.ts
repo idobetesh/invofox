@@ -75,19 +75,11 @@ export async function sendDateSelectionMessage(chatId: number, sessionId: string
       ],
       [
         {
-          text: '📆 שנה עד היום (YTD)',
+          text: '📆 מתחילת השנה',
           callback_data: JSON.stringify({
             a: 'date',
             s: sessionId,
             v: 'ytd',
-          }),
-        },
-        {
-          text: '📆 שנה זו',
-          callback_data: JSON.stringify({
-            a: 'date',
-            s: sessionId,
-            v: 'ty',
           }),
         },
       ],
@@ -169,8 +161,7 @@ export function getDateLabel(preset: DatePreset): string {
   const labels: Record<DatePreset, string> = {
     this_month: 'החודש',
     last_month: 'חודש שעבר',
-    ytd: 'שנה עד היום (YTD)',
-    this_year: 'שנה זו',
+    ytd: 'מתחילת השנה',
   };
   return labels[preset] || preset;
 }

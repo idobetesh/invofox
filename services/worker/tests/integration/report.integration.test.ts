@@ -287,7 +287,7 @@ describe('Report API Integration Tests', () => {
     });
 
     describe('Date Selection', () => {
-      const datePresets = ['this_month', 'last_month', 'ytd', 'this_year'];
+      const datePresets = ['this_month', 'last_month', 'ytd'];
 
       datePresets.forEach((preset) => {
         it(`should handle ${preset} date selection`, async () => {
@@ -345,7 +345,6 @@ describe('Report API Integration Tests', () => {
             this_month: 'tm',
             last_month: 'lm',
             ytd: 'ytd',
-            this_year: 'ty',
           };
 
           const response = await request(app)

@@ -34,25 +34,25 @@ export const InvoiceJobSchema = z.object({
   lastStep: z.enum(['download', 'drive', 'llm', 'sheets', 'ack']).optional(),
   attempts: z.number().default(0),
 
-  // Extracted data
-  vendorName: z.string().optional(), // ⚠️ DIFFERENT from generated_invoices (which uses customerName)!
-  totalAmount: z.number().optional(), // ⚠️ DIFFERENT from generated_invoices (which uses amount)!
+  // Extracted data - ALL optional fields are nullable to handle incomplete Firestore data
+  vendorName: z.string().nullable().optional(), // ⚠️ DIFFERENT from generated_invoices (which uses customerName)!
+  totalAmount: z.number().nullable().optional(), // ⚠️ DIFFERENT from generated_invoices (which uses amount)!
   vatAmount: z.number().nullable().optional(),
-  currency: z.string().default('ILS'),
+  currency: z.string().nullable().default('ILS'),
   invoiceNumber: z.string().nullable().optional(),
-  invoiceDate: z.string().optional(), // ⚠️ Format is "2026-01-18" NOT "18/01/2026"!
-  category: z.string().optional(),
-  confidence: z.number().optional(),
+  invoiceDate: z.string().nullable().optional(), // ⚠️ Format is "2026-01-18" NOT "18/01/2026"!
+  category: z.string().nullable().optional(),
+  confidence: z.number().nullable().optional(),
 
-  // Storage
-  driveFileId: z.string().optional(),
-  driveLink: z.string().optional(),
-  sheetRowId: z.number().optional(),
+  // Storage - ALL optional fields are nullable
+  driveFileId: z.string().nullable().optional(),
+  driveLink: z.string().nullable().optional(),
+  sheetRowId: z.number().nullable().optional(),
 
-  // Metadata
-  chatTitle: z.string().optional(),
-  uploaderUsername: z.string().optional(),
-  uploaderFirstName: z.string().optional(),
+  // Metadata - ALL optional fields are nullable
+  chatTitle: z.string().nullable().optional(),
+  uploaderUsername: z.string().nullable().optional(),
+  uploaderFirstName: z.string().nullable().optional(),
   receivedAt: z.string(), // ISO timestamp
   createdAt: z.custom<Timestamp>(),
   updatedAt: z.custom<Timestamp>(),

@@ -126,7 +126,6 @@ function parseCallbackData(rawData: string): {
     tm: 'this_month',
     lm: 'last_month',
     ytd: 'ytd',
-    ty: 'this_year',
     // Formats
     pdf: 'pdf',
     xls: 'excel',

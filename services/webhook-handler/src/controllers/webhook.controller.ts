@@ -42,7 +42,17 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
     return;
   }
 
-  logger.info({ updateId: update.update_id }, 'Received Telegram update');
+  logger.info(
+    {
+      updateId: update.update_id,
+      hasMessage: !!update.message,
+      hasText: !!update.message?.text,
+      text: update.message?.text,
+      hasDocument: !!update.message?.document,
+      hasPhoto: !!update.message?.photo,
+    },
+    'Received Telegram update'
+  );
 
   // Handle callback queries (button presses)
   if (telegramService.isCallbackQuery(update)) {
@@ -148,9 +158,9 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
 
   // Process document messages (PDF invoices)
   if (telegramService.isDocumentMessage(update)) {
-    const payload = telegramService.extractTaskPayload(update);
+    const payload = telegramService.extractDocumentTaskPayload(update);
     if (!payload) {
-      logger.error('Failed to extract payload from document message');
+      logger.error('Failed to extract document payload');
       res.status(StatusCodes.BAD_REQUEST).json({ error: 'Failed to extract payload' });
       return;
     }
