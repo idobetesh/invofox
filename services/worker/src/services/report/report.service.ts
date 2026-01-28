@@ -320,13 +320,15 @@ export async function generateReportData(
   chatId: number,
   dateRange: DateRange,
   businessName: string,
-  reportType: 'revenue' | 'expenses' = 'revenue'
+  reportType: 'revenue' | 'expenses' = 'revenue',
+  logoUrl?: string
 ): Promise<ReportData> {
   const invoices = await getInvoicesForReport(chatId, dateRange, reportType);
   const metrics = calculateMetrics(invoices);
 
   return {
     businessName,
+    logoUrl,
     reportType,
     dateRange,
     generatedAt: new Date().toISOString(),

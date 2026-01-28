@@ -12,7 +12,7 @@ make migrate NAME=2026-01-28-add-chatid-currency-to-invoices
 
 | Date       | File | Ran? | Notes |
 |------------|------|------|-------|
-| 2026-01-28 | `2026-01-28-add-chatid-currency-to-invoices.ts` | ⏳ | Adds chatId + currency to generated_invoices for revenue reports |
+| 2026-01-28 | `2026-01-28-add-chatid-currency-to-invoices.ts` | ✅ | Updated 3 documents. Required for revenue reports. |
 
 **After running:** Update "Ran?" column (⏳ → ✅) and add result count.
 

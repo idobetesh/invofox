@@ -87,6 +87,7 @@ export async function handleDateSelection(
     // Get business config
     const config = await businessConfigService.getBusinessConfig(chatId);
     const businessName = config?.business?.name || 'העסק שלי';
+    const logoUrl = config?.business?.logoUrl;
 
     // Get date range for preset
     const dateRange = reportService.getDateRangeForPreset(datePreset);
@@ -96,7 +97,8 @@ export async function handleDateSelection(
       chatId,
       dateRange,
       businessName,
-      session.reportType
+      session.reportType,
+      logoUrl
     );
 
     if (reportData.invoices.length === 0) {
@@ -185,6 +187,7 @@ export async function handleFormatSelection(
     // Get business config
     const config = await businessConfigService.getBusinessConfig(chatId);
     const businessName = config?.business?.name || 'העסק שלי';
+    const logoUrl = config?.business?.logoUrl;
 
     // Get date range for preset
     const dateRange = reportService.getDateRangeForPreset(session.datePreset);
@@ -194,7 +197,8 @@ export async function handleFormatSelection(
       chatId,
       dateRange,
       businessName,
-      session.reportType
+      session.reportType,
+      logoUrl
     );
 
     // Generate file based on format
