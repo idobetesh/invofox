@@ -181,11 +181,10 @@ describe('Report Generator Service', () => {
     });
 
     it('should handle different date presets', async () => {
-      const presets: Array<'this_month' | 'last_month' | 'ytd' | 'this_year'> = [
+      const presets: Array<'this_month' | 'last_month' | 'ytd'> = [
         'this_month',
         'last_month',
         'ytd',
-        'this_year',
       ];
 
       for (const preset of presets) {
@@ -359,7 +358,7 @@ describe('Report Generator Service', () => {
     it('should include chart in PDF for yearly report', async () => {
       const yearlyData = {
         ...mockReportData,
-        dateRange: { start: '2026-01-01', end: '2026-12-31', preset: 'this_year' as const },
+        dateRange: { start: '2026-01-01', end: '2026-01-28', preset: 'ytd' as const },
       };
 
       const result = await reportGeneratorService.generatePDFReport(yearlyData);

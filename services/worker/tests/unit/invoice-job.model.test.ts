@@ -83,6 +83,56 @@ describe('Invoice Job Model', () => {
   });
 
   describe('optional nullable fields', () => {
+    it('should accept vendorName as null', () => {
+      const data = {
+        ...baseInvoiceJob,
+        vendorName: null,
+      };
+
+      const result = InvoiceJobSchema.safeParse(data);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.vendorName).toBeNull();
+      }
+    });
+
+    it('should accept totalAmount as null', () => {
+      const data = {
+        ...baseInvoiceJob,
+        totalAmount: null,
+      };
+
+      const result = InvoiceJobSchema.safeParse(data);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.totalAmount).toBeNull();
+      }
+    });
+
+    it('should accept currency as null (with default)', () => {
+      const data = {
+        ...baseInvoiceJob,
+        currency: null,
+      };
+
+      const result = InvoiceJobSchema.safeParse(data);
+      expect(result.success).toBe(true);
+      // Note: null is accepted but default is not applied when value is explicitly null
+    });
+
+    it('should accept invoiceDate as null', () => {
+      const data = {
+        ...baseInvoiceJob,
+        invoiceDate: null,
+      };
+
+      const result = InvoiceJobSchema.safeParse(data);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.invoiceDate).toBeNull();
+      }
+    });
+
     it('should accept invoiceNumber as null', () => {
       const data = {
         ...baseInvoiceJob,
@@ -94,6 +144,133 @@ describe('Invoice Job Model', () => {
       if (result.success) {
         expect(result.data.invoiceNumber).toBeNull();
       }
+    });
+
+    it('should accept category as null', () => {
+      const data = {
+        ...baseInvoiceJob,
+        category: null,
+      };
+
+      const result = InvoiceJobSchema.safeParse(data);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.category).toBeNull();
+      }
+    });
+
+    it('should accept confidence as null', () => {
+      const data = {
+        ...baseInvoiceJob,
+        confidence: null,
+      };
+
+      const result = InvoiceJobSchema.safeParse(data);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.confidence).toBeNull();
+      }
+    });
+
+    it('should accept driveFileId as null', () => {
+      const data = {
+        ...baseInvoiceJob,
+        driveFileId: null,
+      };
+
+      const result = InvoiceJobSchema.safeParse(data);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.driveFileId).toBeNull();
+      }
+    });
+
+    it('should accept driveLink as null', () => {
+      const data = {
+        ...baseInvoiceJob,
+        driveLink: null,
+      };
+
+      const result = InvoiceJobSchema.safeParse(data);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.driveLink).toBeNull();
+      }
+    });
+
+    it('should accept sheetRowId as null', () => {
+      const data = {
+        ...baseInvoiceJob,
+        sheetRowId: null,
+      };
+
+      const result = InvoiceJobSchema.safeParse(data);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.sheetRowId).toBeNull();
+      }
+    });
+
+    it('should accept chatTitle as null', () => {
+      const data = {
+        ...baseInvoiceJob,
+        chatTitle: null,
+      };
+
+      const result = InvoiceJobSchema.safeParse(data);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.chatTitle).toBeNull();
+      }
+    });
+
+    it('should accept uploaderUsername as null', () => {
+      const data = {
+        ...baseInvoiceJob,
+        uploaderUsername: null,
+      };
+
+      const result = InvoiceJobSchema.safeParse(data);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.uploaderUsername).toBeNull();
+      }
+    });
+
+    it('should accept uploaderFirstName as null', () => {
+      const data = {
+        ...baseInvoiceJob,
+        uploaderFirstName: null,
+      };
+
+      const result = InvoiceJobSchema.safeParse(data);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.uploaderFirstName).toBeNull();
+      }
+    });
+
+    it('should accept all optional fields as null', () => {
+      const data = {
+        ...baseInvoiceJob,
+        vendorName: null,
+        totalAmount: null,
+        vatAmount: null,
+        currency: null,
+        invoiceNumber: null,
+        invoiceDate: null,
+        category: null,
+        confidence: null,
+        driveFileId: null,
+        driveLink: null,
+        sheetRowId: null,
+        chatTitle: null,
+        uploaderUsername: null,
+        uploaderFirstName: null,
+      };
+
+      const result = InvoiceJobSchema.safeParse(data);
+      expect(result.success).toBe(true);
     });
 
     it('should accept all optional fields as undefined', () => {
