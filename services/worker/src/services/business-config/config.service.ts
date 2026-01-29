@@ -136,6 +136,7 @@ function parseConfigDocument(data: BusinessConfigDocument): BusinessConfig {
       email: data.business.email,
       phone: data.business.phone,
       address: data.business.address,
+      logoUrl: data.business.logoUrl,
       sheetId: data.business.sheetId,
     },
     invoice: {
@@ -150,9 +151,12 @@ function parseConfigDocument(data: BusinessConfigDocument): BusinessConfig {
  * If logoUrl is provided, uses it directly. Otherwise fetches from Firestore.
  * @param chatId - Chat ID to look up logo (used for caching)
  * @param logoUrl - Optional logo URL from already-loaded config (avoids Firestore read)
- * Returns null if no logo is configured
+ * Returns undefined if no logo is configured
  */
-export async function getLogoBase64(chatId?: number, logoUrl?: string): Promise<string | null> {
+export async function getLogoBase64(
+  chatId?: number,
+  logoUrl?: string
+): Promise<string | undefined> {
   const now = Date.now();
   const cacheKey = chatId ? `chat_${chatId}` : 'default';
 
@@ -195,7 +199,7 @@ export async function getLogoBase64(chatId?: number, logoUrl?: string): Promise<
     }
 
     if (!resolvedLogoUrl) {
-      return null;
+      return undefined;
     }
 
     const base64 = await fetchLogoAsBase64(resolvedLogoUrl);
@@ -207,14 +211,14 @@ export async function getLogoBase64(chatId?: number, logoUrl?: string): Promise<
     return base64;
   } catch (error) {
     log.error({ error }, 'Failed to load logo');
-    return null;
+    return undefined;
   }
 }
 
 /**
  * Fetch logo from various sources and return as base64
  */
-async function fetchLogoAsBase64(logoUrl: string): Promise<string | null> {
+async function fetchLogoAsBase64(logoUrl: string): Promise<string | undefined> {
   const log = logger.child({ function: 'fetchLogoAsBase64' });
   // If it's already a data URL, return it directly
   if (logoUrl.startsWith('data:')) {
@@ -248,7 +252,7 @@ async function fetchLogoAsBase64(logoUrl: string): Promise<string | null> {
     return `data:${contentType};base64,${buffer.toString('base64')}`;
   }
 
-  return null;
+  return undefined;
 }
 
 /**
