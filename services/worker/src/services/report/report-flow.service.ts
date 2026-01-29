@@ -87,7 +87,9 @@ export async function handleDateSelection(
     // Get business config
     const config = await businessConfigService.getBusinessConfig(chatId);
     const businessName = config?.business?.name || 'העסק שלי';
-    const logoUrl = config?.business?.logoUrl;
+
+    // Convert logo URL to base64 for PDF embedding
+    const logoBase64 = await businessConfigService.getLogoBase64(chatId, config?.business?.logoUrl);
 
     // Get date range for preset
     const dateRange = reportService.getDateRangeForPreset(datePreset);
@@ -98,7 +100,7 @@ export async function handleDateSelection(
       dateRange,
       businessName,
       session.reportType,
-      logoUrl
+      logoBase64
     );
 
     if (reportData.invoices.length === 0) {
@@ -182,12 +184,14 @@ export async function handleFormatSelection(
     });
 
     // Send generating message
-    await telegramService.sendMessage(chatId, '⏳ מייצר דוח...\nזה עשוי לקחת מספר שניות.');
+    await telegramService.sendMessage(chatId, '⏳ מייצר דוח...');
 
     // Get business config
     const config = await businessConfigService.getBusinessConfig(chatId);
     const businessName = config?.business?.name || 'העסק שלי';
-    const logoUrl = config?.business?.logoUrl;
+
+    // Convert logo URL to base64 for PDF embedding
+    const logoBase64 = await businessConfigService.getLogoBase64(chatId, config?.business?.logoUrl);
 
     // Get date range for preset
     const dateRange = reportService.getDateRangeForPreset(session.datePreset);
@@ -198,7 +202,7 @@ export async function handleFormatSelection(
       dateRange,
       businessName,
       session.reportType,
-      logoUrl
+      logoBase64
     );
 
     // Generate file based on format

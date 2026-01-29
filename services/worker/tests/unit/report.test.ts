@@ -33,15 +33,16 @@ describe('Report Template - Logo Display', () => {
     invoices: [],
   };
 
-  it('should include logo image when logoUrl is provided', () => {
+  it('should include logo image when logoUrl is provided (base64)', () => {
     const dataWithLogo = {
       ...mockReportData,
-      logoUrl: 'https://example.com/logo.png',
+      logoUrl:
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
     };
 
     const html = generateReportHTML(dataWithLogo);
 
-    expect(html).toContain('<img src="https://example.com/logo.png"');
+    expect(html).toContain('<img src="data:image/png;base64,');
     expect(html).toContain('class="logo"');
     expect(html).not.toContain('<div class="logo-placeholder">');
   });
@@ -61,7 +62,7 @@ describe('Report Template - Logo Display', () => {
   it('should escape HTML in logoUrl to prevent XSS', () => {
     const dataWithMaliciousUrl = {
       ...mockReportData,
-      logoUrl: 'https://example.com/logo.png" onerror="alert(1)"',
+      logoUrl: 'data:image/png;base64,abc" onerror="alert(1)"',
     };
 
     const html = generateReportHTML(dataWithMaliciousUrl);

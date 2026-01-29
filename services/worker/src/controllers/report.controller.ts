@@ -13,6 +13,7 @@ import * as reportRateLimiterService from '../services/report/report-rate-limite
 import * as reportSessionService from '../services/report/report-session.service';
 import * as reportFlowService from '../services/report/report-flow.service';
 import * as reportMessageService from '../services/report/report-message.service';
+import * as reportDedupService from '../services/report/report-dedup.service';
 import * as telegramService from '../services/telegram.service';
 import logger from '../logger';
 
@@ -51,9 +52,7 @@ export async function handleReportCommand(req: Request, res: Response): Promise<
       const resetTime = rateLimit.resetAt?.toLocaleString('he-IL') || 'מחר';
       await telegramService.sendMessage(
         payload.chatId,
-        `⏸️ הגעת למכסת הדוחות היומית\n\n` +
-          `דוח הבא יהיה זמין ב: ${resetTime}\n\n` +
-          `💡 זה עוזר לנו לשמור על השירות חינמי ומהיר לכולם!`
+        `⏸️ הגעת למכסת הדוחות היומית\n\n` + `דוח הבא יהיה זמין ב: ${resetTime}\n\n`
       );
       log.info({ resetAt: rateLimit.resetAt }, 'Rate limit exceeded');
       res.status(StatusCodes.TOO_MANY_REQUESTS).json({ error: 'Rate limit exceeded' });
@@ -154,6 +153,7 @@ export async function handleReportCallback(req: Request, res: Response): Promise
       return;
     }
 
+    const updateId = body.update_id;
     const callbackQueryId = callbackQuery.id;
     const chatId = callbackQuery.message?.chat?.id;
     const data = parseCallbackData(callbackQuery.data);
@@ -163,7 +163,23 @@ export async function handleReportCallback(req: Request, res: Response): Promise
       return;
     }
 
-    log.info({ action: data.action, sessionId: data.sessionId, chatId }, 'Processing callback');
+    // Deduplication: Check if this update was already processed
+    if (updateId) {
+      const alreadyProcessed = await reportDedupService.isCallbackProcessed(updateId);
+      if (alreadyProcessed) {
+        log.info({ updateId, action: data.action }, 'Skipping duplicate callback');
+        res.status(StatusCodes.OK).json({ ok: true, duplicate: true });
+        return;
+      }
+
+      // Mark as processed IMMEDIATELY to prevent race condition with Telegram retries
+      await reportDedupService.markCallbackProcessed(updateId);
+    }
+
+    log.info(
+      { action: data.action, sessionId: data.sessionId, chatId, updateId },
+      'Processing callback'
+    );
 
     // Route to appropriate handler based on action
     switch (data.action) {

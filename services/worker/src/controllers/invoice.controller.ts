@@ -360,17 +360,6 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
             { caption: buildSuccessMessage(docType, invoiceNum) }
           );
 
-          await telegramService.editMessageText(
-            payload.chatId,
-            payload.messageId,
-            buildSuccessMessage(
-              docType,
-              typeof result.invoiceNumber === 'string'
-                ? parseInt(result.invoiceNumber)
-                : result.invoiceNumber
-            )
-          );
-
           log.info({ invoiceNumber: result.invoiceNumber }, 'Invoice generated and sent');
           res
             .status(StatusCodes.OK)

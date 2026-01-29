@@ -57,7 +57,7 @@ export async function sendDateSelectionMessage(chatId: number, sessionId: string
     inline_keyboard: [
       [
         {
-          text: '📆 החודש',
+          text: 'החודש',
           callback_data: JSON.stringify({
             a: 'date',
             s: sessionId,
@@ -65,7 +65,7 @@ export async function sendDateSelectionMessage(chatId: number, sessionId: string
           }),
         },
         {
-          text: '📆 חודש שעבר',
+          text: 'חודש שעבר',
           callback_data: JSON.stringify({
             a: 'date',
             s: sessionId,
@@ -75,7 +75,7 @@ export async function sendDateSelectionMessage(chatId: number, sessionId: string
       ],
       [
         {
-          text: '📆 מתחילת השנה',
+          text: 'מתחילת השנה',
           callback_data: JSON.stringify({
             a: 'date',
             s: sessionId,
@@ -186,8 +186,7 @@ export async function sendReportGeneratedMessage(
     `\u200F📅 תאריכים: ${dateRange.start} עד ${dateRange.end}\n` +
     `\u200F💰 סה"כ: ₪${metrics.totalRevenue.toLocaleString('he-IL')}\n` +
     `\u200F📄 חשבוניות: ${metrics.invoiceCount}\n` +
-    `\u200F📈 ממוצע: ₪${Math.round(metrics.avgInvoice).toLocaleString('he-IL')}\n\n` +
-    `רוצה עוד דוח? שלח /report`;
+    `\u200F📈 ממוצע: ₪${Math.round(metrics.avgInvoice).toLocaleString('he-IL')}\n\n`;
 
   await telegramService.sendDocument(chatId, fileBuffer, filename, {
     caption,
