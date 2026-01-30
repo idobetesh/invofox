@@ -202,6 +202,7 @@ describe('Report API Integration Tests', () => {
                 v: 'rev',
               }),
               message: {
+                message_id: 123,
                 chat: {
                   id: baseCallbackPayload.chatId,
                 },
@@ -238,6 +239,7 @@ describe('Report API Integration Tests', () => {
                 v: 'exp',
               }),
               message: {
+                message_id: 123,
                 chat: {
                   id: baseCallbackPayload.chatId,
                 },
@@ -275,6 +277,7 @@ describe('Report API Integration Tests', () => {
                 v: 'invalid',
               }),
               message: {
+                message_id: 123,
                 chat: {
                   id: baseCallbackPayload.chatId,
                 },
@@ -358,6 +361,7 @@ describe('Report API Integration Tests', () => {
                   v: presetMap[preset],
                 }),
                 message: {
+                  message_id: 123,
                   chat: {
                     id: baseCallbackPayload.chatId,
                   },
@@ -397,6 +401,7 @@ describe('Report API Integration Tests', () => {
                 v: 'invalid_preset',
               }),
               message: {
+                message_id: 123,
                 chat: {
                   id: baseCallbackPayload.chatId,
                 },
@@ -476,6 +481,7 @@ describe('Report API Integration Tests', () => {
                 v: 'pdf',
               }),
               message: {
+                message_id: 123,
                 chat: {
                   id: baseCallbackPayload.chatId,
                 },
@@ -505,6 +511,7 @@ describe('Report API Integration Tests', () => {
                 v: 'xls',
               }),
               message: {
+                message_id: 123,
                 chat: {
                   id: baseCallbackPayload.chatId,
                 },
@@ -531,6 +538,7 @@ describe('Report API Integration Tests', () => {
                 v: 'csv',
               }),
               message: {
+                message_id: 123,
                 chat: {
                   id: baseCallbackPayload.chatId,
                 },
@@ -557,6 +565,7 @@ describe('Report API Integration Tests', () => {
                 v: 'pdf',
               }),
               message: {
+                message_id: 123,
                 chat: {
                   id: baseCallbackPayload.chatId,
                 },
@@ -584,6 +593,7 @@ describe('Report API Integration Tests', () => {
                 v: 'pdf',
               }),
               message: {
+                message_id: 123,
                 chat: {
                   id: baseCallbackPayload.chatId,
                 },
@@ -611,6 +621,7 @@ describe('Report API Integration Tests', () => {
                 v: 'invalid',
               }),
               message: {
+                message_id: 123,
                 chat: {
                   id: baseCallbackPayload.chatId,
                 },
@@ -639,6 +650,7 @@ describe('Report API Integration Tests', () => {
                 v: 'rev',
               }),
               message: {
+                message_id: 123,
                 chat: {
                   id: baseCallbackPayload.chatId,
                 },
@@ -667,6 +679,7 @@ describe('Report API Integration Tests', () => {
                 v: 'rev',
               }),
               message: {
+                message_id: 123,
                 chat: {
                   id: baseCallbackPayload.chatId,
                 },
@@ -694,6 +707,7 @@ describe('Report API Integration Tests', () => {
                 v: 'rev',
               }),
               message: {
+                message_id: 123,
                 chat: {
                   id: baseCallbackPayload.chatId,
                 },
@@ -713,6 +727,7 @@ describe('Report API Integration Tests', () => {
               id: baseCallbackPayload.callbackQueryId,
               data: 'invalid-json',
               message: {
+                message_id: 123,
                 chat: {
                   id: baseCallbackPayload.chatId,
                 },
@@ -740,6 +755,7 @@ describe('Report API Integration Tests', () => {
                 s: 'test_session_123',
               }),
               message: {
+                message_id: 123,
                 chat: {
                   id: baseCallbackPayload.chatId,
                 },
@@ -765,6 +781,7 @@ describe('Report API Integration Tests', () => {
                 s: 'test_session_123',
               }),
               message: {
+                message_id: 123,
                 chat: {
                   id: baseCallbackPayload.chatId,
                 },

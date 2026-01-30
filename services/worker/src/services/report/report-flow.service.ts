@@ -64,6 +64,7 @@ export async function handleDateSelection(
   sessionId: string,
   datePreset: DatePreset,
   chatId: number,
+  messageId: number,
   callbackQueryId: string
 ): Promise<void> {
   const log = logger.child({ sessionId, datePreset, chatId });
@@ -121,11 +122,14 @@ export async function handleDateSelection(
       currentStep: 'format',
     });
 
-    // Answer callback query
+    // Answer callback query with popup feedback
     const dateLabel = reportMessageService.getDateLabel(datePreset);
     await telegramService.answerCallbackQuery(callbackQueryId, {
-      text: `✅ נבחר: ${dateLabel}`,
+      text: `✅ ${dateLabel}`,
     });
+
+    // Remove period selection buttons silently
+    await telegramService.editMessageText(chatId, messageId, `✅ ${dateLabel}`);
 
     // Send format selection message
     await reportMessageService.sendFormatSelectionMessage(
@@ -151,6 +155,7 @@ export async function handleFormatSelection(
   sessionId: string,
   format: ReportFormat,
   chatId: number,
+  messageId: number,
   callbackQueryId: string
 ): Promise<void> {
   const log = logger.child({ sessionId, format, chatId });
@@ -177,14 +182,14 @@ export async function handleFormatSelection(
       currentStep: 'generating',
     });
 
-    // Answer callback query
+    // Answer callback query with popup feedback (shows generating status)
     const formatName = format === 'pdf' ? 'PDF' : format === 'excel' ? 'Excel' : 'CSV';
     await telegramService.answerCallbackQuery(callbackQueryId, {
-      text: `✅ מייצר דוח ${formatName}...`,
+      text: `⏳ מייצר דוח ${formatName}...`,
     });
 
-    // Send generating message
-    await telegramService.sendMessage(chatId, '⏳ מייצר דוח...');
+    // Remove format selection buttons silently
+    await telegramService.editMessageText(chatId, messageId, `✅ ${formatName}`);
 
     // Get business config
     const config = await businessConfigService.getBusinessConfig(chatId);

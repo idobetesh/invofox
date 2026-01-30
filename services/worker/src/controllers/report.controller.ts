@@ -156,10 +156,11 @@ export async function handleReportCallback(req: Request, res: Response): Promise
     const updateId = body.update_id;
     const callbackQueryId = callbackQuery.id;
     const chatId = callbackQuery.message?.chat?.id;
+    const messageId = callbackQuery.message?.message_id;
     const data = parseCallbackData(callbackQuery.data);
 
-    if (!chatId) {
-      res.status(StatusCodes.BAD_REQUEST).json({ error: 'No chatId in callback' });
+    if (!chatId || !messageId) {
+      res.status(StatusCodes.BAD_REQUEST).json({ error: 'No chatId or messageId in callback' });
       return;
     }
 
@@ -197,6 +198,7 @@ export async function handleReportCallback(req: Request, res: Response): Promise
           data.sessionId,
           data.value as DatePreset,
           chatId,
+          messageId,
           callbackQueryId
         );
         break;
@@ -206,6 +208,7 @@ export async function handleReportCallback(req: Request, res: Response): Promise
           data.sessionId,
           data.value as ReportFormat,
           chatId,
+          messageId,
           callbackQueryId
         );
         // Record rate limit after successful generation
