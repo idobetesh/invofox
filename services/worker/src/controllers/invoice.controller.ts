@@ -329,14 +329,14 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
 
         // Answer callback query with popup feedback (shows generating status)
         await telegramService.answerCallbackQuery(payload.callbackQueryId, {
-          text: '⏳ יוצר חשבונית...',
+          text: t('he', 'invoice.creating'),
         });
 
-        // Remove confirmation buttons silently
+        // Remove confirmation buttons and show brief confirmation
         await telegramService.editMessageText(
           payload.chatId,
           payload.messageId,
-          '✅ אישרת, יוצר חשבונית...'
+          t('he', 'invoice.creating')
         );
 
         try {
