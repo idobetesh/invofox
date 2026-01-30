@@ -19,6 +19,7 @@ export async function handleTypeSelection(
   sessionId: string,
   reportType: ReportType,
   chatId: number,
+  messageId: number,
   callbackQueryId: string
 ): Promise<void> {
   const log = logger.child({ sessionId, reportType, chatId });
@@ -41,11 +42,14 @@ export async function handleTypeSelection(
       currentStep: 'date',
     });
 
-    // Answer callback query
+    // Answer callback query with popup feedback
     const typeName = reportType === 'revenue' ? 'הכנסות' : 'הוצאות';
     await telegramService.answerCallbackQuery(callbackQueryId, {
-      text: `✅ נבחר: דוח ${typeName}`,
+      text: `✅ ${typeName}`,
     });
+
+    // Remove type selection buttons silently
+    await telegramService.editMessageText(chatId, messageId, `✅ ${typeName}`);
 
     // Send date selection message
     await reportMessageService.sendDateSelectionMessage(chatId, sessionId);

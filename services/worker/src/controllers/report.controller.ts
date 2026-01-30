@@ -189,6 +189,7 @@ export async function handleReportCallback(req: Request, res: Response): Promise
           data.sessionId,
           data.value as ReportType,
           chatId,
+          messageId,
           callbackQueryId
         );
         break;
