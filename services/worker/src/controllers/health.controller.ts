@@ -96,7 +96,7 @@ export async function getMetrics(_req: Request, res: Response): Promise<void> {
     // Calculate health score (0-100)
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
     const failedPercent = total > 0 ? (counts.failed / total) * 100 : 0;
-    const healthScore = Math.max(0, Math.round(100 - failedPercent * 5)); // -5 points per 1% failure
+    const healthScore = Math.max(0, Math.min(100, Math.round(100 - failedPercent * 5))); // -5 points per 1% failure, capped at 0-100
 
     res.status(StatusCodes.OK).json({
       status: healthScore >= 80 ? 'healthy' : healthScore >= 50 ? 'degraded' : 'unhealthy',

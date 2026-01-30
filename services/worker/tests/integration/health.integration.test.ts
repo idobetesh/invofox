@@ -129,7 +129,7 @@ describe('Health Endpoint Integration Tests', () => {
       expect(Array.isArray(response.body.pendingRetries)).toBe(true);
     });
 
-    it.skip('should calculate health score between 0-100', async () => {
+    it('should calculate health score between 0-100', async () => {
       const response = await request(app).get('/metrics');
 
       expect(response.status).toBe(StatusCodes.OK);
