@@ -25,13 +25,17 @@ export class FirestoreService {
       'approved_chats',
       'business_config',
       'generated_invoices',
+      'Invoices', // Legacy collection (capital I)
       'invite_codes',
       'invoice_counters',
       'invoice_jobs',
       'invoice_sessions',
       'onboarding_sessions',
+      'processing_jobs', // May be deprecated
       'rate_limits',
-    ];
+      'report_sessions',
+      'user_customer_mapping',
+    ].sort(); // Keep alphabetically sorted
   }
 
   /**

@@ -60,6 +60,219 @@ export class OffboardingService {
   ) {}
 
   /**
+   * Helper: Delete documents by prefix
+   */
+  private async deleteDocsByPrefix(
+    collectionName: string,
+    prefix: string,
+    report: OffboardingReport
+  ): Promise<void> {
+    try {
+      const snapshot = await this.firestore.collection(collectionName).get();
+      let count = 0;
+      for (const doc of snapshot.docs) {
+        if (doc.id.startsWith(prefix)) {
+          await doc.ref.delete();
+          count++;
+        }
+      }
+      if (count > 0) {
+        report.firestoreDocs += count;
+        report.details.collections[collectionName] = count;
+      }
+    } catch (error) {
+      report.errors.push(`${collectionName}: ${error}`);
+    }
+  }
+
+  /**
+   * Helper: Delete single document by ID
+   */
+  private async deleteSingleDoc(
+    collectionName: string,
+    docId: string,
+    report: OffboardingReport
+  ): Promise<void> {
+    try {
+      const docRef = this.firestore.collection(collectionName).doc(docId);
+      const doc = await docRef.get();
+      if (doc.exists) {
+        await docRef.delete();
+        report.firestoreDocs++;
+        report.details.collections[collectionName] = 1;
+      }
+    } catch (error) {
+      report.errors.push(`${collectionName}: ${error}`);
+    }
+  }
+
+  /**
+   * Helper: Delete documents by custom filter
+   */
+  private async deleteDocsByFilter(
+    collectionName: string,
+    filterFn: (docId: string, docData: any) => boolean,
+    report: OffboardingReport
+  ): Promise<void> {
+    try {
+      const snapshot = await this.firestore.collection(collectionName).get();
+      let count = 0;
+      for (const doc of snapshot.docs) {
+        if (filterFn(doc.id, doc.data())) {
+          await doc.ref.delete();
+          count++;
+        }
+      }
+      if (count > 0) {
+        report.firestoreDocs += count;
+        report.details.collections[collectionName] = count;
+      }
+    } catch (error) {
+      report.errors.push(`${collectionName}: ${error}`);
+    }
+  }
+
+  /**
+   * Helper: Delete Cloud Storage files by prefix
+   */
+  private async deleteStoragePrefix(
+    bucketName: string,
+    prefix: string,
+    reportKey: string,
+    report: OffboardingReport
+  ): Promise<void> {
+    try {
+      const bucket = this.storage.bucket(bucketName);
+      const [files] = await bucket.getFiles({ prefix });
+
+      // Delete all files
+      for (const file of files) {
+        await file.delete();
+        report.storageFiles++;
+      }
+
+      if (files.length > 0) {
+        report.details.buckets[reportKey] = files.length;
+      }
+
+      // Explicitly delete folder marker objects that GCP console might have created
+      const folderMarkers = [prefix, prefix.replace(/\/$/, ''), `${prefix}.folder`];
+      for (const marker of folderMarkers) {
+        try {
+          await bucket.file(marker).delete();
+        } catch {
+          // Marker doesn't exist - that's fine
+        }
+      }
+
+      // Force cleanup using gsutil to clear console UI artifacts
+      this.forceRemoveFolderArtifact(bucketName, prefix);
+    } catch (error) {
+      report.errors.push(`${reportKey}: ${error}`);
+    }
+  }
+
+  /**
+   * Force cleanup of empty folder artifacts using gsutil
+   * This addresses GCP console UI caching issues
+   */
+  private forceRemoveFolderArtifact(bucketName: string, prefix: string): void {
+    try {
+      // Try to force remove using gsutil - this might help clear console UI cache
+      execSync(`gsutil -m rm -r gs://${bucketName}/${prefix} 2>/dev/null || true`, {
+        stdio: 'ignore',
+      });
+    } catch {
+      // Ignore errors - this is a best-effort cleanup for UI artifacts
+    }
+  }
+
+  /**
+   * Helper: Scan single document
+   */
+  private async scanSingleDoc(
+    collectionName: string,
+    docId: string,
+    preview: OffboardingPreview
+  ): Promise<void> {
+    try {
+      const doc = await this.firestore.collection(collectionName).doc(docId).get();
+      if (doc.exists) {
+        preview.collections[collectionName] = { count: 1, docIds: [doc.id] };
+      }
+    } catch (error) {
+      // Collection doesn't exist or no access
+    }
+  }
+
+  /**
+   * Helper: Scan documents by prefix
+   */
+  private async scanDocsByPrefix(
+    collectionName: string,
+    prefix: string,
+    preview: OffboardingPreview
+  ): Promise<void> {
+    try {
+      const snapshot = await this.firestore.collection(collectionName).get();
+      const docs = snapshot.docs.filter((doc) => doc.id.startsWith(prefix));
+      if (docs.length > 0) {
+        preview.collections[collectionName] = {
+          count: docs.length,
+          docIds: docs.map((d) => d.id),
+        };
+      }
+    } catch (error) {
+      // Collection doesn't exist
+    }
+  }
+
+  /**
+   * Helper: Scan documents by filter
+   */
+  private async scanDocsByFilter(
+    collectionName: string,
+    filterFn: (docId: string, docData: any) => boolean,
+    preview: OffboardingPreview
+  ): Promise<void> {
+    try {
+      const snapshot = await this.firestore.collection(collectionName).get();
+      const docs = snapshot.docs.filter((doc) => filterFn(doc.id, doc.data()));
+      if (docs.length > 0) {
+        preview.collections[collectionName] = {
+          count: docs.length,
+          docIds: docs.map((d) => d.id),
+        };
+      }
+    } catch (error) {
+      // Collection doesn't exist
+    }
+  }
+
+  /**
+   * Helper: Scan Cloud Storage files by prefix
+   */
+  private async scanStoragePrefix(
+    bucketName: string,
+    prefix: string,
+    reportKey: string,
+    preview: OffboardingPreview
+  ): Promise<void> {
+    try {
+      const bucket = this.storage.bucket(bucketName);
+      const [files] = await bucket.getFiles({ prefix });
+      if (files.length > 0) {
+        preview.storage[reportKey] = {
+          count: files.length,
+          paths: files.map((f) => f.name),
+        };
+      }
+    } catch (error) {
+      // Bucket doesn't exist or no access
+    }
+  }
+
+  /**
    * Preview what will be deleted for a business
    */
   async previewBusinessOffboarding(chatId: number): Promise<OffboardingPreview> {
@@ -194,20 +407,25 @@ export class OffboardingService {
       errors: [],
     };
 
-    // Delete Firestore documents
-    await this.deleteBusinessConfig(chatId, report);
-    await this.deleteInvoiceCounters(chatId, report);
-    await this.deleteInvoiceJobs(chatId, report);
-    await this.deleteInvoices(chatId, report);
-    await this.deleteGeneratedInvoices(chatId, report);
-    await this.deleteInvoiceSessions(chatId, report);
-    await this.deleteOnboardingSession(chatId, report);
-    await this.updateUserMappings(chatId, report);
-
-    // Delete Cloud Storage files
-    await this.deleteLogos(chatId, report);
-    await this.deleteGeneratedPDFs(chatId, report);
-    await this.deleteReceivedInvoices(chatId, report);
+    // Delete everything in parallel (Firestore + Storage)
+    await Promise.all([
+      // Firestore deletions
+      this.deleteBusinessConfig(chatId, report),
+      this.deleteInvoiceCounters(chatId, report),
+      this.deleteInvoiceJobs(chatId, report),
+      this.deleteInvoices(chatId, report),
+      this.deleteGeneratedInvoices(chatId, report),
+      this.deleteInvoiceSessions(chatId, report),
+      this.deleteOnboardingSession(chatId, report),
+      this.deleteRateLimits(chatId, report),
+      this.deleteApprovedChats(chatId, report),
+      this.deleteReportSessions(chatId, report),
+      this.updateUserMappings(chatId, report),
+      // Storage deletions
+      this.deleteLogos(chatId, report),
+      this.deleteGeneratedPDFs(chatId, report),
+      this.deleteReceivedInvoices(chatId, report),
+    ]);
 
     return report;
   }
@@ -226,12 +444,18 @@ export class OffboardingService {
       errors: [],
     };
 
-    // Delete user data
-    await this.deleteUserMapping(userId, report);
-    await this.deleteUserInvoiceSessions(userId, report);
-    await this.deleteUserOnboardingSessions(userId, report);
-    await this.anonymizeGeneratedInvoices(userId, report);
-    await this.anonymizeInvoiceJobs(userId, report);
+    // Step 1: Anonymize data (needs user_customer_mapping to exist for username lookup)
+    await Promise.all([
+      this.anonymizeGeneratedInvoices(userId, report),
+      this.anonymizeInvoiceJobs(userId, report),
+    ]);
+
+    // Step 2: Delete user data (after anonymization is done)
+    await Promise.all([
+      this.deleteUserMapping(userId, report),
+      this.deleteUserInvoiceSessions(userId, report),
+      this.deleteUserOnboardingSessions(userId, report),
+    ]);
 
     return report;
   }
@@ -241,222 +465,111 @@ export class OffboardingService {
   // ============================================================================
 
   private async scanBusinessConfig(chatId: number, preview: OffboardingPreview): Promise<void> {
-    try {
-      const doc = await this.firestore.collection('business_config').doc(`chat_${chatId}`).get();
-      if (doc.exists) {
-        preview.collections['business_config'] = { count: 1, docIds: [doc.id] };
-      }
-    } catch (error) {
-      // Collection doesn't exist or no access
-    }
+    await this.scanSingleDoc('business_config', `chat_${chatId}`, preview);
   }
 
   private async scanInvoiceCounters(chatId: number, preview: OffboardingPreview): Promise<void> {
-    try {
-      const snapshot = await this.firestore.collection('invoice_counters').get();
-      const docs = snapshot.docs.filter(
-        (doc) => doc.id.startsWith(`chat_${chatId}_`) || doc.id === chatId.toString()
-      );
-      if (docs.length > 0) {
-        preview.collections['invoice_counters'] = {
-          count: docs.length,
-          docIds: docs.map((d) => d.id),
-        };
-      }
-    } catch (error) {
-      // Collection doesn't exist
-    }
+    await this.scanDocsByFilter(
+      'invoice_counters',
+      (docId) => docId.startsWith(`chat_${chatId}_`) || docId === chatId.toString(),
+      preview
+    );
   }
 
   private async scanInvoiceJobs(chatId: number, preview: OffboardingPreview): Promise<void> {
-    try {
-      const snapshot = await this.firestore.collection('invoice_jobs').get();
-      const docs = snapshot.docs.filter((doc) => {
-        const data = doc.data();
-        return data.chatId === chatId || data.telegramChatId === chatId;
-      });
-      if (docs.length > 0) {
-        preview.collections['invoice_jobs'] = { count: docs.length, docIds: docs.map((d) => d.id) };
-      }
-    } catch (error) {
-      // Collection doesn't exist
-    }
+    await this.scanDocsByFilter(
+      'invoice_jobs',
+      (_, data) => data.chatId === chatId || data.telegramChatId === chatId,
+      preview
+    );
   }
 
   private async scanInvoices(chatId: number, preview: OffboardingPreview): Promise<void> {
-    try {
-      const snapshot = await this.firestore.collection('Invoices').get();
-      const docs = snapshot.docs.filter((doc) => {
-        const data = doc.data();
-        return data.chatId === chatId || data.telegramChatId === chatId;
-      });
-      if (docs.length > 0) {
-        preview.collections['Invoices'] = { count: docs.length, docIds: docs.map((d) => d.id) };
-      }
-    } catch (error) {
-      // Collection doesn't exist
-    }
+    await this.scanDocsByFilter(
+      'Invoices',
+      (_, data) => data.chatId === chatId || data.telegramChatId === chatId,
+      preview
+    );
   }
 
   private async scanGeneratedInvoices(chatId: number, preview: OffboardingPreview): Promise<void> {
-    try {
-      const snapshot = await this.firestore.collection('generated_invoices').get();
-      const docs = snapshot.docs.filter((doc) => {
-        const data = doc.data();
-        return data.generatedBy?.chatId === chatId;
-      });
-      if (docs.length > 0) {
-        preview.collections['generated_invoices'] = {
-          count: docs.length,
-          docIds: docs.map((d) => d.id),
-        };
-      }
-    } catch (error) {
-      // Collection doesn't exist
-    }
+    await this.scanDocsByFilter(
+      'generated_invoices',
+      (_, data) => data.generatedBy?.chatId === chatId,
+      preview
+    );
   }
 
   private async scanInvoiceSessions(chatId: number, preview: OffboardingPreview): Promise<void> {
-    try {
-      const snapshot = await this.firestore.collection('invoice_sessions').get();
-      const docs = snapshot.docs.filter((doc) => doc.id.startsWith(`${chatId}_`));
-      if (docs.length > 0) {
-        preview.collections['invoice_sessions'] = {
-          count: docs.length,
-          docIds: docs.map((d) => d.id),
-        };
-      }
-    } catch (error) {
-      // Collection doesn't exist
-    }
+    await this.scanDocsByPrefix('invoice_sessions', `${chatId}_`, preview);
   }
 
   private async scanOnboardingSession(chatId: number, preview: OffboardingPreview): Promise<void> {
-    try {
-      const doc = await this.firestore
-        .collection('onboarding_sessions')
-        .doc(chatId.toString())
-        .get();
-      if (doc.exists) {
-        preview.collections['onboarding_sessions'] = { count: 1, docIds: [doc.id] };
-      }
-    } catch (error) {
-      // Collection doesn't exist
-    }
+    await this.scanSingleDoc('onboarding_sessions', chatId.toString(), preview);
   }
 
   private async scanUserMappings(chatId: number, preview: OffboardingPreview): Promise<void> {
-    try {
-      const snapshot = await this.firestore.collection('user_customer_mapping').get();
-      const docs = snapshot.docs.filter((doc) => {
-        const data = doc.data();
+    await this.scanDocsByFilter(
+      'user_customer_mapping',
+      (_, data) => {
         const customers = data.customers || [];
         return customers.some((c: { chatId: number }) => c.chatId === chatId);
-      });
-      if (docs.length > 0) {
-        preview.collections['user_customer_mapping'] = {
-          count: docs.length,
-          docIds: docs.map((d) => d.id),
-        };
-      }
-    } catch (error) {
-      // Collection doesn't exist
-    }
+      },
+      preview
+    );
   }
 
   private async scanLogos(chatId: number, preview: OffboardingPreview): Promise<void> {
-    try {
-      const bucket = this.storage.bucket(this.generatedInvoicesBucket);
-      const [files] = await bucket.getFiles({ prefix: `logos/${chatId}/` });
-      if (files.length > 0) {
-        preview.storage['logos'] = { count: files.length, paths: files.map((f) => f.name) };
-      }
-    } catch (error) {
-      // Bucket or prefix doesn't exist
-    }
+    await this.scanStoragePrefix(
+      this.generatedInvoicesBucket,
+      `logos/${chatId}/`,
+      'logos',
+      preview
+    );
   }
 
   private async scanGeneratedPDFs(chatId: number, preview: OffboardingPreview): Promise<void> {
-    try {
-      const bucket = this.storage.bucket(this.generatedInvoicesBucket);
-      const [files] = await bucket.getFiles({ prefix: `${chatId}/` });
-      if (files.length > 0) {
-        preview.storage['generated_pdfs'] = {
-          count: files.length,
-          paths: files.map((f) => f.name),
-        };
-      }
-    } catch (error) {
-      // Bucket or prefix doesn't exist
-    }
+    await this.scanStoragePrefix(
+      this.generatedInvoicesBucket,
+      `${chatId}/`,
+      'generated_pdfs',
+      preview
+    );
   }
 
   private async scanReceivedInvoices(chatId: number, preview: OffboardingPreview): Promise<void> {
-    try {
-      const bucket = this.storage.bucket(this.invoicesBucket);
-      const [files] = await bucket.getFiles({ prefix: `invoices/${chatId}/` });
-      if (files.length > 0) {
-        preview.storage['received_invoices'] = {
-          count: files.length,
-          paths: files.map((f) => f.name),
-        };
-      }
-    } catch (error) {
-      // Bucket or prefix doesn't exist
-    }
+    await this.scanStoragePrefix(
+      this.invoicesBucket,
+      `invoices/${chatId}/`,
+      'received_invoices',
+      preview
+    );
   }
 
   private async scanUserMapping(userId: number, preview: OffboardingPreview): Promise<void> {
-    try {
-      const doc = await this.firestore
-        .collection('user_customer_mapping')
-        .doc(`user_${userId}`)
-        .get();
-      if (doc.exists) {
-        preview.collections['user_customer_mapping'] = { count: 1, docIds: [doc.id] };
-      }
-    } catch (error) {
-      // Document doesn't exist
-    }
+    await this.scanSingleDoc('user_customer_mapping', `user_${userId}`, preview);
   }
 
   private async scanUserInvoiceSessions(
     userId: number,
     preview: OffboardingPreview
   ): Promise<void> {
-    try {
-      const snapshot = await this.firestore.collection('invoice_sessions').get();
-      const docs = snapshot.docs.filter((doc) => doc.id.includes(`_${userId}`));
-      if (docs.length > 0) {
-        preview.collections['invoice_sessions'] = {
-          count: docs.length,
-          docIds: docs.map((d) => d.id),
-        };
-      }
-    } catch (error) {
-      // Collection doesn't exist
-    }
+    await this.scanDocsByFilter(
+      'invoice_sessions',
+      (docId) => docId.includes(`_${userId}`),
+      preview
+    );
   }
 
   private async scanUserOnboardingSessions(
     userId: number,
     preview: OffboardingPreview
   ): Promise<void> {
-    try {
-      const snapshot = await this.firestore.collection('onboarding_sessions').get();
-      const docs = snapshot.docs.filter((doc) => {
-        const data = doc.data();
-        return data.userId?.toString() === userId.toString();
-      });
-      if (docs.length > 0) {
-        preview.collections['onboarding_sessions'] = {
-          count: docs.length,
-          docIds: docs.map((d) => d.id),
-        };
-      }
-    } catch (error) {
-      // Collection doesn't exist
-    }
+    await this.scanDocsByFilter(
+      'onboarding_sessions',
+      (_, data) => data.userId?.toString() === userId.toString(),
+      preview
+    );
   }
 
   private async scanUserInvoiceJobs(userId: number, preview: OffboardingPreview): Promise<void> {
@@ -498,129 +611,63 @@ export class OffboardingService {
   // ============================================================================
 
   private async deleteBusinessConfig(chatId: number, report: OffboardingReport): Promise<void> {
-    try {
-      const docRef = this.firestore.collection('business_config').doc(`chat_${chatId}`);
-      const doc = await docRef.get();
-      if (doc.exists) {
-        await docRef.delete();
-        report.firestoreDocs++;
-        report.details.collections['business_config'] = 1;
-      }
-    } catch (error) {
-      report.errors.push(`business_config: ${error}`);
-    }
+    await this.deleteSingleDoc('business_config', `chat_${chatId}`, report);
   }
 
   private async deleteInvoiceCounters(chatId: number, report: OffboardingReport): Promise<void> {
-    try {
-      const snapshot = await this.firestore.collection('invoice_counters').get();
-      let count = 0;
-      for (const doc of snapshot.docs) {
-        if (doc.id.startsWith(`chat_${chatId}_`) || doc.id === chatId.toString()) {
-          await doc.ref.delete();
-          count++;
-        }
-      }
-      if (count > 0) {
-        report.firestoreDocs += count;
-        report.details.collections['invoice_counters'] = count;
-      }
-    } catch (error) {
-      report.errors.push(`invoice_counters: ${error}`);
-    }
+    await this.deleteDocsByFilter(
+      'invoice_counters',
+      (docId) => docId.startsWith(`chat_${chatId}_`) || docId === chatId.toString(),
+      report
+    );
   }
 
   private async deleteInvoiceJobs(chatId: number, report: OffboardingReport): Promise<void> {
-    try {
-      const snapshot = await this.firestore.collection('invoice_jobs').get();
-      let count = 0;
-      for (const doc of snapshot.docs) {
-        const data = doc.data();
-        if (data.chatId === chatId || data.telegramChatId === chatId) {
-          await doc.ref.delete();
-          count++;
-        }
-      }
-      if (count > 0) {
-        report.firestoreDocs += count;
-        report.details.collections['invoice_jobs'] = count;
-      }
-    } catch (error) {
-      report.errors.push(`invoice_jobs: ${error}`);
-    }
+    await this.deleteDocsByFilter(
+      'invoice_jobs',
+      (_, data) => data.chatId === chatId || data.telegramChatId === chatId,
+      report
+    );
   }
 
   private async deleteInvoices(chatId: number, report: OffboardingReport): Promise<void> {
-    try {
-      const snapshot = await this.firestore.collection('Invoices').get();
-      let count = 0;
-      for (const doc of snapshot.docs) {
-        const data = doc.data();
-        if (data.chatId === chatId || data.telegramChatId === chatId) {
-          await doc.ref.delete();
-          count++;
-        }
-      }
-      if (count > 0) {
-        report.firestoreDocs += count;
-        report.details.collections['Invoices'] = count;
-      }
-    } catch (error) {
-      report.errors.push(`Invoices: ${error}`);
-    }
+    await this.deleteDocsByFilter(
+      'Invoices',
+      (_, data) => data.chatId === chatId || data.telegramChatId === chatId,
+      report
+    );
   }
 
   private async deleteGeneratedInvoices(chatId: number, report: OffboardingReport): Promise<void> {
-    try {
-      const snapshot = await this.firestore.collection('generated_invoices').get();
-      let count = 0;
-      for (const doc of snapshot.docs) {
-        const data = doc.data();
-        if (data.generatedBy?.chatId === chatId) {
-          await doc.ref.delete();
-          count++;
-        }
-      }
-      if (count > 0) {
-        report.firestoreDocs += count;
-        report.details.collections['generated_invoices'] = count;
-      }
-    } catch (error) {
-      report.errors.push(`generated_invoices: ${error}`);
-    }
+    await this.deleteDocsByFilter(
+      'generated_invoices',
+      (_, data) => data.generatedBy?.chatId === chatId,
+      report
+    );
   }
 
   private async deleteInvoiceSessions(chatId: number, report: OffboardingReport): Promise<void> {
-    try {
-      const snapshot = await this.firestore.collection('invoice_sessions').get();
-      let count = 0;
-      for (const doc of snapshot.docs) {
-        if (doc.id.startsWith(`${chatId}_`)) {
-          await doc.ref.delete();
-          count++;
-        }
-      }
-      if (count > 0) {
-        report.firestoreDocs += count;
-        report.details.collections['invoice_sessions'] = count;
-      }
-    } catch (error) {
-      report.errors.push(`invoice_sessions: ${error}`);
-    }
+    await this.deleteDocsByPrefix('invoice_sessions', `${chatId}_`, report);
   }
 
   private async deleteOnboardingSession(chatId: number, report: OffboardingReport): Promise<void> {
-    try {
-      const docRef = this.firestore.collection('onboarding_sessions').doc(chatId.toString());
-      const doc = await docRef.get();
-      if (doc.exists) {
-        await docRef.delete();
-        report.firestoreDocs++;
-        report.details.collections['onboarding_sessions'] = 1;
-      }
-    } catch (error) {
-      report.errors.push(`onboarding_sessions: ${error}`);
-    }
+    await this.deleteSingleDoc('onboarding_sessions', chatId.toString(), report);
+  }
+
+  private async deleteRateLimits(chatId: number, report: OffboardingReport): Promise<void> {
+    await this.deleteDocsByFilter(
+      'rate_limits',
+      (docId) => docId === `onboard_${chatId}` || docId === `report_${chatId}`,
+      report
+    );
+  }
+
+  private async deleteApprovedChats(chatId: number, report: OffboardingReport): Promise<void> {
+    await this.deleteSingleDoc('approved_chats', String(chatId), report);
+  }
+
+  private async deleteReportSessions(chatId: number, report: OffboardingReport): Promise<void> {
+    await this.deleteDocsByPrefix('report_sessions', `${chatId}_`, report);
   }
 
   private async updateUserMappings(chatId: number, report: OffboardingReport): Promise<void> {
@@ -656,184 +703,56 @@ export class OffboardingService {
   }
 
   private async deleteLogos(chatId: number, report: OffboardingReport): Promise<void> {
-    try {
-      const bucket = this.storage.bucket(this.generatedInvoicesBucket);
-      const prefix = `logos/${chatId}/`;
-      const [files] = await bucket.getFiles({ prefix });
-
-      // Delete all files
-      for (const file of files) {
-        await file.delete();
-        report.storageFiles++;
-      }
-
-      if (files.length > 0) {
-        report.details.buckets['logos'] = files.length;
-      }
-
-      // Explicitly delete folder marker objects that GCP console might have created
-      // These are objects with the folder path itself as the name
-      const folderMarkers = [`logos/${chatId}/`, `logos/${chatId}`, `logos/${chatId}/.folder`];
-
-      for (const marker of folderMarkers) {
-        try {
-          await bucket.file(marker).delete();
-        } catch {
-          // Marker doesn't exist - that's fine
-        }
-      }
-
-      // Force cleanup using gsutil to clear console UI artifacts
-      this.forceRemoveFolderArtifact(this.generatedInvoicesBucket, `logos/${chatId}/`);
-    } catch (error) {
-      report.errors.push(`logos: ${error}`);
-    }
+    await this.deleteStoragePrefix(
+      this.generatedInvoicesBucket,
+      `logos/${chatId}/`,
+      'logos',
+      report
+    );
   }
 
   private async deleteGeneratedPDFs(chatId: number, report: OffboardingReport): Promise<void> {
-    try {
-      const bucket = this.storage.bucket(this.generatedInvoicesBucket);
-      const prefix = `${chatId}/`;
-      const [files] = await bucket.getFiles({ prefix });
-
-      // Delete all files
-      for (const file of files) {
-        await file.delete();
-        report.storageFiles++;
-      }
-
-      if (files.length > 0) {
-        report.details.buckets['generated_pdfs'] = files.length;
-      }
-
-      // Explicitly delete folder marker objects that GCP console might have created
-      const folderMarkers = [`${chatId}/`, `${chatId}`, `${chatId}/.folder`];
-
-      for (const marker of folderMarkers) {
-        try {
-          await bucket.file(marker).delete();
-        } catch {
-          // Marker doesn't exist - that's fine
-        }
-      }
-
-      // Force cleanup using gsutil to clear console UI artifacts
-      this.forceRemoveFolderArtifact(this.generatedInvoicesBucket, `${chatId}/`);
-    } catch (error) {
-      report.errors.push(`generated_pdfs: ${error}`);
-    }
+    await this.deleteStoragePrefix(
+      this.generatedInvoicesBucket,
+      `${chatId}/`,
+      'generated_pdfs',
+      report
+    );
   }
 
   private async deleteReceivedInvoices(chatId: number, report: OffboardingReport): Promise<void> {
-    try {
-      const bucket = this.storage.bucket(this.invoicesBucket);
-      const prefix = `invoices/${chatId}/`;
-      const [files] = await bucket.getFiles({ prefix });
-
-      // Delete all files
-      for (const file of files) {
-        await file.delete();
-        report.storageFiles++;
-      }
-
-      if (files.length > 0) {
-        report.details.buckets['received_invoices'] = files.length;
-      }
-
-      // Explicitly delete folder marker objects that GCP console might have created
-      const folderMarkers = [
-        `invoices/${chatId}/`,
-        `invoices/${chatId}`,
-        `invoices/${chatId}/.folder`,
-      ];
-
-      for (const marker of folderMarkers) {
-        try {
-          await bucket.file(marker).delete();
-        } catch {
-          // Marker doesn't exist - that's fine
-        }
-      }
-
-      // Force cleanup using gsutil to clear console UI artifacts
-      this.forceRemoveFolderArtifact(this.invoicesBucket, `invoices/${chatId}/`);
-    } catch (error) {
-      report.errors.push(`received_invoices: ${error}`);
-    }
-  }
-
-  /**
-   * Force cleanup of empty folder artifacts using gsutil
-   * This addresses GCP console UI caching issues
-   */
-  private forceRemoveFolderArtifact(bucketName: string, prefix: string): void {
-    try {
-      // Try to force remove using gsutil - this might help clear console UI cache
-      execSync(`gsutil -m rm -r gs://${bucketName}/${prefix} 2>/dev/null || true`, {
-        stdio: 'ignore',
-      });
-    } catch {
-      // Ignore errors - this is a best-effort cleanup for UI artifacts
-    }
+    await this.deleteStoragePrefix(
+      this.invoicesBucket,
+      `invoices/${chatId}/`,
+      'received_invoices',
+      report
+    );
   }
 
   private async deleteUserMapping(userId: number, report: OffboardingReport): Promise<void> {
-    try {
-      const docRef = this.firestore.collection('user_customer_mapping').doc(`user_${userId}`);
-      const doc = await docRef.get();
-      if (doc.exists) {
-        await docRef.delete();
-        report.firestoreDocs++;
-        report.details.collections['user_customer_mapping'] = 1;
-      }
-    } catch (error) {
-      report.errors.push(`user_customer_mapping: ${error}`);
-    }
+    await this.deleteSingleDoc('user_customer_mapping', `user_${userId}`, report);
   }
 
   private async deleteUserInvoiceSessions(
     userId: number,
     report: OffboardingReport
   ): Promise<void> {
-    try {
-      const snapshot = await this.firestore.collection('invoice_sessions').get();
-      let count = 0;
-      for (const doc of snapshot.docs) {
-        if (doc.id.includes(`_${userId}`)) {
-          await doc.ref.delete();
-          count++;
-        }
-      }
-      if (count > 0) {
-        report.firestoreDocs += count;
-        report.details.collections['invoice_sessions'] = count;
-      }
-    } catch (error) {
-      report.errors.push(`invoice_sessions: ${error}`);
-    }
+    await this.deleteDocsByFilter(
+      'invoice_sessions',
+      (docId) => docId.includes(`_${userId}`),
+      report
+    );
   }
 
   private async deleteUserOnboardingSessions(
     userId: number,
     report: OffboardingReport
   ): Promise<void> {
-    try {
-      const snapshot = await this.firestore.collection('onboarding_sessions').get();
-      let count = 0;
-      for (const doc of snapshot.docs) {
-        const data = doc.data();
-        if (data.userId?.toString() === userId.toString()) {
-          await doc.ref.delete();
-          count++;
-        }
-      }
-      if (count > 0) {
-        report.firestoreDocs += count;
-        report.details.collections['onboarding_sessions'] = count;
-      }
-    } catch (error) {
-      report.errors.push(`onboarding_sessions: ${error}`);
-    }
+    await this.deleteDocsByFilter(
+      'onboarding_sessions',
+      (_, data) => data.userId?.toString() === userId.toString(),
+      report
+    );
   }
 
   private async anonymizeGeneratedInvoices(

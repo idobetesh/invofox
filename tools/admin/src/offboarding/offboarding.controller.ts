@@ -3,6 +3,7 @@
  */
 
 import { Request, Response } from 'express';
+import { StatusCodes } from 'http-status-codes';
 import { OffboardingService } from './offboarding.service';
 
 export class OffboardingController {
@@ -17,7 +18,7 @@ export class OffboardingController {
       const chatId = parseInt(req.params.chatId, 10);
 
       if (isNaN(chatId)) {
-        res.status(400).json({ error: 'Invalid chatId' });
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid chatId' });
         return;
       }
 
@@ -25,7 +26,7 @@ export class OffboardingController {
       res.json(preview);
     } catch (error) {
       console.error('Error previewing business offboarding:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Internal server error' });
     }
   };
 
@@ -38,7 +39,7 @@ export class OffboardingController {
       const chatId = parseInt(req.params.chatId, 10);
 
       if (isNaN(chatId)) {
-        res.status(400).json({ error: 'Invalid chatId' });
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid chatId' });
         return;
       }
 
@@ -52,7 +53,7 @@ export class OffboardingController {
       });
     } catch (error) {
       console.error('Error offboarding business:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Internal server error' });
     }
   };
 
@@ -65,7 +66,7 @@ export class OffboardingController {
       const userId = parseInt(req.params.userId, 10);
 
       if (isNaN(userId)) {
-        res.status(400).json({ error: 'Invalid userId' });
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid userId' });
         return;
       }
 
@@ -73,7 +74,7 @@ export class OffboardingController {
       res.json(preview);
     } catch (error) {
       console.error('Error previewing user offboarding:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Internal server error' });
     }
   };
 
@@ -86,7 +87,7 @@ export class OffboardingController {
       const userId = parseInt(req.params.userId, 10);
 
       if (isNaN(userId)) {
-        res.status(400).json({ error: 'Invalid userId' });
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid userId' });
         return;
       }
 
@@ -100,7 +101,7 @@ export class OffboardingController {
       });
     } catch (error) {
       console.error('Error offboarding user:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Internal server error' });
     }
   };
 }

@@ -36,6 +36,98 @@ export class CustomerService {
     private storage: Storage
   ) {}
 
+  // ============================================================================
+  // HELPER METHODS
+  // ============================================================================
+
+  /**
+   * Check if single document exists
+   */
+  private async checkDocExists(collection: string, docId: string): Promise<boolean> {
+    const doc = await this.firestore.collection(collection).doc(docId).get();
+    return doc.exists;
+  }
+
+  /**
+   * Check documents by prefix
+   */
+  private async checkDocsByPrefix(
+    collection: string,
+    prefix: string
+  ): Promise<{ count: number; docIds: string[] }> {
+    const snapshot = await this.firestore.collection(collection).get();
+    const docIds = snapshot.docs.filter((doc) => doc.id.startsWith(prefix)).map((doc) => doc.id);
+    return { count: docIds.length, docIds };
+  }
+
+  /**
+   * Check storage files by prefix
+   */
+  private async checkStorageFiles(
+    bucketName: string,
+    prefix: string
+  ): Promise<{ count: number; paths: string[] }> {
+    try {
+      const bucket = this.storage.bucket(bucketName);
+      const [files] = await bucket.getFiles({ prefix });
+      return {
+        count: files.length,
+        paths: files.map((f) => f.name),
+      };
+    } catch {
+      return { count: 0, paths: [] };
+    }
+  }
+
+  /**
+   * Delete single document
+   */
+  private async deleteDoc(collection: string, docId: string): Promise<boolean> {
+    const docRef = this.firestore.collection(collection).doc(docId);
+    const doc = await docRef.get();
+    if (!doc.exists) {
+      return false;
+    }
+    await docRef.delete();
+    return true;
+  }
+
+  /**
+   * Delete documents by prefix
+   */
+  private async deleteDocsByPrefix(collection: string, prefix: string): Promise<number> {
+    const snapshot = await this.firestore.collection(collection).get();
+    let count = 0;
+    for (const doc of snapshot.docs) {
+      if (doc.id.startsWith(prefix)) {
+        await doc.ref.delete();
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Delete storage files by prefix
+   */
+  private async deleteStorageFiles(bucketName: string, prefix: string): Promise<number> {
+    try {
+      const bucket = this.storage.bucket(bucketName);
+      const [files] = await bucket.getFiles({ prefix });
+      if (files.length === 0) {
+        return 0;
+      }
+      await Promise.all(files.map((file) => file.delete()));
+      return files.length;
+    } catch {
+      return 0;
+    }
+  }
+
+  // ============================================================================
+  // PUBLIC METHODS
+  // ============================================================================
+
   /**
    * List all customers from business_config collection
    */
@@ -173,100 +265,43 @@ export class CustomerService {
 
   // Check methods
   private async checkBusinessConfig(chatId: number): Promise<boolean> {
-    const docId = `chat_${chatId}`;
-    const doc = await this.firestore.collection('business_config').doc(docId).get();
-    return doc.exists;
+    return this.checkDocExists('business_config', `chat_${chatId}`);
   }
 
   private async checkLogo(
     chatId: number,
     bucketName: string
   ): Promise<{ exists: boolean; path?: string }> {
-    try {
-      const bucket = this.storage.bucket(bucketName);
-      const prefix = `logos/${chatId}/`;
-      const [files] = await bucket.getFiles({ prefix });
-
-      if (files.length === 0) {
-        return { exists: false };
-      }
-
-      return { exists: true, path: files[0].name };
-    } catch {
-      return { exists: false };
-    }
+    const result = await this.checkStorageFiles(bucketName, `logos/${chatId}/`);
+    return result.count > 0 ? { exists: true, path: result.paths[0] } : { exists: false };
   }
 
   private async checkOnboardingSession(chatId: number): Promise<boolean> {
-    const docId = chatId.toString();
-    const doc = await this.firestore.collection('onboarding_sessions').doc(docId).get();
-    return doc.exists;
+    return this.checkDocExists('onboarding_sessions', chatId.toString());
   }
 
   private async checkCounters(chatId: number): Promise<{ count: number; docIds: string[] }> {
-    const prefix = `chat_${chatId}_`;
-    const snapshot = await this.firestore.collection('invoice_counters').get();
-
-    const docIds: string[] = [];
-    for (const doc of snapshot.docs) {
-      if (doc.id.startsWith(prefix)) {
-        docIds.push(doc.id);
-      }
-    }
-
-    return { count: docIds.length, docIds };
+    return this.checkDocsByPrefix('invoice_counters', `chat_${chatId}_`);
   }
 
   private async checkGeneratedInvoices(
     chatId: number
   ): Promise<{ count: number; docIds: string[] }> {
-    const prefix = `chat_${chatId}_`;
-    const snapshot = await this.firestore.collection('generated_invoices').get();
-
-    const docIds: string[] = [];
-    for (const doc of snapshot.docs) {
-      if (doc.id.startsWith(prefix)) {
-        docIds.push(doc.id);
-      }
-    }
-
-    return { count: docIds.length, docIds };
+    return this.checkDocsByPrefix('generated_invoices', `chat_${chatId}_`);
   }
 
   private async checkGeneratedPDFs(
     chatId: number,
     bucketName: string
   ): Promise<{ count: number; paths: string[] }> {
-    try {
-      const bucket = this.storage.bucket(bucketName);
-      const prefix = `${chatId}/`;
-      const [files] = await bucket.getFiles({ prefix });
-
-      return {
-        count: files.length,
-        paths: files.map((f) => f.name),
-      };
-    } catch {
-      return { count: 0, paths: [] };
-    }
+    return this.checkStorageFiles(bucketName, `${chatId}/`);
   }
 
   private async checkReceivedInvoices(
     chatId: number,
     bucketName: string
   ): Promise<{ count: number; paths: string[] }> {
-    try {
-      const bucket = this.storage.bucket(bucketName);
-      const prefix = `invoices/${chatId}/`;
-      const [files] = await bucket.getFiles({ prefix });
-
-      return {
-        count: files.length,
-        paths: files.map((f) => f.name),
-      };
-    } catch {
-      return { count: 0, paths: [] };
-    }
+    return this.checkStorageFiles(bucketName, `invoices/${chatId}/`);
   }
 
   private async checkUserMappings(chatId: number): Promise<{ count: number; userIds: string[] }> {
@@ -287,125 +322,37 @@ export class CustomerService {
   }
 
   private async checkProcessingJobs(chatId: number): Promise<{ count: number; docIds: string[] }> {
-    const prefix = `chat_${chatId}_`;
-    const snapshot = await this.firestore.collection('processing_jobs').get();
-
-    const docIds: string[] = [];
-    for (const doc of snapshot.docs) {
-      if (doc.id.startsWith(prefix)) {
-        docIds.push(doc.id);
-      }
-    }
-
-    return { count: docIds.length, docIds };
+    return this.checkDocsByPrefix('processing_jobs', `chat_${chatId}_`);
   }
 
   // Delete methods
   private async deleteBusinessConfig(chatId: number): Promise<boolean> {
-    const docId = `chat_${chatId}`;
-    const docRef = this.firestore.collection('business_config').doc(docId);
-    const doc = await docRef.get();
-
-    if (!doc.exists) {
-      return false;
-    }
-
-    await docRef.delete();
-    return true;
+    return this.deleteDoc('business_config', `chat_${chatId}`);
   }
 
   private async deleteLogo(chatId: number, bucketName: string): Promise<boolean> {
-    try {
-      const bucket = this.storage.bucket(bucketName);
-      const prefix = `logos/${chatId}/`;
-      const [files] = await bucket.getFiles({ prefix });
-
-      if (files.length === 0) {
-        return false;
-      }
-
-      await Promise.all(files.map((file) => file.delete()));
-      return true;
-    } catch {
-      return false;
-    }
+    const count = await this.deleteStorageFiles(bucketName, `logos/${chatId}/`);
+    return count > 0;
   }
 
   private async deleteOnboardingSession(chatId: number): Promise<boolean> {
-    const docId = chatId.toString();
-    const docRef = this.firestore.collection('onboarding_sessions').doc(docId);
-    const doc = await docRef.get();
-
-    if (!doc.exists) {
-      return false;
-    }
-
-    await docRef.delete();
-    return true;
+    return this.deleteDoc('onboarding_sessions', chatId.toString());
   }
 
   private async deleteCounters(chatId: number): Promise<number> {
-    const prefix = `chat_${chatId}_`;
-    const snapshot = await this.firestore.collection('invoice_counters').get();
-
-    let count = 0;
-    for (const doc of snapshot.docs) {
-      if (doc.id.startsWith(prefix)) {
-        await doc.ref.delete();
-        count++;
-      }
-    }
-
-    return count;
+    return this.deleteDocsByPrefix('invoice_counters', `chat_${chatId}_`);
   }
 
   private async deleteGeneratedInvoices(chatId: number): Promise<number> {
-    const prefix = `chat_${chatId}_`;
-    const snapshot = await this.firestore.collection('generated_invoices').get();
-
-    let count = 0;
-    for (const doc of snapshot.docs) {
-      if (doc.id.startsWith(prefix)) {
-        await doc.ref.delete();
-        count++;
-      }
-    }
-
-    return count;
+    return this.deleteDocsByPrefix('generated_invoices', `chat_${chatId}_`);
   }
 
   private async deleteGeneratedPDFs(chatId: number, bucketName: string): Promise<number> {
-    try {
-      const bucket = this.storage.bucket(bucketName);
-      const prefix = `${chatId}/`;
-      const [files] = await bucket.getFiles({ prefix });
-
-      if (files.length === 0) {
-        return 0;
-      }
-
-      await Promise.all(files.map((file) => file.delete()));
-      return files.length;
-    } catch {
-      return 0;
-    }
+    return this.deleteStorageFiles(bucketName, `${chatId}/`);
   }
 
   private async deleteReceivedInvoices(chatId: number, bucketName: string): Promise<number> {
-    try {
-      const bucket = this.storage.bucket(bucketName);
-      const prefix = `invoices/${chatId}/`;
-      const [files] = await bucket.getFiles({ prefix });
-
-      if (files.length === 0) {
-        return 0;
-      }
-
-      await Promise.all(files.map((file) => file.delete()));
-      return files.length;
-    } catch {
-      return 0;
-    }
+    return this.deleteStorageFiles(bucketName, `invoices/${chatId}/`);
   }
 
   private async removeUserMappings(chatId: number): Promise<number> {
@@ -434,17 +381,6 @@ export class CustomerService {
   }
 
   private async deleteProcessingJobs(chatId: number): Promise<number> {
-    const prefix = `chat_${chatId}_`;
-    const snapshot = await this.firestore.collection('processing_jobs').get();
-
-    let count = 0;
-    for (const doc of snapshot.docs) {
-      if (doc.id.startsWith(prefix)) {
-        await doc.ref.delete();
-        count++;
-      }
-    }
-
-    return count;
+    return this.deleteDocsByPrefix('processing_jobs', `chat_${chatId}_`);
   }
 }
