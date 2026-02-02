@@ -1,0 +1,85 @@
+name: Cleanup Docker Images
+
+on:
+  schedule:
+    # Run every Sunday at 2 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch: # Allow manual trigger
+
+env:
+  DOCKERHUB_USERNAME: idobet21
+  KEEP_IMAGES: 5  # Keep only the last 5 images per service
+
+jobs:
+  cleanup:
+    name: Cleanup ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [webhook-handler, worker]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          npm install -g docker-hub-utils
+
+      - name: Login to Docker Hub
+        run: |
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ env.DOCKERHUB_USERNAME }} --password-stdin
+
+      - name: Get all tags for ${{ matrix.service }}
+        id: get-tags
+        run: |
+          # Get all tags except 'latest'
+          TAGS=$(curl -s "https://hub.docker.com/v2/repositories/${{ env.DOCKERHUB_USERNAME }}/${{ matrix.service }}/tags/?page_size=100" \
+            | jq -r '.results[] | select(.name != "latest") | .name' \
+            | sort -r)
+
+          # Count total tags
+          TOTAL=$(echo "$TAGS" | wc -l)
+          echo "Found $TOTAL tags for ${{ matrix.service }}"
+
+          # Get tags to delete (skip first N to keep)
+          TO_DELETE=$(echo "$TAGS" | tail -n +$((${{ env.KEEP_IMAGES }} + 1)))
+
+          if [ -z "$TO_DELETE" ]; then
+            echo "No tags to delete (only $TOTAL tags exist)"
+            echo "should_delete=false" >> $GITHUB_OUTPUT
+          else
+            COUNT=$(echo "$TO_DELETE" | wc -l)
+            echo "Will delete $COUNT old tags"
+            echo "should_delete=true" >> $GITHUB_OUTPUT
+            echo "tags<<EOF" >> $GITHUB_OUTPUT
+            echo "$TO_DELETE" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Delete old tags for ${{ matrix.service }}
+        if: steps.get-tags.outputs.should_delete == 'true'
+        run: |
+          echo "Deleting old tags for ${{ matrix.service }}..."
+          echo "${{ steps.get-tags.outputs.tags }}" | while read tag; do
+            echo "Deleting tag: $tag"
+            curl -X DELETE \
+              -H "Authorization: Bearer ${{ secrets.DOCKERHUB_TOKEN }}" \
+              "https://hub.docker.com/v2/repositories/${{ env.DOCKERHUB_USERNAME }}/${{ matrix.service }}/tags/$tag/" \
+              && echo "✅ Deleted $tag" \
+              || echo "❌ Failed to delete $tag"
+            sleep 1  # Rate limit protection
+          done
+
+      - name: Summary
+        run: |
+          echo "### Cleanup Summary for ${{ matrix.service }} 🧹" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Kept:** Last ${{ env.KEEP_IMAGES }} images" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deleted:** Old tags successfully removed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Latest tag:** Preserved ✅" >> $GITHUB_STEP_SUMMARY
