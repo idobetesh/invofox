@@ -1507,6 +1507,21 @@
       return symbols[currency] || '₪';
     }
 
+    /**
+     * Escape HTML to prevent XSS attacks
+     */
+    function escapeHtml(unsafe) {
+      if (unsafe === null || unsafe === undefined) {
+        return '';
+      }
+      return String(unsafe)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     function formatAmount(amount, currency) {
       const symbol = getCurrencySymbol(currency);
       const num = parseFloat(amount) || 0;
@@ -1543,8 +1558,8 @@
         </div>
 
         <div class="customer-info">
-          <div class="customer-name">שם: ${customerName}</div>
-          <div style="font-size: 11px; color: #666;">עוסק מס׳: ${customerTaxId}</div>
+          <div class="customer-name">שם: ${escapeHtml(customerName)}</div>
+          <div style="font-size: 11px; color: #666;">עוסק מס׳: ${escapeHtml(customerTaxId)}</div>
         </div>
 
         <table class="items-table">
@@ -1558,7 +1573,7 @@
           </thead>
           <tbody>
             <tr>
-              <td>${description}</td>
+              <td>${escapeHtml(description)}</td>
               <td>1</td>
               <td>${formatAmount(amount, currency)}</td>
               <td class="amount">${formatAmount(amount, currency)}</td>
@@ -1590,7 +1605,9 @@
 
       // Get invoice details
       const customerName = selectedInvoice?.customerName || 'שם הלקוח';
-      const invoiceDescription = selectedInvoice ? `חשבונית ${selectedInvoice.invoiceNumber} - ${selectedInvoice.description || ''}` : 'תיאור';
+      const invoiceDescription = selectedInvoice ?
+        `חשבונית ${escapeHtml(selectedInvoice.invoiceNumber)} - ${escapeHtml(selectedInvoice.description || '')}` :
+        'תיאור';
       const totalAmount = selectedInvoice?.amount || 0;
       const currentRemainingBalance = selectedInvoice?.remainingBalance || 0;
 
@@ -1613,8 +1630,8 @@
         <div class="title-bar">קבלה / מס׳ [יוקצה אוטומטית]</div>
 
         <div class="meta-section">
-          <div><span style="color: #666;">עבור: </span><strong>${customerName}</strong></div>
-          <div><span style="color: #666;">מקור: </span>חשבונית מספר ${invoiceNumber}</div>
+          <div><span style="color: #666;">עבור: </span><strong>${escapeHtml(customerName)}</strong></div>
+          <div><span style="color: #666;">מקור: </span>חשבונית מספר ${escapeHtml(invoiceNumber)}</div>
           <div><span style="color: #666;">תאריך: </span><strong>${formattedDate}</strong></div>
         </div>
 
@@ -1624,7 +1641,7 @@
           </div>
           ${selectedInvoice ? `
             <div style="font-size: 13px; color: #666; line-height: 1.6; text-align: right;">
-              <div>מספר חשבונית: ${invoiceNumber} | תאריך: ${selectedInvoice.date}</div>
+              <div>מספר חשבונית: ${escapeHtml(invoiceNumber)} | תאריך: ${escapeHtml(selectedInvoice.date)}</div>
               <div>סכום חשבונית: ${formatAmount(totalAmount, currency)}</div>
               <div>יתרה נוכחית: ${formatAmount(currentRemainingBalance, currency)}</div>
               <div>יתרה לאחר תשלום: ${formatAmount(newRemainingBalance, currency)}</div>
@@ -1645,7 +1662,7 @@
             </thead>
             <tbody>
               <tr>
-                <td>${paymentMethod}</td>
+                <td>${escapeHtml(paymentMethod)}</td>
                 <td></td>
                 <td>${formattedDate}</td>
                 <td class="amount">${formatAmount(amount, currency)}</td>
@@ -1709,8 +1726,8 @@
         </div>
 
         <div class="customer-info">
-          <div class="customer-name">שם: ${customerName}</div>
-          <div style="font-size: 11px; color: #666;">עוסק מס׳: ${customerTaxId}</div>
+          <div class="customer-name">שם: ${escapeHtml(customerName)}</div>
+          <div style="font-size: 11px; color: #666;">עוסק מס׳: ${escapeHtml(customerTaxId)}</div>
         </div>
 
         <table class="items-table">
@@ -1724,7 +1741,7 @@
           </thead>
           <tbody>
             <tr>
-              <td>${description}</td>
+              <td>${escapeHtml(description)}</td>
               <td>1</td>
               <td>${formatAmount(amount, currency)}</td>
               <td class="amount">${formatAmount(amount, currency)}</td>
@@ -1737,7 +1754,7 @@
         </table>
 
         <div style="padding: 12px 0; margin: 20px 0;">
-          <div style="font-size: 14px; color: #333; text-align: right;">שולם במלואו - אמצעי תשלום: ${paymentMethod}</div>
+          <div style="font-size: 14px; color: #333; text-align: right;">שולם במלואו - אמצעי תשלום: ${escapeHtml(paymentMethod)}</div>
         </div>
 
         <div class="footer">
