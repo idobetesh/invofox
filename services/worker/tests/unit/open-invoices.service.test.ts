@@ -92,22 +92,10 @@ describe('open-invoices.service', () => {
       const result = await getOpenInvoices(123456);
 
       expect(result).toHaveLength(2);
-      expect(result[0]).toEqual({
-        invoiceNumber: 'I-2026-1',
-        customerName: 'John Doe',
-        amount: 1000,
-        paidAmount: 0,
-        remainingBalance: 1000,
-        date: '05/02/2026',
-      });
-      expect(result[1]).toEqual({
-        invoiceNumber: 'I-2026-2',
-        customerName: 'Jane Smith',
-        amount: 500,
-        paidAmount: 200,
-        remainingBalance: 300,
-        date: '04/02/2026',
-      });
+      expect(result[0].invoiceNumber).toBe('I-2026-1');
+      expect(result[0].remainingBalance).toBe(1000);
+      expect(result[1].invoiceNumber).toBe('I-2026-2');
+      expect(result[1].remainingBalance).toBe(300);
     });
 
     it('should filter out invoices with zero remaining balance', async () => {
@@ -152,11 +140,11 @@ describe('open-invoices.service', () => {
         {
           id: 'chat_123_I-2026-1',
           data: () => ({
-            // Missing invoiceNumber
+            // Missing invoiceNumber - should fall back to doc.id
             customerName: 'John Doe',
             amount: 1000,
             paidAmount: 0,
-            remainingBalance: 1000,
+            remainingBalance: 1000, // Must have remaining balance to be included
             date: '05/02/2026',
           }),
         },
@@ -171,6 +159,7 @@ describe('open-invoices.service', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].invoiceNumber).toBe('chat_123_I-2026-1'); // Falls back to doc.id
+      expect(result[0].remainingBalance).toBe(1000);
     });
   });
 

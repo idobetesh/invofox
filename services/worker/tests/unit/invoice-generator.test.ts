@@ -27,7 +27,7 @@ const mockStorage = jest.fn(() => ({
 }));
 
 const mockGeneratePDF = jest.fn().mockResolvedValue(Buffer.from('fake-pdf-content'));
-const mockGetNextInvoiceNumber = jest.fn().mockResolvedValue('202610');
+const mockGetNextDocumentNumber = jest.fn().mockResolvedValue('I-2026-10');
 const mockAppendGeneratedInvoiceRow = jest.fn().mockResolvedValue(undefined);
 
 jest.mock('@google-cloud/firestore', () => {
@@ -55,7 +55,8 @@ jest.mock('../../src/services/invoice-generator/pdf.generator', () => ({
 }));
 
 jest.mock('../../src/services/invoice-generator/counter.service', () => ({
-  getNextInvoiceNumber: jest.fn(() => mockGetNextInvoiceNumber()),
+  getNextDocumentNumber: jest.fn(() => mockGetNextDocumentNumber()),
+  getNextInvoiceNumber: jest.fn(() => mockGetNextDocumentNumber()), // Legacy support
 }));
 
 jest.mock('../../src/services/business-config/config.service', () => ({
