@@ -11,14 +11,18 @@ import type {
   GeneratedInvoice,
   InvoiceSession,
 } from '../../../../../shared/types';
+import {
+  getCollectionForDocumentType,
+  GENERATED_INVOICES_COLLECTION,
+  GENERATED_RECEIPTS_COLLECTION,
+  GENERATED_INVOICE_RECEIPTS_COLLECTION,
+} from '../../../../../shared/collections';
 import { generateInvoicePDFWithConfig } from './pdf.generator';
 import { getNextInvoiceNumber } from './counter.service';
 import { getBusinessConfig, getLogoBase64 } from '../business-config/config.service';
 import { appendGeneratedInvoiceRow } from '../sheets.service';
 import logger from '../../logger';
 import { getConfig } from '../../config';
-
-const GENERATED_INVOICES_COLLECTION = 'generated_invoices';
 
 let storage: Storage | null = null;
 let firestore: Firestore | null = null;
@@ -199,7 +203,8 @@ async function saveInvoiceRecord(
 ): Promise<void> {
   const db = getFirestore();
   const docId = `chat_${chatId}_${invoiceNumber}`;
-  const docRef = db.collection(GENERATED_INVOICES_COLLECTION).doc(docId);
+  const collectionName = getCollectionForDocumentType(data.documentType);
+  const docRef = db.collection(collectionName).doc(docId);
 
   const record: GeneratedInvoice = {
     chatId,
@@ -226,9 +231,9 @@ async function saveInvoiceRecord(
 }
 
 /**
- * Get generated invoice by customer and number (for lookup)
+ * Get generated document by customer and number (searches all collections after split)
  * @param chatId - Customer's Telegram chat ID
- * @param invoiceNumber - Invoice number to look up
+ * @param invoiceNumber - Document number to look up
  */
 export async function getGeneratedInvoice(
   chatId: number,
@@ -236,10 +241,24 @@ export async function getGeneratedInvoice(
 ): Promise<GeneratedInvoice | null> {
   const db = getFirestore();
   const docId = `chat_${chatId}_${invoiceNumber}`;
-  const docRef = db.collection(GENERATED_INVOICES_COLLECTION).doc(docId);
 
-  const doc = await docRef.get();
-  return doc.exists ? (doc.data() as GeneratedInvoice) : null;
+  // Try all 3 collections after collection split
+  const collections = [
+    GENERATED_INVOICES_COLLECTION,
+    GENERATED_RECEIPTS_COLLECTION,
+    GENERATED_INVOICE_RECEIPTS_COLLECTION,
+  ];
+
+  for (const collectionName of collections) {
+    const docRef = db.collection(collectionName).doc(docId);
+    const doc = await docRef.get();
+
+    if (doc.exists) {
+      return doc.data() as GeneratedInvoice;
+    }
+  }
+
+  return null;
 }
 
 // Re-export sub-services
