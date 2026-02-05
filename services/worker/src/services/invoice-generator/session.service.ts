@@ -131,7 +131,9 @@ export async function updateSession(
 }
 
 /**
- * Set document type and move to awaiting_details status
+ * Set document type and move to appropriate next status
+ * For 'receipt' type: move to 'awaiting_invoice_selection'
+ * For other types: move to 'awaiting_details'
  * Returns the updated session
  */
 export async function setDocumentType(
@@ -139,9 +141,26 @@ export async function setDocumentType(
   userId: number,
   documentType: InvoiceDocumentType
 ): Promise<InvoiceSession> {
+  const nextStatus = documentType === 'receipt' ? 'awaiting_invoice_selection' : 'awaiting_details';
+
   return await updateSession(chatId, userId, {
-    status: 'awaiting_details',
+    status: nextStatus,
     documentType,
+  });
+}
+
+/**
+ * Set selected invoice for receipt and move to awaiting_payment status
+ * Returns the updated session
+ */
+export async function setSelectedInvoice(
+  chatId: number,
+  userId: number,
+  invoiceNumber: string
+): Promise<InvoiceSession> {
+  return await updateSession(chatId, userId, {
+    status: 'awaiting_payment',
+    relatedInvoiceNumber: invoiceNumber,
   });
 }
 
@@ -224,15 +243,21 @@ export async function getConfirmedSession(
   }
 
   // Validate all required fields
+  // Note: paymentMethod is optional for 'invoice' type (not paid yet)
   if (
     !session.documentType ||
     !session.customerName ||
     !session.description ||
     session.amount === undefined ||
-    !session.paymentMethod ||
     !session.date
   ) {
     logger.warn('Session missing required fields');
+    return null;
+  }
+
+  // For invoice-receipts, payment method is required
+  if (session.documentType === 'invoice_receipt' && !session.paymentMethod) {
+    logger.warn('Payment method required for invoice-receipt but not provided');
     return null;
   }
 
