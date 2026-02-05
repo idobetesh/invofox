@@ -58,7 +58,7 @@ export interface GeneratedInvoice {
   description: string;
   amount: number;
   currency: string; // Currency code (e.g., "ILS", "USD")
-  paymentMethod: PaymentMethod;
+  paymentMethod?: PaymentMethod; // Optional for invoices (not yet paid)
   date: string; // DD/MM/YYYY format
   generatedAt: Date | { toMillis: () => number };
   generatedBy: {
@@ -119,7 +119,7 @@ export interface InvoiceData {
   customerTaxId?: string;
   description: string;
   amount: number;
-  paymentMethod: PaymentMethod;
+  paymentMethod?: PaymentMethod; // Optional for invoices (not yet paid)
   date: string; // DD/MM/YYYY format
 }
 

@@ -334,7 +334,7 @@ export function buildInvoiceHTML(
       </thead>
       <tbody>
         <tr>
-          <td>${escapeHtml(data.paymentMethod)}</td>
+          <td>${data.paymentMethod ? escapeHtml(data.paymentMethod) : ''}</td>
           <td></td>
           <td>${formattedDate}</td>
           <td class="amount">${data.amount.toFixed(2)}</td>

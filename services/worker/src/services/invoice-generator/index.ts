@@ -86,10 +86,18 @@ export async function generateInvoice(
     !session.customerName ||
     !session.description ||
     session.amount === undefined ||
-    !session.paymentMethod ||
     !session.date
   ) {
     throw new Error('Invoice session is incomplete - missing required fields');
+  }
+
+  // For invoice-receipts and receipts, paymentMethod is required (payment already made)
+  // For invoices, paymentMethod is optional (not yet paid)
+  if (
+    (session.documentType === 'invoice_receipt' || session.documentType === 'receipt') &&
+    !session.paymentMethod
+  ) {
+    throw new Error('Payment method is required for invoice-receipts and receipts');
   }
 
   // Validate documentType is valid
@@ -151,7 +159,7 @@ export async function generateInvoice(
       customer_tax_id: invoiceData.customerTaxId || '',
       description: invoiceData.description,
       amount: invoiceData.amount,
-      payment_method: invoiceData.paymentMethod,
+      payment_method: invoiceData.paymentMethod || '',
       generated_by: username,
       generated_at: new Date().toISOString(),
       pdf_link: pdfUrl,
@@ -225,7 +233,7 @@ async function saveInvoiceRecord(
     description: data.description,
     amount: data.amount,
     currency: 'ILS',
-    paymentMethod: data.paymentMethod,
+    ...(data.paymentMethod !== undefined && { paymentMethod: data.paymentMethod }),
     date: formatDateDisplay(data.date),
     generatedAt: FieldValue.serverTimestamp() as unknown as Timestamp,
     generatedBy: {

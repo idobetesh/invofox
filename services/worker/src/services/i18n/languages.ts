@@ -75,7 +75,7 @@ Your business is configured:
 
 You're ready to go! Try these commands:
 - Send an invoice photo → Auto-processed
-- /invoice → Generate an invoice`,
+- /new → Create a new document`,
 
       alreadyConfigured: '⚠️ Your business is already configured.',
     },
@@ -105,17 +105,17 @@ You're ready to go! Try these commands:
       selectAction: 'Choose action:',
       invalidFormat:
         '❌ Invalid format. Send in format:\nCustomer name, amount, description, Tax ID (optional)\n(Example: Elad, 275, Wedding album, 123456789)',
-      sessionExpired: 'Session expired. Send /invoice again.',
-      missingDetails: 'Missing details. Send /invoice again.',
+      sessionExpired: 'Session expired. Send /new again.',
+      missingDetails: 'Missing details. Send /new again.',
       creating: '⏳ Creating document...',
       created: '✅ {type} number {number} created successfully!',
       error: '❌ Error creating document!',
-      errorDetails: '⚠️ Could not create document.\n\nPlease try again with /invoice',
+      errorDetails: '⚠️ Could not create document.\n\nPlease try again with /new',
       cancelled: '❌ Document creation cancelled.',
       errorRetry: 'Error. Try again.',
       noAccess:
-        '❌ You do not have permission to create invoices.\nSend /invoice in your business group.',
-      useInGroup: '❌ Please send /invoice in your business group.',
+        '❌ You do not have permission to create documents.\nSend /new in your business group.',
+      useInGroup: '❌ Please send /new in your business group.',
       typeSelected:
         '📄 Selected: {type}\n\n📝 Send in format:\nCustomer name, amount, description, Tax ID (optional)\n(Example: Elad, 275, Wedding album, 123456789)',
       confirmationTitle: '✅ Confirm document creation:',
@@ -218,7 +218,7 @@ docs.google.com/spreadsheets/d/[זה_השדה]/edit`,
 
 מוכנים לעבודה! נסו את הפקודות הבאות:
 - שלחו תמונת חשבונית ← מעובדת אוטומטית
-- /invoice - צרו חשבונית`,
+- /new - צרו מסמך חדש`,
 
       alreadyConfigured: '⚠️ העסק שלכם כבר מוגדר.',
     },
@@ -248,16 +248,16 @@ docs.google.com/spreadsheets/d/[זה_השדה]/edit`,
       selectAction: 'בחר פעולה:',
       invalidFormat:
         '❌ פורמט לא תקין. שלח בפורמט:\nשם לקוח, סכום, תיאור, ח.פ/ע.מ (אופציונלי)\n(לדוגמה: אלעד, 275, אלבום חתונה, 123456789)',
-      sessionExpired: 'הפעולה פגה תוקף. שלח /invoice מחדש.',
-      missingDetails: 'חסרים פרטים. שלח /invoice מחדש.',
+      sessionExpired: 'הפעולה פגה תוקף. שלח /new מחדש.',
+      missingDetails: 'חסרים פרטים. שלח /new מחדש.',
       creating: '⏳ מייצר מסמך...',
       created: '✅ {type} מספר {number} נוצרה בהצלחה!',
       error: '❌ שגיאה ביצירת המסמך!',
-      errorDetails: '⚠️ לא הצלחנו ליצור את המסמך.\n\nאנא נסה שוב עם /invoice',
+      errorDetails: '⚠️ לא הצלחנו ליצור את המסמך.\n\nאנא נסה שוב עם /new',
       cancelled: '❌ יצירת המסמך בוטלה.',
       errorRetry: 'שגיאה. נסה שוב.',
-      noAccess: '❌ אין לך הרשאה ליצור חשבוניות.\nשלח את הפקודה /invoice בקבוצה של העסק שלך.',
-      useInGroup: '❌ אנא שלח את הפקודה /invoice בקבוצה של העסק.',
+      noAccess: '❌ אין לך הרשאה ליצור מסמכים.\nשלח את הפקודה /new בקבוצה של העסק שלך.',
+      useInGroup: '❌ אנא שלח את הפקודה /new בקבוצה של העסק.',
       typeSelected:
         '📄 נבחר: {type}\n\n📝 שלח בפורמט:\nשם לקוח, סכום, תיאור, ח.פ/ע.מ (אופציונלי)\n(לדוגמה: אלעד, 275, אלבום חתונה, 123456789)',
       confirmationTitle: '✅ אישור יצירת מסמך:',
