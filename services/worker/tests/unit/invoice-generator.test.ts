@@ -134,7 +134,7 @@ describe('Invoice Generator', () => {
 
       // Verify Firestore save was called with per-customer document ID
       expect(mockCollection).toHaveBeenCalledWith('generated_invoices');
-      expect(mockDoc).toHaveBeenCalledWith('chat_789012_202610');
+      expect(mockDoc).toHaveBeenCalledWith('chat_789012_I-2026-10');
       expect(mockSet).toHaveBeenCalled();
 
       // Verify customerTaxId is NOT in the Firestore record
