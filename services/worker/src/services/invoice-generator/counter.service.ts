@@ -47,13 +47,17 @@ export async function getNextInvoiceNumber(chatId: number): Promise<string> {
 
     if (doc.exists) {
       const data = doc.data() as InvoiceCounter;
-      counter = data.counter + 1;
+      const currentCounter = data.invoice?.counter || 0;
+      counter = currentCounter + 1;
 
-      log.debug({ previousCounter: data.counter, newCounter: counter }, 'Incrementing counter');
+      log.debug(
+        { previousCounter: currentCounter, newCounter: counter },
+        'Incrementing invoice counter'
+      );
 
       transaction.update(docRef, {
-        counter,
-        lastUpdated: FieldValue.serverTimestamp(),
+        'invoice.counter': counter,
+        'invoice.lastUpdated': FieldValue.serverTimestamp(),
       });
     } else {
       // First invoice of the year for this customer
@@ -62,8 +66,18 @@ export async function getNextInvoiceNumber(chatId: number): Promise<string> {
       log.info({ counter }, 'Creating new counter for customer and year');
 
       transaction.set(docRef, {
-        counter,
-        lastUpdated: FieldValue.serverTimestamp(),
+        invoice: {
+          counter: 1,
+          lastUpdated: FieldValue.serverTimestamp(),
+        },
+        receipt: {
+          counter: 0,
+          lastUpdated: FieldValue.serverTimestamp(),
+        },
+        invoice_receipt: {
+          counter: 0,
+          lastUpdated: FieldValue.serverTimestamp(),
+        },
       });
     }
 
@@ -94,7 +108,7 @@ export async function getCurrentCounter(chatId: number, year?: string): Promise<
   }
 
   const data = doc.data() as InvoiceCounter;
-  return data.counter;
+  return data.invoice?.counter || 0;
 }
 
 /**
@@ -119,16 +133,27 @@ export async function initializeCounter(
   const existing = await docRef.get();
   if (existing.exists) {
     const data = existing.data() as InvoiceCounter;
+    const currentCounter = data.invoice?.counter || 0;
     throw new Error(
-      `Counter already exists for customer ${chatId} in year ${targetYear} (current value: ${data.counter}). ` +
+      `Counter already exists for customer ${chatId} in year ${targetYear} (current value: ${currentCounter}). ` +
         `Cannot overwrite existing counter to prevent invoice number collisions. ` +
         `If you need to modify it, use Firestore console directly.`
     );
   }
 
   await docRef.set({
-    counter: startingNumber,
-    lastUpdated: FieldValue.serverTimestamp(),
+    invoice: {
+      counter: startingNumber,
+      lastUpdated: FieldValue.serverTimestamp(),
+    },
+    receipt: {
+      counter: 0,
+      lastUpdated: FieldValue.serverTimestamp(),
+    },
+    invoice_receipt: {
+      counter: 0,
+      lastUpdated: FieldValue.serverTimestamp(),
+    },
   });
 
   logger.info({ chatId, startingNumber, year: targetYear }, 'Counter initialized for customer');
