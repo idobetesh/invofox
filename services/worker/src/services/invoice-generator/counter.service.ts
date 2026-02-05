@@ -27,67 +27,96 @@ function getCurrentYear(): string {
 }
 
 /**
- * Get the next invoice number atomically for a specific customer
- * Format: {year}{sequence} (e.g., "20261", "20262", ...)
+ * Get the next document number atomically for a specific customer and document type
+ * Format: I-{year}-{sequence} for invoice (e.g., "I-2026-1", "I-2026-2")
+ * Format: R-{year}-{sequence} for receipt (e.g., "R-2026-1", "R-2026-2")
+ * Format: IR-{year}-{sequence} for invoice_receipt (e.g., "IR-2026-1", "IR-2026-2")
  * Counter resets to 1 on January 1st each year
- * Each customer has their own independent counter
+ * Each customer has their own independent counter per document type
  * @param chatId - Customer's Telegram chat ID
+ * @param documentType - Type of document to generate number for
  */
-export async function getNextInvoiceNumber(chatId: number): Promise<string> {
+export async function getNextDocumentNumber(
+  chatId: number,
+  documentType: 'invoice' | 'receipt' | 'invoice_receipt' = 'invoice'
+): Promise<string> {
   const db = getFirestore();
   const year = getCurrentYear();
   const docId = `chat_${chatId}_${year}`;
   const docRef = db.collection(COLLECTION_NAME).doc(docId);
-  const log = logger.child({ year, chatId, collection: COLLECTION_NAME });
+  const log = logger.child({ year, chatId, documentType, collection: COLLECTION_NAME });
 
-  return db.runTransaction(async (transaction) => {
+  const counter = await db.runTransaction(async (transaction) => {
     const doc = await transaction.get(docRef);
 
     let counter: number;
 
     if (doc.exists) {
       const data = doc.data() as InvoiceCounter;
-      const currentCounter = data.invoice?.counter || 0;
+      const currentCounter = data[documentType]?.counter || 0;
       counter = currentCounter + 1;
 
       log.debug(
         { previousCounter: currentCounter, newCounter: counter },
-        'Incrementing invoice counter'
+        `Incrementing ${documentType} counter`
       );
 
       transaction.update(docRef, {
-        'invoice.counter': counter,
-        'invoice.lastUpdated': FieldValue.serverTimestamp(),
+        [`${documentType}.counter`]: counter,
+        [`${documentType}.lastUpdated`]: FieldValue.serverTimestamp(),
       });
     } else {
-      // First invoice of the year for this customer
+      // First document of the year for this customer
       counter = 1;
 
       log.info({ counter }, 'Creating new counter for customer and year');
 
       transaction.set(docRef, {
         invoice: {
-          counter: 1,
+          counter: documentType === 'invoice' ? 1 : 0,
           lastUpdated: FieldValue.serverTimestamp(),
         },
         receipt: {
-          counter: 0,
+          counter: documentType === 'receipt' ? 1 : 0,
           lastUpdated: FieldValue.serverTimestamp(),
         },
         invoice_receipt: {
-          counter: 0,
+          counter: documentType === 'invoice_receipt' ? 1 : 0,
           lastUpdated: FieldValue.serverTimestamp(),
         },
       });
     }
 
-    // Format: year + counter (e.g., "2026" + "1" = "20261")
-    const invoiceNumber = `${year}${counter}`;
-
-    log.info({ invoiceNumber }, 'Generated invoice number for customer');
-
-    return invoiceNumber;
+    return counter;
   });
+
+  // Format document number based on type with prefixes
+  let documentNumber: string;
+  switch (documentType) {
+    case 'invoice':
+      documentNumber = `I-${year}-${counter}`;
+      break;
+    case 'receipt':
+      documentNumber = `R-${year}-${counter}`;
+      break;
+    case 'invoice_receipt':
+      documentNumber = `IR-${year}-${counter}`;
+      break;
+    default:
+      throw new Error(`Unknown document type: ${documentType}`);
+  }
+
+  log.info({ documentNumber }, `Generated ${documentType} number for customer`);
+
+  return documentNumber;
+}
+
+/**
+ * Legacy function for backward compatibility
+ * @deprecated Use getNextDocumentNumber instead
+ */
+export async function getNextInvoiceNumber(chatId: number): Promise<string> {
+  return getNextDocumentNumber(chatId, 'invoice');
 }
 
 /**

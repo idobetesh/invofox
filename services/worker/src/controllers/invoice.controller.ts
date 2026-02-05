@@ -19,7 +19,9 @@ import {
   buildDocumentTypeKeyboard,
   buildPaymentMethodKeyboard,
   buildConfirmationKeyboard,
+  buildInvoiceSelectionKeyboard,
 } from '../services/invoice-generator/keyboards.service';
+import { getOpenInvoices } from '../services/invoice-generator/open-invoices.service';
 import { parseFastPathCommand } from '../services/invoice-generator/fast-path.service';
 import { parseInvoiceDetails } from '../services/invoice-generator/parser.service';
 import {
@@ -178,19 +180,77 @@ export async function handleInvoiceMessage(req: Request, res: Response): Promise
       }
 
       // Update session with details
-      await sessionService.setDetails(payload.chatId, payload.userId, {
+      const updatedSession = await sessionService.setDetails(payload.chatId, payload.userId, {
         customerName: details.customerName,
         description: details.description,
         amount: details.amount,
         customerTaxId: details.customerTaxId,
       });
 
+      // For invoices: skip payment method (not paid yet), go straight to confirmation
+      // For invoice-receipts: ask for payment method
+      if (updatedSession.documentType === 'invoice') {
+        const today = new Date();
+        const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+        // Set empty payment method for invoices (undefined means no payment yet)
+        await sessionService.updateSession(payload.chatId, payload.userId, {
+          status: 'confirming',
+          date: dateStr,
+        });
+
+        const confirmText = buildConfirmationMessage({
+          documentType: 'invoice',
+          customerName: details.customerName,
+          description: details.description,
+          amount: details.amount,
+          paymentMethod: '',
+          date: dateStr,
+        });
+
+        await telegramService.sendMessage(payload.chatId, confirmText);
+        await telegramService.sendMessage(payload.chatId, t('he', 'invoice.selectAction'), {
+          replyMarkup: buildConfirmationKeyboard(),
+        });
+
+        log.info('Invoice: skipped payment method, sent confirmation');
+        res.status(StatusCodes.OK).json({ ok: true, action: 'invoice_confirmation' });
+        return;
+      }
+
+      // For invoice-receipts and receipts: ask for payment method
       await telegramService.sendMessage(payload.chatId, t('he', 'invoice.selectPaymentMethod'), {
         replyMarkup: buildPaymentMethodKeyboard(),
       });
 
       log.info('Sent payment method selection');
       res.status(StatusCodes.OK).json({ ok: true, action: 'awaiting_payment' });
+      return;
+    }
+
+    // Handle receipt payment amount input
+    if (session.status === 'awaiting_payment' && session.documentType === 'receipt') {
+      // Parse payment amount
+      const amount = parseFloat(payload.text.trim());
+
+      if (isNaN(amount) || amount <= 0) {
+        await telegramService.sendMessage(payload.chatId, t('he', 'invoice.invalidAmount'));
+        res.status(StatusCodes.OK).json({ ok: true, action: 'invalid_amount' });
+        return;
+      }
+
+      // Store amount in session
+      await sessionService.updateSession(payload.chatId, payload.userId, {
+        amount,
+      });
+
+      // Show payment method selection
+      await telegramService.sendMessage(payload.chatId, t('he', 'invoice.selectPaymentMethod'), {
+        replyMarkup: buildPaymentMethodKeyboard(),
+      });
+
+      log.info({ amount }, 'Receipt payment amount entered');
+      res.status(StatusCodes.OK).json({ ok: true, action: 'receipt_amount_entered' });
       return;
     }
 
@@ -255,6 +315,39 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
         const typeLabel = getDocumentTypeLabel(action.documentType);
 
         await telegramService.answerCallbackQuery(payload.callbackQueryId);
+
+        // For receipts: show open invoices
+        if (action.documentType === 'receipt') {
+          const openInvoices = await getOpenInvoices(payload.chatId);
+
+          if (openInvoices.length === 0) {
+            await telegramService.editMessageText(
+              payload.chatId,
+              payload.messageId,
+              t('he', 'invoice.noOpenInvoicesHe')
+            );
+            await sessionService.deleteSession(payload.chatId, payload.userId);
+            log.info('No open invoices found for receipt creation');
+            res.status(StatusCodes.OK).json({ ok: true, action: 'no_open_invoices' });
+            return;
+          }
+
+          await telegramService.editMessageText(
+            payload.chatId,
+            payload.messageId,
+            t('he', 'invoice.typeSelected', { type: typeLabel })
+          );
+
+          await telegramService.sendMessage(payload.chatId, t('he', 'invoice.selectInvoiceHe'), {
+            replyMarkup: buildInvoiceSelectionKeyboard(openInvoices),
+          });
+
+          log.info({ count: openInvoices.length }, 'Showed open invoices for receipt creation');
+          res.status(StatusCodes.OK).json({ ok: true, action: 'showing_open_invoices' });
+          return;
+        }
+
+        // For invoice and invoice_receipt: show next prompt
         await telegramService.editMessageText(
           payload.chatId,
           payload.messageId,
@@ -263,6 +356,26 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
 
         log.info({ documentType: action.documentType }, 'Document type selected');
         res.status(StatusCodes.OK).json({ ok: true, action: 'type_selected' });
+        break;
+      }
+
+      case 'select_invoice': {
+        // Save selected invoice and show payment method selection
+        await sessionService.setSelectedInvoice(
+          payload.chatId,
+          payload.userId,
+          action.invoiceNumber
+        );
+
+        await telegramService.answerCallbackQuery(payload.callbackQueryId);
+        await telegramService.editMessageText(
+          payload.chatId,
+          payload.messageId,
+          t('he', 'invoice.invoiceSelected', { invoiceNumber: action.invoiceNumber })
+        );
+
+        log.info({ invoiceNumber: action.invoiceNumber }, 'Invoice selected for receipt');
+        res.status(StatusCodes.OK).json({ ok: true, action: 'invoice_selected' });
         break;
       }
 
@@ -293,7 +406,7 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
         }
 
         const confirmText = buildConfirmationMessage({
-          documentType: updatedSession.documentType as 'invoice' | 'invoice_receipt',
+          documentType: updatedSession.documentType,
           customerName: updatedSession.customerName,
           description: updatedSession.description,
           amount: updatedSession.amount,

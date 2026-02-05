@@ -27,7 +27,7 @@ const mockStorage = jest.fn(() => ({
 }));
 
 const mockGeneratePDF = jest.fn().mockResolvedValue(Buffer.from('fake-pdf-content'));
-const mockGetNextInvoiceNumber = jest.fn().mockResolvedValue('202610');
+const mockGetNextDocumentNumber = jest.fn().mockResolvedValue('I-2026-10');
 const mockAppendGeneratedInvoiceRow = jest.fn().mockResolvedValue(undefined);
 
 jest.mock('@google-cloud/firestore', () => {
@@ -55,7 +55,8 @@ jest.mock('../../src/services/invoice-generator/pdf.generator', () => ({
 }));
 
 jest.mock('../../src/services/invoice-generator/counter.service', () => ({
-  getNextInvoiceNumber: jest.fn(() => mockGetNextInvoiceNumber()),
+  getNextDocumentNumber: jest.fn(() => mockGetNextDocumentNumber()),
+  getNextInvoiceNumber: jest.fn(() => mockGetNextDocumentNumber()), // Legacy support
 }));
 
 jest.mock('../../src/services/business-config/config.service', () => ({
@@ -127,13 +128,13 @@ describe('Invoice Generator', () => {
 
       const result = await generateInvoice(session, userId, username, chatId);
 
-      expect(result.invoiceNumber).toBe('202610');
+      expect(result.invoiceNumber).toBe('I-2026-10');
       expect(result.pdfBuffer).toBeInstanceOf(Buffer);
       expect(result.pdfUrl).toContain('storage.googleapis.com');
 
       // Verify Firestore save was called with per-customer document ID
       expect(mockCollection).toHaveBeenCalledWith('generated_invoices');
-      expect(mockDoc).toHaveBeenCalledWith('chat_789012_202610');
+      expect(mockDoc).toHaveBeenCalledWith('chat_789012_I-2026-10');
       expect(mockSet).toHaveBeenCalled();
 
       // Verify customerTaxId is NOT in the Firestore record
@@ -151,7 +152,7 @@ describe('Invoice Generator', () => {
 
       const result = await generateInvoice(session, userId, username, chatId);
 
-      expect(result.invoiceNumber).toBe('202610');
+      expect(result.invoiceNumber).toBe('I-2026-10');
       expect(result.pdfBuffer).toBeInstanceOf(Buffer);
 
       // Verify Firestore save was called
@@ -214,12 +215,12 @@ describe('Invoice Generator', () => {
       await generateInvoice(session, userId, username, chatId);
 
       // Verify first customer's document ID
-      expect(mockDoc).toHaveBeenCalledWith('chat_789012_202610');
+      expect(mockDoc).toHaveBeenCalledWith('chat_789012_I-2026-10');
 
       // Verify storage path includes chatId
       const firestoreRecord = mockSet.mock.calls[0][0];
-      expect(firestoreRecord.storagePath).toBe('789012/2026/202610.pdf');
-      expect(firestoreRecord.storageUrl).toContain('789012/2026/202610.pdf');
+      expect(firestoreRecord.storagePath).toBe('789012/2026/I-2026-10.pdf');
+      expect(firestoreRecord.storageUrl).toContain('789012/2026/I-2026-10.pdf');
     });
 
     it('should allow different customers to have same invoice number without collision', async () => {
@@ -232,27 +233,27 @@ describe('Invoice Generator', () => {
       const chatIdA = -1001111111;
       await generateInvoice(session, userId, username, chatIdA);
 
-      // Verify Customer A got invoice 202610 with their document ID
-      expect(mockDoc).toHaveBeenCalledWith('chat_-1001111111_202610');
+      // Verify Customer A got invoice I-2026-10 with their document ID
+      expect(mockDoc).toHaveBeenCalledWith('chat_-1001111111_I-2026-10');
       const recordA = mockSet.mock.calls[0][0];
-      expect(recordA.invoiceNumber).toBe('202610');
-      expect(recordA.storagePath).toBe('-1001111111/2026/202610.pdf');
+      expect(recordA.invoiceNumber).toBe('I-2026-10');
+      expect(recordA.storagePath).toBe('-1001111111/2026/I-2026-10.pdf');
 
-      // Customer B generates their first invoice (should ALSO get 202610)
+      // Customer B generates their first invoice (should ALSO get I-2026-10)
       const chatIdB = -1002222222;
       await generateInvoice(session, userId, username, chatIdB);
 
-      // Verify Customer B ALSO got invoice 202610 but with THEIR document ID
-      expect(mockDoc).toHaveBeenCalledWith('chat_-1002222222_202610');
+      // Verify Customer B ALSO got invoice I-2026-10 but with THEIR document ID
+      expect(mockDoc).toHaveBeenCalledWith('chat_-1002222222_I-2026-10');
       const recordB = mockSet.mock.calls[1][0];
-      expect(recordB.invoiceNumber).toBe('202610');
-      expect(recordB.storagePath).toBe('-1002222222/2026/202610.pdf');
+      expect(recordB.invoiceNumber).toBe('I-2026-10');
+      expect(recordB.storagePath).toBe('-1002222222/2026/I-2026-10.pdf');
 
       // Verify no collision - different document IDs and storage paths
       expect(recordA.storagePath).not.toBe(recordB.storagePath);
       expect(mockDoc).toHaveBeenCalledTimes(2);
-      expect(mockDoc).toHaveBeenNthCalledWith(1, 'chat_-1001111111_202610');
-      expect(mockDoc).toHaveBeenNthCalledWith(2, 'chat_-1002222222_202610');
+      expect(mockDoc).toHaveBeenNthCalledWith(1, 'chat_-1001111111_I-2026-10');
+      expect(mockDoc).toHaveBeenNthCalledWith(2, 'chat_-1002222222_I-2026-10');
     });
   });
 });

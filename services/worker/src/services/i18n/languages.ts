@@ -121,8 +121,14 @@ You're ready to go! Try these commands:
       confirmationTitle: '✅ Confirm document creation:',
       confirmationFields:
         'Type: {type}\nCustomer: {customer}\nDescription: {description}\nAmount: ₪{amount}\nPayment: {payment}\nDate: {date}',
+      confirmationFieldsNoPayment:
+        'Type: {type}\nCustomer: {customer}\nDescription: {description}\nAmount: ₪{amount}\nDate: {date}',
       typeInvoice: 'Invoice',
       typeInvoiceReceipt: 'Invoice-Receipt',
+      typeReceipt: 'Receipt',
+      invalidAmount: '❌ Invalid amount. Please send a positive number\n(Example: 500)',
+      invoiceSelected:
+        '✅ Selected: {invoiceNumber}\n\n📝 Send in format:\nPayment amount\n(Example: 500)',
     },
 
     validation: {
@@ -257,8 +263,17 @@ docs.google.com/spreadsheets/d/[זה_השדה]/edit`,
       confirmationTitle: '✅ אישור יצירת מסמך:',
       confirmationFields:
         'סוג: {type}\nלקוח: {customer}\nתיאור: {description}\nסכום: ₪{amount}\nתשלום: {payment}\nתאריך: {date}',
+      confirmationFieldsNoPayment:
+        'סוג: {type}\nלקוח: {customer}\nתיאור: {description}\nסכום: ₪{amount}\nתאריך: {date}',
       typeInvoice: 'חשבונית',
       typeInvoiceReceipt: 'חשבונית-קבלה',
+      typeReceipt: 'קבלה',
+      selectInvoice: 'Select an invoice to create a receipt for:',
+      selectInvoiceHe: 'בחר חשבונית ליצירת קבלה:',
+      noOpenInvoices: 'No open invoices found. All invoices are fully paid.',
+      noOpenInvoicesHe: 'לא נמצאו חשבוניות פתוחות. כל החשבוניות שולמו במלואן.',
+      invalidAmount: '❌ סכום לא תקין. אנא שלח מספר חיובי\n(לדוגמה: 500)',
+      invoiceSelected: '✅ נבחר: {invoiceNumber}\n\n📝 שלח בפורמט:\nסכום תשלום\n(לדוגמה: 500)',
     },
 
     validation: {

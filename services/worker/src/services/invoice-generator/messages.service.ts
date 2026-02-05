@@ -4,17 +4,25 @@
  */
 
 import { t } from '../i18n/languages';
+import type { InvoiceDocumentType } from '../../../../../shared/types';
 
 /**
  * Get document type label
  */
 export function getDocumentTypeLabel(
-  documentType: 'invoice' | 'invoice_receipt',
+  documentType: InvoiceDocumentType,
   language: 'en' | 'he' = 'he'
 ): string {
-  return documentType === 'invoice'
-    ? t(language, 'invoice.typeInvoice')
-    : t(language, 'invoice.typeInvoiceReceipt');
+  switch (documentType) {
+    case 'invoice':
+      return t(language, 'invoice.typeInvoice');
+    case 'invoice_receipt':
+      return t(language, 'invoice.typeInvoiceReceipt');
+    case 'receipt':
+      return t(language, 'invoice.typeReceipt');
+    default:
+      return documentType;
+  }
 }
 
 /**
@@ -32,7 +40,7 @@ export function formatDateDisplay(dateStr: string): string {
  * Build confirmation message
  */
 export function buildConfirmationMessage(params: {
-  documentType: 'invoice' | 'invoice_receipt';
+  documentType: InvoiceDocumentType;
   customerName: string;
   description: string;
   amount: number;
@@ -44,14 +52,25 @@ export function buildConfirmationMessage(params: {
   const typeLabel = getDocumentTypeLabel(params.documentType, language);
 
   const title = t(language, 'invoice.confirmationTitle');
-  const fields = t(language, 'invoice.confirmationFields', {
-    type: typeLabel,
-    customer: params.customerName,
-    description: params.description,
-    amount: params.amount.toString(),
-    payment: params.paymentMethod,
-    date: formatDateDisplay(params.date),
-  });
+
+  // For invoices (no payment yet), use a version without payment method
+  // For invoice-receipts and receipts, include payment method
+  const fields = params.paymentMethod
+    ? t(language, 'invoice.confirmationFields', {
+        type: typeLabel,
+        customer: params.customerName,
+        description: params.description,
+        amount: params.amount.toString(),
+        payment: params.paymentMethod,
+        date: formatDateDisplay(params.date),
+      })
+    : t(language, 'invoice.confirmationFieldsNoPayment', {
+        type: typeLabel,
+        customer: params.customerName,
+        description: params.description,
+        amount: params.amount.toString(),
+        date: formatDateDisplay(params.date),
+      });
 
   return `${title}\n━━━━━━━━━━━━━━━━\n${fields}\n━━━━━━━━━━━━━━━━`;
 }
@@ -60,7 +79,7 @@ export function buildConfirmationMessage(params: {
  * Build success message
  */
 export function buildSuccessMessage(
-  documentType: 'invoice' | 'invoice_receipt',
+  documentType: InvoiceDocumentType,
   invoiceNumber: number,
   language: 'en' | 'he' = 'he'
 ): string {
