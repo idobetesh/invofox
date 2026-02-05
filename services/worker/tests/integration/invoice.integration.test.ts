@@ -198,13 +198,31 @@ describe('Invoice Generator Integration Tests', () => {
           chatId: -123456,
           userId: 789,
           status: 'awaiting_details',
+          documentType: 'invoice_receipt',
         });
         (parserService.parseInvoiceDetails as jest.Mock).mockReturnValue({
           customerName: 'Vendor A',
           amount: 250,
           description: 'Test',
         });
-        (sessionService.setDetails as jest.Mock).mockResolvedValue(undefined);
+        (sessionService.setDetails as jest.Mock).mockResolvedValue({
+          chatId: -123456,
+          userId: 789,
+          status: 'awaiting_payment',
+          documentType: 'invoice_receipt',
+          customerName: 'Vendor A',
+          amount: 250,
+          description: 'Test',
+        });
+        (sessionService.updateSession as jest.Mock).mockResolvedValue({
+          chatId: -123456,
+          userId: 789,
+          status: 'confirming',
+          documentType: 'invoice_receipt',
+          customerName: 'Vendor A',
+          amount: 250,
+          description: 'Test',
+        });
         (telegramService.sendMessage as jest.Mock).mockResolvedValue(undefined);
 
         const response = await request(app).post('/invoice/message').send(validMessagePayload);

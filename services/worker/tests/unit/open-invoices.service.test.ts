@@ -10,39 +10,33 @@ import {
 } from '../../src/services/invoice-generator/open-invoices.service';
 
 // Mock Firestore
-jest.mock('@google-cloud/firestore');
+const mockGet = jest.fn();
+const mockLimit = jest.fn(() => ({ get: mockGet }));
+const mockOrderBy = jest.fn(() => ({ limit: mockLimit }));
+
+// Create whereChain that supports multiple .where() calls
+const whereChain = {
+  where: jest.fn(),
+  orderBy: mockOrderBy,
+};
+whereChain.where.mockImplementation(() => whereChain);
+
+const mockWhere = jest.fn(() => whereChain);
+const mockCollection = jest.fn(() => ({ where: mockWhere }));
+
+const mockFirestore = {
+  collection: mockCollection,
+} as unknown as Firestore;
+
+jest.mock('@google-cloud/firestore', () => {
+  return {
+    Firestore: jest.fn(() => mockFirestore),
+  };
+});
 
 describe('open-invoices.service', () => {
-  let mockFirestore: jest.Mocked<Firestore>;
-  let mockCollection: jest.Mock;
-  let mockWhere: jest.Mock;
-  let mockOrderBy: jest.Mock;
-  let mockLimit: jest.Mock;
-  let mockGet: jest.Mock;
-
   beforeEach(() => {
     jest.clearAllMocks();
-
-    // Setup Firestore mock chain
-    mockGet = jest.fn();
-    mockLimit = jest.fn().mockReturnValue({ get: mockGet });
-    mockOrderBy = jest.fn().mockReturnValue({ limit: mockLimit });
-
-    // Mock where() to return an object with another where() method for chaining
-    const whereChain = {
-      where: jest.fn(),
-      orderBy: mockOrderBy,
-    };
-    whereChain.where.mockReturnValue(whereChain);
-
-    mockWhere = jest.fn().mockReturnValue(whereChain);
-    mockCollection = jest.fn().mockReturnValue({ where: mockWhere });
-
-    mockFirestore = {
-      collection: mockCollection,
-    } as unknown as jest.Mocked<Firestore>;
-
-    (Firestore as jest.MockedClass<typeof Firestore>).mockImplementation(() => mockFirestore);
   });
 
   describe('getOpenInvoices', () => {
