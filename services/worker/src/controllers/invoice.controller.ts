@@ -234,10 +234,7 @@ export async function handleInvoiceMessage(req: Request, res: Response): Promise
       const amount = parseFloat(payload.text.trim());
 
       if (isNaN(amount) || amount <= 0) {
-        await telegramService.sendMessage(
-          payload.chatId,
-          '❌ סכום לא תקין. אנא שלח מספר חיובי\n(לדוגמה: 500)'
-        );
+        await telegramService.sendMessage(payload.chatId, t('he', 'invoice.invalidAmount'));
         res.status(StatusCodes.OK).json({ ok: true, action: 'invalid_amount' });
         return;
       }
@@ -374,7 +371,7 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
         await telegramService.editMessageText(
           payload.chatId,
           payload.messageId,
-          `✅ נבחר: ${action.invoiceNumber}\n\n📝 שלח בפורמט:\nסכום תשלום\n(לדוגמה: 500)`
+          t('he', 'invoice.invoiceSelected', { invoiceNumber: action.invoiceNumber })
         );
 
         log.info({ invoiceNumber: action.invoiceNumber }, 'Invoice selected for receipt');
@@ -409,7 +406,7 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
         }
 
         const confirmText = buildConfirmationMessage({
-          documentType: updatedSession.documentType as 'invoice' | 'invoice_receipt',
+          documentType: updatedSession.documentType,
           customerName: updatedSession.customerName,
           description: updatedSession.description,
           amount: updatedSession.amount,

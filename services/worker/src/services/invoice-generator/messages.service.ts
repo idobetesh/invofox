@@ -4,12 +4,13 @@
  */
 
 import { t } from '../i18n/languages';
+import type { InvoiceDocumentType } from '../../../../../shared/types';
 
 /**
  * Get document type label
  */
 export function getDocumentTypeLabel(
-  documentType: 'invoice' | 'invoice_receipt' | 'receipt',
+  documentType: InvoiceDocumentType,
   language: 'en' | 'he' = 'he'
 ): string {
   switch (documentType) {
@@ -39,7 +40,7 @@ export function formatDateDisplay(dateStr: string): string {
  * Build confirmation message
  */
 export function buildConfirmationMessage(params: {
-  documentType: 'invoice' | 'invoice_receipt';
+  documentType: InvoiceDocumentType;
   customerName: string;
   description: string;
   amount: number;
@@ -78,7 +79,7 @@ export function buildConfirmationMessage(params: {
  * Build success message
  */
 export function buildSuccessMessage(
-  documentType: 'invoice' | 'invoice_receipt',
+  documentType: InvoiceDocumentType,
   invoiceNumber: number,
   language: 'en' | 'he' = 'he'
 ): string {

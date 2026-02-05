@@ -126,6 +126,9 @@ You're ready to go! Try these commands:
       typeInvoice: 'Invoice',
       typeInvoiceReceipt: 'Invoice-Receipt',
       typeReceipt: 'Receipt',
+      invalidAmount: '❌ Invalid amount. Please send a positive number\n(Example: 500)',
+      invoiceSelected:
+        '✅ Selected: {invoiceNumber}\n\n📝 Send in format:\nPayment amount\n(Example: 500)',
     },
 
     validation: {
@@ -269,6 +272,8 @@ docs.google.com/spreadsheets/d/[זה_השדה]/edit`,
       selectInvoiceHe: 'בחר חשבונית ליצירת קבלה:',
       noOpenInvoices: 'No open invoices found. All invoices are fully paid.',
       noOpenInvoicesHe: 'לא נמצאו חשבוניות פתוחות. כל החשבוניות שולמו במלואן.',
+      invalidAmount: '❌ סכום לא תקין. אנא שלח מספר חיובי\n(לדוגמה: 500)',
+      invoiceSelected: '✅ נבחר: {invoiceNumber}\n\n📝 שלח בפורמט:\nסכום תשלום\n(לדוגמה: 500)',
     },
 
     validation: {
