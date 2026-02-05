@@ -7,14 +7,16 @@
  * Invoice document types
  * - invoice: חשבונית (invoice only, payment pending)
  * - invoice_receipt: חשבונית-קבלה (invoice + receipt, payment received)
+ * - receipt: קבלה (receipt for existing invoice)
  */
-export type InvoiceDocumentType = 'invoice' | 'invoice_receipt';
+export type InvoiceDocumentType = 'invoice' | 'invoice_receipt' | 'receipt';
 
 /**
  * Invoice generation session status
  */
 export type InvoiceSessionStatus =
   | 'select_type' // Waiting for user to select document type
+  | 'awaiting_invoice_selection' // Waiting for user to select existing invoice (receipt flow)
   | 'awaiting_details' // Waiting for customer name, amount, description
   | 'awaiting_payment' // Waiting for payment method selection
   | 'confirming'; // Showing confirmation, waiting for approve/cancel
@@ -31,6 +33,7 @@ export type PaymentMethod = 'מזומן' | 'ביט' | 'PayBox' | 'העברה' | 
 export interface InvoiceSession {
   status: InvoiceSessionStatus;
   documentType?: InvoiceDocumentType;
+  relatedInvoiceNumber?: string; // For receipt type: link to existing invoice
   customerName?: string;
   customerTaxId?: string;
   description?: string;
@@ -142,6 +145,7 @@ export interface GeneratedInvoiceSheetRow {
  */
 export type InvoiceCallbackAction =
   | { action: 'select_type'; documentType: InvoiceDocumentType }
+  | { action: 'select_invoice'; invoiceNumber: string }
   | { action: 'select_payment'; paymentMethod: PaymentMethod }
   | { action: 'confirm' }
   | { action: 'cancel' };

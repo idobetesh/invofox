@@ -8,6 +8,8 @@ import type {
   InvoiceCallbackAction,
   PaymentMethod,
 } from '../../../../../shared/types';
+import type { OpenInvoice } from './open-invoices.service';
+import { formatInvoiceForButton } from './open-invoices.service';
 
 const PAYMENT_METHODS: PaymentMethod[] = ['מזומן', 'ביט', 'PayBox', 'העברה', 'אשראי', 'צ׳ק'];
 
@@ -20,6 +22,7 @@ export function buildDocumentTypeKeyboard(): TelegramInlineKeyboardMarkup {
     action: 'select_type',
     documentType: 'invoice_receipt',
   };
+  const receiptData: InvoiceCallbackAction = { action: 'select_type', documentType: 'receipt' };
 
   return {
     inline_keyboard: [
@@ -27,6 +30,7 @@ export function buildDocumentTypeKeyboard(): TelegramInlineKeyboardMarkup {
         { text: 'חשבונית', callback_data: JSON.stringify(invoiceData) },
         { text: 'חשבונית-קבלה', callback_data: JSON.stringify(invoiceReceiptData) },
       ],
+      [{ text: 'קבלה', callback_data: JSON.stringify(receiptData) }],
     ],
   };
 }
@@ -64,4 +68,36 @@ export function buildConfirmationKeyboard(): TelegramInlineKeyboardMarkup {
       ],
     ],
   };
+}
+
+/**
+ * Build invoice selection keyboard for receipt creation
+ * Shows open invoices with invoice number, customer name, and remaining balance
+ */
+export function buildInvoiceSelectionKeyboard(
+  openInvoices: OpenInvoice[]
+): TelegramInlineKeyboardMarkup {
+  const rows: { text: string; callback_data: string }[][] = [];
+
+  // Add a button for each open invoice (max 10 to avoid message size limits)
+  const invoicesToShow = openInvoices.slice(0, 10);
+
+  for (const invoice of invoicesToShow) {
+    const data: InvoiceCallbackAction = {
+      action: 'select_invoice',
+      invoiceNumber: invoice.invoiceNumber,
+    };
+    rows.push([
+      {
+        text: formatInvoiceForButton(invoice),
+        callback_data: JSON.stringify(data),
+      },
+    ]);
+  }
+
+  // Add cancel button
+  const cancelData: InvoiceCallbackAction = { action: 'cancel' };
+  rows.push([{ text: '❌ בטל', callback_data: JSON.stringify(cancelData) }]);
+
+  return { inline_keyboard: rows };
 }
