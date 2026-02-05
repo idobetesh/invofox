@@ -6,9 +6,12 @@ export interface Customer {
   docId: string;
   name: string;
   taxId: string;
+  taxStatus?: string;
   email: string;
   phone: string;
+  address?: string;
   hasLogo: boolean;
+  logoUrl?: string;
   hasSheet: boolean;
   updatedAt: string;
 }
@@ -146,9 +149,12 @@ export class CustomerService {
           docId: doc.id,
           name: data.business?.name || 'Unknown',
           taxId: data.business?.taxId || 'N/A',
+          taxStatus: data.business?.taxStatus || undefined,
           email: data.business?.email || 'N/A',
           phone: data.business?.phone || 'N/A',
+          address: data.business?.address || undefined,
           hasLogo: Boolean(data.business?.logoUrl),
+          logoUrl: data.business?.logoUrl || undefined,
           hasSheet: Boolean(data.business?.sheetId),
           updatedAt: data.updatedAt?.toDate?.()?.toISOString() || 'N/A',
         });

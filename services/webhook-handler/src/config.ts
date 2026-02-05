@@ -13,11 +13,23 @@ const envSchema = z.object({
   GCP_PROJECT_ID: z.string().min(1, { message: 'GCP project ID is required' }),
   GCP_LOCATION: z.string().default('us-central1'),
   QUEUE_NAME: z.string().default('invoice-processing'),
-  WORKER_URL: z.url({ message: 'Worker URL must be a valid URL (e.g., http://localhost:8081)' }),
-  WEBHOOK_SECRET_PATH: z.string().min(16, { message: 'Webhook secret path must be at least 16 characters. Generate with: openssl rand -hex 16' }),
-  SERVICE_ACCOUNT_EMAIL: z.email({ message: 'Service account email must be valid' }).optional(),
+  WORKER_URL: z
+    .string()
+    .url({ message: 'Worker URL must be a valid URL (e.g., http://localhost:8081)' }),
+  WEBHOOK_SECRET_PATH: z
+    .string()
+    .min(16, {
+      message:
+        'Webhook secret path must be at least 16 characters. Generate with: openssl rand -hex 16',
+    }),
+  SERVICE_ACCOUNT_EMAIL: z
+    .string()
+    .email({ message: 'Service account email must be valid' })
+    .optional(),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
 });
+
+type EnvSchema = z.infer<typeof envSchema>;
 
 export type Config = {
   port: number;
@@ -47,20 +59,20 @@ export function loadConfig(): Config {
     console.error('\n╔══════════════════════════════════════════════════════════════╗');
     console.error('║                  CONFIGURATION ERROR                          ║');
     console.error('╠══════════════════════════════════════════════════════════════╣');
-    
+
     for (const issue of result.error.issues) {
       const path = issue.path.join('.') || 'unknown';
       console.error(`║ ✗ ${path}: ${issue.message}`);
     }
-    
+
     console.error('╠══════════════════════════════════════════════════════════════╣');
     console.error('║ Copy env.example to .env and fill in required values         ║');
     console.error('╚══════════════════════════════════════════════════════════════╝\n');
-    
+
     throw new Error(`Invalid configuration: ${result.error.issues.length} error(s)`);
   }
 
-  const env = result.data;
+  const env: EnvSchema = result.data;
   const isDevelopment = env.NODE_ENV === 'development';
 
   // In development, service account email is optional

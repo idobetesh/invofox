@@ -44,11 +44,12 @@ export interface InvoiceSession {
 /**
  * Generated invoice audit log stored in Firestore
  * Document ID: invoice number (e.g., "20261")
+ * Also used for receipts (documentType='receipt')
  */
 export interface GeneratedInvoice {
   chatId: number; // Chat ID for querying invoices by user
   invoiceNumber: string;
-  documentType: InvoiceDocumentType;
+  documentType: InvoiceDocumentType | 'receipt';
   customerName: string;
   customerTaxId?: string;
   description: string;
@@ -64,13 +65,43 @@ export interface GeneratedInvoice {
   };
   storagePath: string;
   storageUrl: string;
+
+  // Invoice-specific fields (for tracking payments)
+  paymentStatus?: 'unpaid' | 'partial' | 'paid';
+  paidAmount?: number;
+  remainingBalance?: number;
+  relatedReceiptIds?: string[]; // Receipt doc IDs linked to this invoice
+
+  // Receipt-specific fields (for linking back to invoice)
+  relatedInvoiceId?: string; // Invoice doc ID this receipt is for
+  relatedInvoiceNumber?: string; // Invoice number (e.g., "20262")
+  isPartialPayment?: boolean; // Is this a partial payment
 }
 
 /**
- * Invoice counter stored in Firestore
- * Document ID: year (e.g., "2026")
+ * Document type counter
+ */
+export interface DocumentCounter {
+  counter: number;
+  lastUpdated: Date | { toMillis: () => number };
+}
+
+/**
+ * Invoice counters stored in Firestore
+ * Document ID: chat_{chatId}_{year} (e.g., "chat_749278151_2026")
+ * Supports 3 document types with independent counters
  */
 export interface InvoiceCounter {
+  invoice: DocumentCounter;
+  receipt: DocumentCounter;
+  invoice_receipt: DocumentCounter;
+}
+
+/**
+ * Legacy invoice counter format (for migration)
+ * @deprecated Use InvoiceCounter instead
+ */
+export interface LegacyInvoiceCounter {
   counter: number;
   lastUpdated: Date | { toMillis: () => number };
 }

@@ -27,12 +27,18 @@ import { StorageService } from './src/services/storage.service';
 import { HealthService } from './src/services/health.service';
 import { CustomerService } from './src/services/customer.service';
 import { InviteCodeService } from './src/services/invite-code.service';
+import { ReceiptService } from './src/services/receipt.service';
+import { InvoiceService } from './src/services/invoice.service';
+import { InvoiceReceiptService } from './src/services/invoice-receipt.service';
 import { OffboardingService } from './src/offboarding/offboarding.service';
 import { FirestoreController } from './src/controllers/firestore.controller';
 import { StorageController } from './src/controllers/storage.controller';
 import { HealthController } from './src/controllers/health.controller';
 import { CustomerController } from './src/controllers/customer.controller';
 import { InviteCodeController } from './src/controllers/invite-code.controller';
+import { ReceiptController } from './src/controllers/receipt.controller';
+import { InvoiceController } from './src/controllers/invoice.controller';
+import { InvoiceReceiptController } from './src/controllers/invoice-receipt.controller';
 import { OffboardingController } from './src/offboarding/offboarding.controller';
 import { requireAuth } from './src/middlewares/auth.middleware';
 import { createRoutes } from './src/routes/index';
@@ -61,6 +67,9 @@ const storageService = new StorageService(storage);
 const healthService = new HealthService(firestoreService, storageService);
 const customerService = new CustomerService(firestore, storage);
 const inviteCodeService = new InviteCodeService(firestore);
+const receiptService = new ReceiptService();
+const invoiceService = new InvoiceService();
+const invoiceReceiptService = new InvoiceReceiptService();
 const offboardingService = new OffboardingService(
   firestore,
   storage,
@@ -74,6 +83,9 @@ const storageController = new StorageController(storageService);
 const healthController = new HealthController(healthService);
 const customerController = new CustomerController(customerService, offboardingService);
 const inviteCodeController = new InviteCodeController(inviteCodeService);
+const receiptController = new ReceiptController(receiptService);
+const invoiceController = new InvoiceController(invoiceService);
+const invoiceReceiptController = new InvoiceReceiptController(invoiceReceiptService);
 const offboardingController = new OffboardingController(offboardingService);
 
 // Middleware
@@ -112,6 +124,9 @@ app.use(
     healthController,
     customerController,
     inviteCodeController,
+    receiptController,
+    invoiceController,
+    invoiceReceiptController,
     offboardingController
   )
 );
