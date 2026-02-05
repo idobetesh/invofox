@@ -1,5 +1,10 @@
 import { Firestore } from '@google-cloud/firestore';
 import { Storage } from '@google-cloud/storage';
+import {
+  GENERATED_INVOICES_COLLECTION,
+  GENERATED_RECEIPTS_COLLECTION,
+  GENERATED_INVOICE_RECEIPTS_COLLECTION,
+} from '../../../../shared/collections';
 
 export interface Customer {
   chatId: number;
@@ -227,12 +232,34 @@ export class CustomerService {
     chatId: number
   ): Promise<{ count: number; docIds: string[] }> {
     const prefix = `chat_${chatId}_`;
-    const snapshot = await this.firestore.collection('generated_invoices').get();
+
+    // Check all 3 collections after split
+    const [invoicesSnapshot, receiptsSnapshot, invoiceReceiptsSnapshot] = await Promise.all([
+      this.firestore.collection(GENERATED_INVOICES_COLLECTION).get(),
+      this.firestore.collection(GENERATED_RECEIPTS_COLLECTION).get(),
+      this.firestore.collection(GENERATED_INVOICE_RECEIPTS_COLLECTION).get(),
+    ]);
 
     const docIds: string[] = [];
-    for (const doc of snapshot.docs) {
+
+    // Collect from invoices
+    for (const doc of invoicesSnapshot.docs) {
       if (doc.id.startsWith(prefix)) {
-        docIds.push(doc.id);
+        docIds.push(`${GENERATED_INVOICES_COLLECTION}/${doc.id}`);
+      }
+    }
+
+    // Collect from receipts
+    for (const doc of receiptsSnapshot.docs) {
+      if (doc.id.startsWith(prefix)) {
+        docIds.push(`${GENERATED_RECEIPTS_COLLECTION}/${doc.id}`);
+      }
+    }
+
+    // Collect from invoice-receipts
+    for (const doc of invoiceReceiptsSnapshot.docs) {
+      if (doc.id.startsWith(prefix)) {
+        docIds.push(`${GENERATED_INVOICE_RECEIPTS_COLLECTION}/${doc.id}`);
       }
     }
 
@@ -367,10 +394,34 @@ export class CustomerService {
 
   private async deleteGeneratedInvoices(chatId: number): Promise<number> {
     const prefix = `chat_${chatId}_`;
-    const snapshot = await this.firestore.collection('generated_invoices').get();
+
+    // Delete from all 3 collections after split
+    const [invoicesSnapshot, receiptsSnapshot, invoiceReceiptsSnapshot] = await Promise.all([
+      this.firestore.collection(GENERATED_INVOICES_COLLECTION).get(),
+      this.firestore.collection(GENERATED_RECEIPTS_COLLECTION).get(),
+      this.firestore.collection(GENERATED_INVOICE_RECEIPTS_COLLECTION).get(),
+    ]);
 
     let count = 0;
-    for (const doc of snapshot.docs) {
+
+    // Delete from invoices
+    for (const doc of invoicesSnapshot.docs) {
+      if (doc.id.startsWith(prefix)) {
+        await doc.ref.delete();
+        count++;
+      }
+    }
+
+    // Delete from receipts
+    for (const doc of receiptsSnapshot.docs) {
+      if (doc.id.startsWith(prefix)) {
+        await doc.ref.delete();
+        count++;
+      }
+    }
+
+    // Delete from invoice-receipts
+    for (const doc of invoiceReceiptsSnapshot.docs) {
       if (doc.id.startsWith(prefix)) {
         await doc.ref.delete();
         count++;

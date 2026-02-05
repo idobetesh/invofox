@@ -8,8 +8,7 @@ import { Storage } from '@google-cloud/storage';
 import { CounterService } from './counter.service';
 import { InvoiceReceiptPDFService } from './invoice-receipt-pdf.service';
 import { getBusinessConfig, uploadPDFToStorage, formatDateDisplay } from './document-helpers';
-
-const GENERATED_INVOICES_COLLECTION = 'generated_invoices';
+import { GENERATED_INVOICE_RECEIPTS_COLLECTION } from '../../../../shared/collections';
 
 interface GenerateInvoiceReceiptParams {
   chatId: number;
@@ -100,7 +99,7 @@ export class InvoiceReceiptService {
 
     // Save to Firestore
     await this.firestore
-      .collection(GENERATED_INVOICES_COLLECTION)
+      .collection(GENERATED_INVOICE_RECEIPTS_COLLECTION)
       .doc(invoiceReceiptId)
       .set(invoiceReceiptData);
 
@@ -141,7 +140,7 @@ export class InvoiceReceiptService {
 
     // Update invoice-receipt with PDF URL
     await this.firestore
-      .collection(GENERATED_INVOICES_COLLECTION)
+      .collection(GENERATED_INVOICE_RECEIPTS_COLLECTION)
       .doc(invoiceReceiptId)
       .update({ storageUrl: pdfUrl });
 

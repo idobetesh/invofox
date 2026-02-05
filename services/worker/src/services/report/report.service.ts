@@ -11,10 +11,11 @@ import type {
   InvoiceForReport,
 } from '../../../../../shared/report.types';
 import {
-  getGeneratedInvoicesCollection,
-  parseGeneratedInvoiceDate,
-  type GeneratedInvoice,
-} from '../../models/generated-invoice.model';
+  GENERATED_INVOICES_COLLECTION,
+  GENERATED_RECEIPTS_COLLECTION,
+  GENERATED_INVOICE_RECEIPTS_COLLECTION,
+} from '../../../../../shared/collections';
+import { parseGeneratedInvoiceDate } from '../../models/generated-invoice.model';
 import { getInvoiceJobsCollection, type InvoiceJob } from '../../models/invoice-job.model';
 import logger from '../../logger';
 
@@ -90,24 +91,50 @@ export async function getEarliestInvoiceDate(
 
   try {
     if (reportType === 'revenue') {
-      // Check generated_invoices collection (uses 'chatId' field)
-      const collection = getGeneratedInvoicesCollection(db);
-      const snapshot = await collection
-        .where('chatId', '==', chatId) // ✓ Type-safe field name
-        .orderBy('generatedAt', 'asc')
-        .limit(1)
-        .get();
+      // Check all 3 collections for revenue documents
+      const [invoicesSnapshot, receiptsSnapshot, invoiceReceiptsSnapshot] = await Promise.all([
+        db
+          .collection(GENERATED_INVOICES_COLLECTION)
+          .where('chatId', '==', chatId)
+          .orderBy('generatedAt', 'asc')
+          .limit(1)
+          .get(),
+        db
+          .collection(GENERATED_RECEIPTS_COLLECTION)
+          .where('chatId', '==', chatId)
+          .orderBy('generatedAt', 'asc')
+          .limit(1)
+          .get(),
+        db
+          .collection(GENERATED_INVOICE_RECEIPTS_COLLECTION)
+          .where('chatId', '==', chatId)
+          .orderBy('generatedAt', 'asc')
+          .limit(1)
+          .get(),
+      ]);
 
-      if (snapshot.empty) {
-        log.info('No generated invoices found for chat');
+      const dates: Date[] = [];
+
+      if (!invoicesSnapshot.empty) {
+        dates.push(invoicesSnapshot.docs[0].data().generatedAt.toDate());
+      }
+      if (!receiptsSnapshot.empty) {
+        dates.push(receiptsSnapshot.docs[0].data().generatedAt.toDate());
+      }
+      if (!invoiceReceiptsSnapshot.empty) {
+        dates.push(invoiceReceiptsSnapshot.docs[0].data().generatedAt.toDate());
+      }
+
+      if (dates.length === 0) {
+        log.info('No generated documents found for chat');
         return null;
       }
 
-      const invoice: GeneratedInvoice = snapshot.docs[0].data(); // ✓ Typed!
-      const date = invoice.generatedAt.toDate();
-      const formatted = formatDate(date);
+      // Find earliest date across all collections
+      const earliestDate = new Date(Math.min(...dates.map((d) => d.getTime())));
+      const formatted = formatDate(earliestDate);
 
-      log.info({ earliestDate: formatted }, 'Found earliest generated invoice date');
+      log.info({ earliestDate: formatted }, 'Found earliest generated document date');
       return formatted;
     } else {
       // Check invoice_jobs collection (uses 'telegramChatId' field)
@@ -156,45 +183,100 @@ export async function getInvoicesForReport(
     endDate.setHours(23, 59, 59, 999); // End of day
 
     if (reportType === 'revenue') {
-      // Query generated_invoices collection (user-generated invoices)
-      // Uses type-safe model with 'chatId' field (NOT telegramChatId!)
-      const collection = getGeneratedInvoicesCollection(db);
-      const snapshot = await collection
-        .where('chatId', '==', chatId) // ✓ Autocomplete knows this field exists!
-        .where('generatedAt', '>=', Timestamp.fromDate(startDate))
-        .where('generatedAt', '<=', Timestamp.fromDate(endDate))
-        .get();
+      // Query all 3 collections for revenue documents after collection split
+      const [invoicesSnapshot, receiptsSnapshot, invoiceReceiptsSnapshot] = await Promise.all([
+        db
+          .collection(GENERATED_INVOICES_COLLECTION)
+          .where('chatId', '==', chatId)
+          .where('generatedAt', '>=', Timestamp.fromDate(startDate))
+          .where('generatedAt', '<=', Timestamp.fromDate(endDate))
+          .get(),
+        db
+          .collection(GENERATED_RECEIPTS_COLLECTION)
+          .where('chatId', '==', chatId)
+          .where('generatedAt', '>=', Timestamp.fromDate(startDate))
+          .where('generatedAt', '<=', Timestamp.fromDate(endDate))
+          .get(),
+        db
+          .collection(GENERATED_INVOICE_RECEIPTS_COLLECTION)
+          .where('chatId', '==', chatId)
+          .where('generatedAt', '>=', Timestamp.fromDate(startDate))
+          .where('generatedAt', '<=', Timestamp.fromDate(endDate))
+          .get(),
+      ]);
 
-      log.info({ count: snapshot.docs.length }, 'Found generated invoices');
+      const totalCount =
+        invoicesSnapshot.docs.length +
+        receiptsSnapshot.docs.length +
+        invoiceReceiptsSnapshot.docs.length;
 
-      const invoices = snapshot.docs
-        .map((doc) => {
-          const invoice: GeneratedInvoice = doc.data(); // ✓ Already typed and validated!
+      log.info({ count: totalCount }, 'Found generated documents across all collections');
 
-          // Only include if we have required data
-          if (!invoice.customerName || invoice.amount === null || invoice.amount === undefined) {
-            return null;
-          }
+      // Process documents from all collections
+      const allInvoices: InvoiceForReport[] = [];
 
-          // Parse date from "18/01/2026" format to "2026-01-18"
-          const formattedDate = parseGeneratedInvoiceDate(invoice.date);
+      // Process invoices
+      for (const doc of invoicesSnapshot.docs) {
+        const invoice = doc.data();
+        if (!invoice.customerName || invoice.amount === null || invoice.amount === undefined) {
+          continue;
+        }
 
-          const result: InvoiceForReport = {
-            invoiceNumber: invoice.invoiceNumber || doc.id,
-            date: formattedDate,
-            customerName: invoice.customerName, // ✓ Clear from model: customerName not vendorName
-            amount: invoice.amount, // ✓ Clear from model: amount not totalAmount
-            currency: invoice.currency || 'ILS',
-            paymentMethod: invoice.paymentMethod || 'Unknown',
-            category: invoice.description || undefined,
-            driveLink: invoice.storageUrl || '',
-          };
+        allInvoices.push({
+          invoiceNumber: invoice.invoiceNumber || doc.id,
+          date: parseGeneratedInvoiceDate(invoice.date),
+          customerName: invoice.customerName,
+          amount: invoice.amount,
+          currency: invoice.currency || 'ILS',
+          paymentMethod: invoice.paymentMethod || 'Unknown',
+          category: invoice.description || undefined,
+          driveLink: invoice.storageUrl || '',
+        });
+      }
 
-          return result;
-        })
-        .filter((invoice): invoice is InvoiceForReport => invoice !== null);
+      // Process receipts
+      for (const doc of receiptsSnapshot.docs) {
+        const receipt = doc.data();
+        if (!receipt.customerName || receipt.amount === null || receipt.amount === undefined) {
+          continue;
+        }
 
-      return invoices;
+        allInvoices.push({
+          invoiceNumber: receipt.invoiceNumber || doc.id,
+          date: parseGeneratedInvoiceDate(receipt.date),
+          customerName: receipt.customerName,
+          amount: receipt.amount,
+          currency: receipt.currency || 'ILS',
+          paymentMethod: receipt.paymentMethod || 'Unknown',
+          category: receipt.description || undefined,
+          driveLink: receipt.storageUrl || '',
+        });
+      }
+
+      // Process invoice-receipts
+      for (const doc of invoiceReceiptsSnapshot.docs) {
+        const invoiceReceipt = doc.data();
+        if (
+          !invoiceReceipt.customerName ||
+          invoiceReceipt.amount === null ||
+          invoiceReceipt.amount === undefined
+        ) {
+          continue;
+        }
+
+        allInvoices.push({
+          invoiceNumber: invoiceReceipt.invoiceNumber || doc.id,
+          date: parseGeneratedInvoiceDate(invoiceReceipt.date),
+          customerName: invoiceReceipt.customerName,
+          amount: invoiceReceipt.amount,
+          currency: invoiceReceipt.currency || 'ILS',
+          paymentMethod: invoiceReceipt.paymentMethod || 'Unknown',
+          category: invoiceReceipt.description || undefined,
+          driveLink: invoiceReceipt.storageUrl || '',
+        });
+      }
+
+      return allInvoices;
     } else {
       // Query invoice_jobs collection (received/processed invoices for expenses)
       // Uses type-safe model with 'telegramChatId' field (NOT chatId!)
