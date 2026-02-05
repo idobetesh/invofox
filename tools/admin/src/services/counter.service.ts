@@ -79,7 +79,10 @@ export class CounterService {
         };
         transaction.set(counterRef, initialData);
       } else {
-        const data = counterDoc.data()!;
+        const data = counterDoc.data();
+        if (!data) {
+          throw new Error('Counter document exists but has no data');
+        }
 
         // Increment specific document type counter
         const currentCounter = data[documentType]?.counter || 0;
@@ -125,7 +128,10 @@ export class CounterService {
       return 0;
     }
 
-    const data = counterDoc.data()!;
+    const data = counterDoc.data();
+    if (!data) {
+      return 0;
+    }
     return data[documentType]?.counter || 0;
   }
 
@@ -146,7 +152,10 @@ export class CounterService {
       return { invoice: 0, receipt: 0, invoice_receipt: 0 };
     }
 
-    const data = counterDoc.data()!;
+    const data = counterDoc.data();
+    if (!data) {
+      return { invoice: 0, receipt: 0, invoice_receipt: 0 };
+    }
 
     return {
       invoice: data.invoice?.counter || 0,

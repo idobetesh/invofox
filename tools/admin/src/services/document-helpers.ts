@@ -36,7 +36,10 @@ export async function getBusinessConfig(
     throw new Error(`Business config not found for chatId: ${chatId}`);
   }
 
-  const data = doc.data()!;
+  const data = doc.data();
+  if (!data) {
+    throw new Error(`Business config data is invalid for chatId: ${chatId}`);
+  }
   const business = data.business || {};
 
   return {
