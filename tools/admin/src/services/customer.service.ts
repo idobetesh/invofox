@@ -231,36 +231,31 @@ export class CustomerService {
   private async checkGeneratedInvoices(
     chatId: number
   ): Promise<{ count: number; docIds: string[] }> {
-    const prefix = `chat_${chatId}_`;
-
-    // Check all 3 collections after split
+    // Query by chatId field for efficiency (server-side filtering)
     const [invoicesSnapshot, receiptsSnapshot, invoiceReceiptsSnapshot] = await Promise.all([
-      this.firestore.collection(GENERATED_INVOICES_COLLECTION).get(),
-      this.firestore.collection(GENERATED_RECEIPTS_COLLECTION).get(),
-      this.firestore.collection(GENERATED_INVOICE_RECEIPTS_COLLECTION).get(),
+      this.firestore.collection(GENERATED_INVOICES_COLLECTION).where('chatId', '==', chatId).get(),
+      this.firestore.collection(GENERATED_RECEIPTS_COLLECTION).where('chatId', '==', chatId).get(),
+      this.firestore
+        .collection(GENERATED_INVOICE_RECEIPTS_COLLECTION)
+        .where('chatId', '==', chatId)
+        .get(),
     ]);
 
     const docIds: string[] = [];
 
     // Collect from invoices
     for (const doc of invoicesSnapshot.docs) {
-      if (doc.id.startsWith(prefix)) {
-        docIds.push(`${GENERATED_INVOICES_COLLECTION}/${doc.id}`);
-      }
+      docIds.push(`${GENERATED_INVOICES_COLLECTION}/${doc.id}`);
     }
 
     // Collect from receipts
     for (const doc of receiptsSnapshot.docs) {
-      if (doc.id.startsWith(prefix)) {
-        docIds.push(`${GENERATED_RECEIPTS_COLLECTION}/${doc.id}`);
-      }
+      docIds.push(`${GENERATED_RECEIPTS_COLLECTION}/${doc.id}`);
     }
 
     // Collect from invoice-receipts
     for (const doc of invoiceReceiptsSnapshot.docs) {
-      if (doc.id.startsWith(prefix)) {
-        docIds.push(`${GENERATED_INVOICE_RECEIPTS_COLLECTION}/${doc.id}`);
-      }
+      docIds.push(`${GENERATED_INVOICE_RECEIPTS_COLLECTION}/${doc.id}`);
     }
 
     return { count: docIds.length, docIds };
@@ -393,39 +388,34 @@ export class CustomerService {
   }
 
   private async deleteGeneratedInvoices(chatId: number): Promise<number> {
-    const prefix = `chat_${chatId}_`;
-
-    // Delete from all 3 collections after split
+    // Query by chatId field for efficiency (server-side filtering)
     const [invoicesSnapshot, receiptsSnapshot, invoiceReceiptsSnapshot] = await Promise.all([
-      this.firestore.collection(GENERATED_INVOICES_COLLECTION).get(),
-      this.firestore.collection(GENERATED_RECEIPTS_COLLECTION).get(),
-      this.firestore.collection(GENERATED_INVOICE_RECEIPTS_COLLECTION).get(),
+      this.firestore.collection(GENERATED_INVOICES_COLLECTION).where('chatId', '==', chatId).get(),
+      this.firestore.collection(GENERATED_RECEIPTS_COLLECTION).where('chatId', '==', chatId).get(),
+      this.firestore
+        .collection(GENERATED_INVOICE_RECEIPTS_COLLECTION)
+        .where('chatId', '==', chatId)
+        .get(),
     ]);
 
     let count = 0;
 
     // Delete from invoices
     for (const doc of invoicesSnapshot.docs) {
-      if (doc.id.startsWith(prefix)) {
-        await doc.ref.delete();
-        count++;
-      }
+      await doc.ref.delete();
+      count++;
     }
 
     // Delete from receipts
     for (const doc of receiptsSnapshot.docs) {
-      if (doc.id.startsWith(prefix)) {
-        await doc.ref.delete();
-        count++;
-      }
+      await doc.ref.delete();
+      count++;
     }
 
     // Delete from invoice-receipts
     for (const doc of invoiceReceiptsSnapshot.docs) {
-      if (doc.id.startsWith(prefix)) {
-        await doc.ref.delete();
-        count++;
-      }
+      await doc.ref.delete();
+      count++;
     }
 
     return count;
