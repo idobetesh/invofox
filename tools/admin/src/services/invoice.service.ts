@@ -8,8 +8,7 @@ import { Storage } from '@google-cloud/storage';
 import { CounterService } from './counter.service';
 import { InvoicePDFService } from './invoice-pdf.service';
 import { getBusinessConfig, uploadPDFToStorage, formatDateDisplay } from './document-helpers';
-
-const GENERATED_INVOICES_COLLECTION = 'generated_invoices';
+import { GENERATED_INVOICES_COLLECTION } from '../../../../shared/collections';
 
 interface GenerateInvoiceParams {
   chatId: number;

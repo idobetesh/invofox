@@ -18,7 +18,7 @@ import {
   GENERATED_INVOICE_RECEIPTS_COLLECTION,
 } from '../../../../../shared/collections';
 import { generateInvoicePDFWithConfig } from './pdf.generator';
-import { getNextInvoiceNumber } from './counter.service';
+import { getNextDocumentNumber } from './counter.service';
 import { getBusinessConfig, getLogoBase64 } from '../business-config/config.service';
 import { appendGeneratedInvoiceRow } from '../sheets.service';
 import logger from '../../logger';
@@ -80,21 +80,7 @@ export async function generateInvoice(
   const log = logger.child({ chatId, userId, username });
   log.info('Starting invoice generation');
 
-  // Step 1: Load config first (needed for logoUrl)
-  const config = await loadBusinessConfig(chatId);
-
-  // Step 2: Fetch logo and invoice number
-  const [logoBase64, invoiceNumber] = await Promise.all([
-    getLogoBase64(chatId, config.business.logoUrl), // Saves 1 Firestore read!
-    getNextInvoiceNumber(chatId),
-  ]);
-
-  log.debug(
-    { businessName: config.business.name, hasLogo: !!logoBase64, invoiceNumber },
-    'Loaded config, logo, and invoice number (optimized)'
-  );
-
-  // Validate required session fields
+  // Step 1: Validate required session fields first
   if (
     !session.documentType ||
     !session.customerName ||
@@ -105,6 +91,30 @@ export async function generateInvoice(
   ) {
     throw new Error('Invoice session is incomplete - missing required fields');
   }
+
+  // Validate documentType is valid
+  if (!['invoice', 'receipt', 'invoice_receipt'].includes(session.documentType)) {
+    throw new Error(`Invalid document type: ${session.documentType}`);
+  }
+
+  // Step 2: Load config first (needed for logoUrl)
+  const config = await loadBusinessConfig(chatId);
+
+  // Step 3: Fetch logo and document number
+  const [logoBase64, invoiceNumber] = await Promise.all([
+    getLogoBase64(chatId, config.business.logoUrl), // Saves 1 Firestore read!
+    getNextDocumentNumber(chatId, session.documentType),
+  ]);
+
+  log.debug(
+    {
+      businessName: config.business.name,
+      hasLogo: !!logoBase64,
+      documentNumber: invoiceNumber,
+      documentType: session.documentType,
+    },
+    'Loaded config, logo, and document number (optimized)'
+  );
 
   // Build invoice data
   const invoiceData: InvoiceData = {
