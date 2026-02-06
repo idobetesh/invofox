@@ -106,10 +106,26 @@ export async function generateInvoice(
     throw new Error(`Invalid document type: ${session.documentType}`);
   }
 
-  // Step 2: Load config first (needed for logoUrl)
+  // Step 2: For receipts, validate and fetch parent invoice data
+  let parentInvoice: GeneratedInvoice | null = null;
+  if (session.documentType === 'receipt') {
+    if (!session.relatedInvoiceNumber) {
+      throw new Error('Receipt must have related invoice number');
+    }
+    parentInvoice = await getGeneratedInvoice(chatId, session.relatedInvoiceNumber);
+    if (!parentInvoice) {
+      throw new Error(`Parent invoice ${session.relatedInvoiceNumber} not found`);
+    }
+    log.debug(
+      { parentInvoice: session.relatedInvoiceNumber },
+      'Fetched parent invoice for receipt'
+    );
+  }
+
+  // Step 3: Load config first (needed for logoUrl)
   const config = await loadBusinessConfig(chatId);
 
-  // Step 3: Fetch logo and document number
+  // Step 4: Fetch logo and document number
   const [logoBase64, invoiceNumber] = await Promise.all([
     getLogoBase64(chatId, config.business.logoUrl), // Saves 1 Firestore read!
     getNextDocumentNumber(chatId, session.documentType),
@@ -133,12 +149,19 @@ export async function generateInvoice(
     customerTaxId: session.customerTaxId,
     description: session.description,
     amount: session.amount,
+    currency: session.currency || 'ILS', // Default to ILS if not specified
     paymentMethod: session.paymentMethod,
     date: session.date,
   };
 
-  // Generate PDF
-  const pdfBuffer = await generateInvoicePDFWithConfig(invoiceData, config, logoBase64);
+  // Generate PDF (pass session for receipts to include parent invoice data)
+  const pdfBuffer = await generateInvoicePDFWithConfig(
+    invoiceData,
+    config,
+    logoBase64,
+    session,
+    parentInvoice
+  );
   log.info({ pdfSize: pdfBuffer.length }, 'PDF generated');
 
   // Upload to Cloud Storage (per-customer path)
@@ -247,7 +270,7 @@ async function saveInvoiceRecord(
     ...(data.customerTaxId !== undefined && { customerTaxId: data.customerTaxId }),
     description: data.description,
     amount: data.amount,
-    currency: 'ILS',
+    currency: data.currency || 'ILS', // Use currency from data, default to ILS
     ...(data.paymentMethod !== undefined && { paymentMethod: data.paymentMethod }),
     date: formatDateDisplay(data.date),
     generatedAt: FieldValue.serverTimestamp() as unknown as Timestamp,

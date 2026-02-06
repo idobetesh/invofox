@@ -43,6 +43,7 @@ export interface InvoiceSession {
   customerTaxId?: string;
   description?: string;
   amount?: number;
+  currency?: string; // Currency code (e.g., "ILS", "USD"), defaults to "ILS"
   paymentMethod?: PaymentMethod;
   date?: string; // YYYY-MM-DD format
   createdAt: Date | { toMillis: () => number };
@@ -124,6 +125,7 @@ export interface InvoiceData {
   customerTaxId?: string;
   description: string;
   amount: number;
+  currency?: string; // Currency code (e.g., "ILS", "USD"), defaults to "ILS"
   paymentMethod?: PaymentMethod; // Optional for invoices (not yet paid)
   date: string; // DD/MM/YYYY format
 }

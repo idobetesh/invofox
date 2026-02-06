@@ -15,7 +15,7 @@ const sampleBusinessConfig: BusinessConfig = {
   business: {
     name: 'העסק שלי',
     taxId: '512345678',
-    taxStatus: 'עוסק מורשה',
+    taxStatus: 'עוסק פטור מס',
     email: 'demo@example.com',
     phone: '03-1234567',
     address: 'רחוב הדוגמה 42, תל אביב',

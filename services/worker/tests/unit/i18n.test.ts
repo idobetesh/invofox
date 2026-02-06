@@ -25,7 +25,6 @@ describe('i18n Service', () => {
 
       it('should translate tax status options', () => {
         expect(t('en', 'taxStatus.exempt')).toBe('Tax Exempt Business (עוסק פטור מס)');
-        expect(t('en', 'taxStatus.licensed')).toBe('Licensed Business (עוסק מורשה)');
       });
 
       it('should translate counter options', () => {
@@ -59,7 +58,6 @@ describe('i18n Service', () => {
 
       it('should translate tax status options', () => {
         expect(t('he', 'taxStatus.exempt')).toBe('עוסק פטור מס');
-        expect(t('he', 'taxStatus.licensed')).toBe('עוסק מורשה');
       });
 
       it('should translate counter options', () => {
@@ -286,9 +284,7 @@ describe('i18n Service', () => {
 
     it('should have tax status options in both languages', () => {
       expect(messages.en.taxStatus.exempt).toBeDefined();
-      expect(messages.en.taxStatus.licensed).toBeDefined();
       expect(messages.he.taxStatus.exempt).toBeDefined();
-      expect(messages.he.taxStatus.licensed).toBeDefined();
     });
 
     it('should have counter options in both languages', () => {
