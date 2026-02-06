@@ -35,11 +35,39 @@ export const INVITE_CODES_COLLECTION = 'invite_codes';
 export const PROCESSED_CALLBACKS_COLLECTION = 'processed_callbacks';
 
 /**
+ * Document type for counter tracking
+ */
+export type DocumentType = 'invoice' | 'receipt' | 'invoice_receipt';
+
+/**
+ * Document number prefix mapping
+ */
+const DOCUMENT_PREFIXES: Record<DocumentType, string> = {
+  invoice: 'I',
+  receipt: 'R',
+  invoice_receipt: 'IR',
+};
+
+/**
+ * Format document number based on type
+ * Format: {PREFIX}-{year}-{counter} (e.g., "I-2026-1", "R-2026-5", "IR-2026-3")
+ */
+export function formatDocumentNumber(
+  documentType: DocumentType,
+  year: number | string,
+  counter: number
+): string {
+  const prefix = DOCUMENT_PREFIXES[documentType];
+  if (!prefix) {
+    throw new Error(`Unknown document type: ${documentType}`);
+  }
+  return `${prefix}-${year}-${counter}`;
+}
+
+/**
  * Helper to get collection name based on document type
  */
-export function getCollectionForDocumentType(
-  documentType: 'invoice' | 'invoice_receipt' | 'receipt'
-): string {
+export function getCollectionForDocumentType(documentType: DocumentType): string {
   switch (documentType) {
     case 'invoice':
       return GENERATED_INVOICES_COLLECTION;

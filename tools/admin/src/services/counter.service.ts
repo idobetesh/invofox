@@ -8,13 +8,11 @@
  */
 
 import { Firestore, FieldValue } from '@google-cloud/firestore';
+import { formatDocumentNumber, type DocumentType } from '../../../../shared/collections';
+
+export type { DocumentType };
 
 const COLLECTION_NAME = 'invoice_counters';
-
-/**
- * Document type for counter tracking
- */
-export type DocumentType = 'invoice' | 'receipt' | 'invoice_receipt';
 
 /**
  * Document counter structure
@@ -97,17 +95,7 @@ export class CounterService {
       return counter;
     });
 
-    // Format document number based on type with prefixes
-    switch (documentType) {
-      case 'invoice':
-        return `I-${year}-${result}`;
-      case 'receipt':
-        return `R-${year}-${result}`;
-      case 'invoice_receipt':
-        return `IR-${year}-${result}`;
-      default:
-        throw new Error(`Unknown document type: ${documentType}`);
-    }
+    return formatDocumentNumber(documentType, year, result);
   }
 
   /**
