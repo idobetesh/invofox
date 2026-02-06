@@ -137,6 +137,7 @@ You're ready to go! Try these commands:
       fullPaymentFeedback: 'Amount: ₪{amount}\nFull payment - invoice will be closed',
       partialPaymentFeedback:
         'Amount: ₪{amount}\nPartial payment\nRemaining after payment: ₪{newRemaining}',
+      receiptDescription: 'Receipt for invoice {invoiceNumber}',
     },
 
     validation: {
@@ -289,6 +290,7 @@ docs.google.com/spreadsheets/d/[זה_השדה]/edit`,
         'סכום גבוה מדי\n\nסכום שהוזן: ₪{amount}\nיתרה בחשבונית: ₪{remainingBalance}\n\nהזן סכום עד ₪{remainingBalance}',
       fullPaymentFeedback: 'סכום: ₪{amount}\nתשלום מלא - החשבונית תסגר',
       partialPaymentFeedback: 'סכום: ₪{amount}\nתשלום חלקי\nיתרה לאחר תשלום: ₪{newRemaining}',
+      receiptDescription: 'קבלה עבור חשבונית {invoiceNumber}',
     },
 
     validation: {

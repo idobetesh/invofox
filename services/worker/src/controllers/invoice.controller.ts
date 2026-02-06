@@ -371,17 +371,14 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
           return;
         }
 
-        // Save selected invoice with customer details for receipt
-        await sessionService.setSelectedInvoice(
-          payload.chatId,
-          payload.userId,
-          action.invoiceNumber
-        );
-
-        // Update session with customer name and description from invoice
+        // Save selected invoice with customer details for receipt (single DB write)
         await sessionService.updateSession(payload.chatId, payload.userId, {
+          status: 'awaiting_payment',
+          relatedInvoiceNumber: action.invoiceNumber,
           customerName: invoice.customerName,
-          description: `קבלה עבור חשבונית ${action.invoiceNumber}`,
+          description: t('he', 'invoice.receiptDescription', {
+            invoiceNumber: action.invoiceNumber,
+          }),
         });
 
         const remainingBalance = invoice.remainingBalance || invoice.amount;
