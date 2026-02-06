@@ -4,6 +4,8 @@
  * For documents that combine invoice + immediate payment
  */
 
+import { getCurrencySymbol } from './template-utils';
+
 export interface InvoiceReceiptTemplateParams {
   invoiceReceiptNumber: string;
   customerName: string;
@@ -20,18 +22,6 @@ export interface InvoiceReceiptTemplateParams {
   businessAddress: string;
   businessPhone: string;
   logoUrl?: string;
-}
-
-/**
- * Get currency symbol
- */
-export function getCurrencySymbol(currency: string): string {
-  const symbols: Record<string, string> = {
-    ILS: '₪',
-    USD: '$',
-    EUR: '€',
-  };
-  return symbols[currency] || currency;
 }
 
 /**

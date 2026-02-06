@@ -4,6 +4,8 @@
  * For standalone receipts linked to invoices
  */
 
+import { getCurrencySymbol } from './template-utils';
+
 export interface ReceiptTemplateParams {
   receiptNumber: string;
   invoiceNumber: string;
@@ -11,6 +13,7 @@ export interface ReceiptTemplateParams {
   customerName: string;
   customerTaxId?: string;
   amount: number;
+  currency: string;
   paymentMethod: string;
   receiptDate: string; // DD/MM/YYYY
   isPartialPayment: boolean;
@@ -35,6 +38,7 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
     customerName,
     customerTaxId = '0',
     amount,
+    currency,
     paymentMethod,
     receiptDate,
     isPartialPayment,
@@ -48,6 +52,7 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
     logoUrl,
   } = params;
 
+  const currencySymbol = getCurrencySymbol(currency);
   const logoHTML = logoUrl
     ? `<img src="${logoUrl}" class="logo" alt="לוגו העסק" />`
     : '<div style="width: 100px; height: 100px; background: #e5e7eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #666;">📄</div>';
@@ -338,7 +343,7 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
           <th>סוג תשלום</th>
           <th>פרטים</th>
           <th>תאריך</th>
-          <th>סה״כ(₪)</th>
+          <th>סה״כ(${currencySymbol})</th>
         </tr>
       </thead>
       <tbody>
@@ -346,11 +351,11 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
           <td>${paymentMethod}</td>
           <td></td>
           <td>${receiptDate}</td>
-          <td class="amount">₪${amount.toFixed(2)}</td>
+          <td class="amount">${currencySymbol}${amount.toFixed(2)}</td>
         </tr>
         <tr class="total-row">
           <td colspan="3" class="total-label">סה״כ שולם</td>
-          <td class="amount">₪${amount.toFixed(2)}</td>
+          <td class="amount">${currencySymbol}${amount.toFixed(2)}</td>
         </tr>
       </tbody>
     </table>
@@ -361,7 +366,7 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
       ? `
   <!-- Remaining Balance Info -->
   <div class="remaining-balance-info">
-    <div class="text">יתרה לתשלום: <span class="amount">₪${remainingBalance.toFixed(2)}</span></div>
+    <div class="text">יתרה לתשלום: <span class="amount">${currencySymbol}${remainingBalance.toFixed(2)}</span></div>
   </div>
   `
       : `

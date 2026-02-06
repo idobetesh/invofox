@@ -3,10 +3,14 @@
  * Now uses shared templates from /shared/templates
  */
 
-import type { InvoiceData, BusinessConfig, InvoiceSession } from '../../../../../shared/types';
+import type {
+  InvoiceData,
+  BusinessConfig,
+  InvoiceSession,
+  GeneratedInvoice,
+} from '../../../../../shared/types';
 import {
   buildInvoiceHTML as buildInvoiceTemplate,
-  escapeHtml,
   type InvoiceTemplateParams,
 } from '../../../../../shared/templates/invoice-template';
 import {
@@ -17,6 +21,7 @@ import {
   buildReceiptHTML as buildReceiptTemplate,
   type ReceiptTemplateParams,
 } from '../../../../../shared/templates/receipt-template';
+import { escapeHtml } from '../../../../../shared/templates/template-utils';
 
 export { escapeHtml };
 
@@ -36,13 +41,15 @@ function formatDateForInvoice(date: string): string {
  * @param data - Invoice data
  * @param businessConfig - Business configuration
  * @param logoBase64 - Optional logo as base64 data URL
- * @param session - Optional invoice session (needed for receipt-specific data)
+ * @param session - Optional invoice session (required for receipts)
+ * @param parentInvoice - Parent invoice (required for receipts)
  */
 export function buildInvoiceHTML(
   data: InvoiceData,
   businessConfig: BusinessConfig,
   logoBase64?: string | null,
-  session?: InvoiceSession
+  session?: InvoiceSession,
+  parentInvoice?: GeneratedInvoice | null
 ): string {
   const formattedDate = formatDateForInvoice(data.date);
 
@@ -54,7 +61,7 @@ export function buildInvoiceHTML(
       customerTaxId: data.customerTaxId,
       description: data.description,
       amount: data.amount,
-      currency: 'ILS',
+      currency: data.currency || 'ILS', // Use currency from data, default to ILS
       date: formattedDate,
       paymentMethod: data.paymentMethod || 'מזומן',
       businessName: businessConfig.business.name,
@@ -68,20 +75,31 @@ export function buildInvoiceHTML(
     return buildInvoiceReceiptTemplate(params);
   }
 
-  // Receipt - Note: this is currently not used as receipts aren't generated via this path yet
-  // Receipts will need parent invoice data which should be passed via session
+  // Receipt - Must have parent invoice data
   if (data.documentType === 'receipt') {
+    if (!session?.relatedInvoiceNumber || !parentInvoice) {
+      throw new Error(
+        'Receipt generation requires session with relatedInvoiceNumber and parentInvoice'
+      );
+    }
+
+    // Calculate payment tracking info
+    const newRemainingBalance =
+      (parentInvoice.remainingBalance || parentInvoice.amount) - data.amount;
+    const isPartialPayment = newRemainingBalance > 0;
+
     const params: ReceiptTemplateParams = {
       receiptNumber: data.invoiceNumber,
-      invoiceNumber: session?.relatedInvoiceNumber || '',
-      invoiceDate: formattedDate,
+      invoiceNumber: session.relatedInvoiceNumber,
+      invoiceDate: parentInvoice.date, // Use parent invoice date, not receipt date
       customerName: data.customerName,
       customerTaxId: data.customerTaxId,
       amount: data.amount,
+      currency: parentInvoice.currency, // Use parent invoice currency
       paymentMethod: data.paymentMethod || 'מזומן',
       receiptDate: formattedDate,
-      isPartialPayment: false, // TODO: Calculate from parent invoice
-      remainingBalance: 0, // TODO: Calculate from parent invoice
+      isPartialPayment,
+      remainingBalance: Math.max(0, newRemainingBalance),
       businessName: businessConfig.business.name,
       businessTaxId: businessConfig.business.taxId,
       businessTaxStatus: businessConfig.business.taxStatus,
@@ -100,7 +118,7 @@ export function buildInvoiceHTML(
     customerTaxId: data.customerTaxId,
     description: data.description,
     amount: data.amount,
-    currency: 'ILS',
+    currency: data.currency || 'ILS', // Use currency from data, default to ILS
     date: formattedDate,
     businessName: businessConfig.business.name,
     businessTaxId: businessConfig.business.taxId,

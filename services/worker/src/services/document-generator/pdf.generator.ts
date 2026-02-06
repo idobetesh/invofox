@@ -5,7 +5,12 @@
  */
 
 import { chromium } from 'playwright';
-import type { InvoiceData, BusinessConfig } from '../../../../../shared/types';
+import type {
+  InvoiceData,
+  BusinessConfig,
+  InvoiceSession,
+  GeneratedInvoice,
+} from '../../../../../shared/types';
 import { buildInvoiceHTML } from './template';
 import logger from '../../logger';
 
@@ -40,12 +45,16 @@ const CHROMIUM_ARGS = [
  * @param data - Invoice data
  * @param businessConfig - Business configuration
  * @param logoBase64 - Base64-encoded logo image (optional)
+ * @param session - Invoice session (required for receipts)
+ * @param parentInvoice - Parent invoice (required for receipts)
  * @returns PDF as Buffer
  */
 export async function generateInvoicePDFWithConfig(
   data: InvoiceData,
   businessConfig: BusinessConfig,
-  logoBase64?: string | null
+  logoBase64?: string | null,
+  session?: InvoiceSession,
+  parentInvoice?: GeneratedInvoice | null
 ): Promise<Buffer> {
   const log = logger.child({ invoiceNumber: data.invoiceNumber });
   log.info('Starting PDF generation with custom config');
@@ -65,7 +74,7 @@ export async function generateInvoicePDFWithConfig(
     const page = await browser.newPage();
 
     // Build HTML content with logo
-    const html = buildInvoiceHTML(data, businessConfig, logoBase64);
+    const html = buildInvoiceHTML(data, businessConfig, logoBase64, session, parentInvoice);
 
     // Set content with wait for fonts to load
     await page.setContent(html, {

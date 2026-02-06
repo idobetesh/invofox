@@ -233,6 +233,7 @@ export class ReceiptService {
       customerName: invoice.customerName,
       customerTaxId: invoice.customerTaxId,
       amount: params.paymentAmount,
+      currency: invoice.currency || 'ILS', // Use invoice currency, default to ILS
       paymentMethod: params.paymentMethod,
       receiptDate: formatDateDisplay(params.date),
       isPartialPayment: result.validation.isPartialPayment,

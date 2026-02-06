@@ -3,6 +3,10 @@
  * Used by both admin tool and worker service
  */
 
+import { getCurrencySymbol, escapeHtml } from './template-utils';
+
+export { escapeHtml };
+
 export interface InvoiceTemplateParams {
   invoiceNumber: string;
   customerName: string;
@@ -18,32 +22,6 @@ export interface InvoiceTemplateParams {
   businessAddress: string;
   businessPhone: string;
   logoUrl?: string;
-}
-
-/**
- * Get currency symbol
- */
-export function getCurrencySymbol(currency: string): string {
-  const symbols: Record<string, string> = {
-    ILS: '₪',
-    USD: '$',
-    EUR: '€',
-  };
-  return symbols[currency] || currency;
-}
-
-/**
- * Escape HTML to prevent XSS
- */
-export function escapeHtml(text: string): string {
-  const map: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;',
-  };
-  return text.replace(/[&<>"']/g, (m) => map[m]);
 }
 
 /**

@@ -8,8 +8,10 @@ import type { InvoiceSession } from '../../../../shared/types';
 
 // Mock dependencies
 const mockSet = jest.fn();
+const mockGet = jest.fn();
 const mockDoc = jest.fn(() => ({
   set: mockSet,
+  get: mockGet,
 }));
 const mockCollection = jest.fn(() => ({
   doc: mockDoc,
@@ -34,9 +36,20 @@ jest.mock('@google-cloud/firestore', () => {
   return {
     Firestore: jest.fn(() => ({
       collection: mockCollection,
+      runTransaction: jest.fn(async (callback) => {
+        const mockTransaction = {
+          get: jest.fn().mockResolvedValue({
+            exists: true,
+            data: () => ({ amount: 2000, paidAmount: 0, remainingBalance: 2000 }),
+          }),
+          update: jest.fn(),
+        };
+        return callback(mockTransaction);
+      }),
     })),
     FieldValue: {
       serverTimestamp: jest.fn(() => new Date('2026-01-17')),
+      arrayUnion: jest.fn((value) => [value]),
     },
     Timestamp: {
       fromDate: jest.fn((date) => date),
@@ -192,10 +205,24 @@ describe('Invoice Generator', () => {
     });
 
     it('should handle receipt document type', async () => {
+      // Mock parent invoice fetch
+      mockGet.mockResolvedValue({
+        exists: true,
+        data: () => ({
+          invoiceNumber: 'I-2026-5',
+          amount: 2000,
+          paidAmount: 0,
+          remainingBalance: 2000,
+          date: '15/01/2026',
+          documentType: 'invoice',
+        }),
+      });
+
       const session: InvoiceSession = {
         ...baseSession,
         documentType: 'receipt',
         paymentMethod: 'מזומן',
+        relatedInvoiceNumber: 'I-2026-5',
       };
 
       await generateInvoice(session, userId, username, chatId);

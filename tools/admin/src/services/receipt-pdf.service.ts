@@ -17,6 +17,7 @@ interface GenerateReceiptPDFParams {
   customerName: string;
   customerTaxId?: string;
   amount: number;
+  currency: string;
   paymentMethod: string;
   receiptDate: string; // DD/MM/YYYY
   isPartialPayment: boolean;
@@ -43,6 +44,7 @@ export class ReceiptPDFService {
       customerName: params.customerName,
       customerTaxId: params.customerTaxId,
       amount: params.amount,
+      currency: params.currency,
       paymentMethod: params.paymentMethod,
       receiptDate: params.receiptDate,
       isPartialPayment: params.isPartialPayment,
