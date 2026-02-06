@@ -191,6 +191,23 @@ describe('Invoice Generator', () => {
       expect(firestoreRecord.customerTaxId).toBe('987654321');
     });
 
+    it('should handle receipt document type', async () => {
+      const session: InvoiceSession = {
+        ...baseSession,
+        documentType: 'receipt',
+        paymentMethod: 'מזומן',
+      };
+
+      await generateInvoice(session, userId, username, chatId);
+
+      const firestoreRecord = mockSet.mock.calls[0][0];
+      expect(firestoreRecord.documentType).toBe('receipt');
+      expect(firestoreRecord.paymentMethod).toBe('מזומן');
+      expect(firestoreRecord.paymentStatus).toBe('paid');
+      expect(firestoreRecord.paidAmount).toBe(baseSession.amount);
+      expect(firestoreRecord.remainingBalance).toBe(0);
+    });
+
     it('should throw error when session is incomplete', async () => {
       const incompleteSession: InvoiceSession = {
         status: 'confirming',
