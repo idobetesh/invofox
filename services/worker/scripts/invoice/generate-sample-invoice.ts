@@ -6,7 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { chromium } from 'playwright';
-import { buildInvoiceHTML } from '../../src/services/invoice-generator/template';
+import { buildInvoiceHTML } from '../../src/services/document-generator/template';
 import { processLogoForCircularDisplay } from '../../src/services/business-config/logo-processor.service';
 import type { InvoiceData, BusinessConfig } from '../../../../shared/types';
 

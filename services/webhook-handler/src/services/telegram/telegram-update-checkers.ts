@@ -36,14 +36,15 @@ export function isCommand(update: TelegramUpdate): boolean {
 }
 
 /**
- * Check if the update is an /invoice command
+ * Check if the update is a /new command
  */
 export function isInvoiceCommand(update: TelegramUpdate): boolean {
   if (isFromBot(update)) {
     return false;
   }
   const message = update.message || update.channel_post;
-  return Boolean(message?.text?.toLowerCase().startsWith('/invoice'));
+  const text = message?.text?.toLowerCase();
+  return Boolean(text?.startsWith('/new'));
 }
 
 /**

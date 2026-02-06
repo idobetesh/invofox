@@ -18,7 +18,7 @@ import {
   saveBusinessConfig,
   type BusinessConfigDocument,
 } from '../business-config/config.service';
-import { initializeCounter } from '../invoice-generator/counter.service';
+import { initializeCounter } from '../document-generator/counter.service';
 import {
   validateBusinessName,
   validateOwnerDetails,

@@ -11,8 +11,8 @@ import type {
   InvoiceCallbackPayload,
   InvoiceCallbackAction,
 } from '../../../../shared/types';
-import * as sessionService from '../services/invoice-generator/session.service';
-import { generateInvoice } from '../services/invoice-generator';
+import * as sessionService from '../services/document-generator/session.service';
+import { generateInvoice } from '../services/document-generator';
 import * as telegramService from '../services/telegram.service';
 import * as userMappingService from '../services/customer/user-mapping.service';
 import {
@@ -20,15 +20,14 @@ import {
   buildPaymentMethodKeyboard,
   buildConfirmationKeyboard,
   buildInvoiceSelectionKeyboard,
-} from '../services/invoice-generator/keyboards.service';
-import { getOpenInvoices } from '../services/invoice-generator/open-invoices.service';
-import { parseFastPathCommand } from '../services/invoice-generator/fast-path.service';
-import { parseInvoiceDetails } from '../services/invoice-generator/parser.service';
+} from '../services/document-generator/keyboards.service';
+import { getOpenInvoices } from '../services/document-generator/open-invoices.service';
+import { parseInvoiceDetails } from '../services/document-generator/parser.service';
 import {
   buildConfirmationMessage,
   buildSuccessMessage,
   getDocumentTypeLabel,
-} from '../services/invoice-generator/messages.service';
+} from '../services/document-generator/messages.service';
 import { t } from '../services/i18n/languages';
 import logger from '../logger';
 
@@ -83,48 +82,6 @@ export async function handleInvoiceCommand(req: Request, res: Response): Promise
     userMappingService
       .updateUserActivity(payload.userId)
       .catch((err) => log.warn({ err, userId: payload.userId }, 'Failed to update user activity'));
-
-    // Check for fast-path (all arguments in one message)
-    const fastPath = parseFastPathCommand(payload.text);
-
-    if (fastPath) {
-      log.info('Using fast path');
-
-      // Create session in confirming state with all data
-      await sessionService.createSession(payload.chatId, payload.userId);
-      await sessionService.setDocumentType(payload.chatId, payload.userId, 'invoice_receipt');
-      await sessionService.setDetails(payload.chatId, payload.userId, {
-        customerName: fastPath.customerName,
-        description: fastPath.description,
-        amount: fastPath.amount,
-      });
-
-      const today = new Date();
-      const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
-      await sessionService.setPaymentMethod(
-        payload.chatId,
-        payload.userId,
-        fastPath.paymentMethod,
-        dateStr
-      );
-
-      const confirmText = buildConfirmationMessage({
-        documentType: 'invoice_receipt',
-        customerName: fastPath.customerName,
-        description: fastPath.description,
-        amount: fastPath.amount,
-        paymentMethod: fastPath.paymentMethod,
-        date: dateStr,
-      });
-
-      await telegramService.sendMessage(payload.chatId, confirmText, {
-        replyMarkup: buildConfirmationKeyboard(),
-      });
-
-      res.status(StatusCodes.OK).json({ ok: true, action: 'fast_path_confirmation' });
-      return;
-    }
 
     // Start guided flow - create session and ask for document type
     await sessionService.createSession(payload.chatId, payload.userId);
@@ -466,16 +423,12 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
 
           const docType = confirmedSession.documentType as 'invoice' | 'invoice_receipt';
           const typeLabel = getDocumentTypeLabel(docType);
-          const invoiceNum =
-            typeof result.invoiceNumber === 'string'
-              ? parseInt(result.invoiceNumber)
-              : result.invoiceNumber;
 
           await telegramService.sendDocument(
             payload.chatId,
             result.pdfBuffer,
-            `${typeLabel}_${invoiceNum}.pdf`,
-            { caption: buildSuccessMessage(docType, invoiceNum) }
+            `${typeLabel}_${result.invoiceNumber}.pdf`,
+            { caption: buildSuccessMessage(docType, result.invoiceNumber) }
           );
 
           log.info({ invoiceNumber: result.invoiceNumber }, 'Invoice generated and sent');

@@ -80,12 +80,12 @@ export function buildConfirmationMessage(params: {
  */
 export function buildSuccessMessage(
   documentType: InvoiceDocumentType,
-  invoiceNumber: number,
+  invoiceNumber: string | number,
   language: 'en' | 'he' = 'he'
 ): string {
   const typeLabel = getDocumentTypeLabel(documentType, language);
   return t(language, 'invoice.created', {
     type: typeLabel,
-    number: invoiceNumber.toString(),
+    number: typeof invoiceNumber === 'number' ? invoiceNumber.toString() : invoiceNumber,
   });
 }

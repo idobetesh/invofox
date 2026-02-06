@@ -17,7 +17,7 @@ import * as onboardingService from '../../src/services/onboarding/onboarding.ser
 import * as sheetVerificationService from '../../src/services/onboarding/sheet-verification.service';
 import * as telegramService from '../../src/services/telegram.service';
 import * as configService from '../../src/services/business-config/config.service';
-import * as counterService from '../../src/services/invoice-generator/counter.service';
+import * as counterService from '../../src/services/document-generator/counter.service';
 import * as serviceAccountUtil from '../../src/utils/service-account';
 import * as inviteCodeService from '../../src/services/invite-code.service';
 import * as approvedChatsService from '../../src/services/approved-chats.service';
@@ -47,7 +47,7 @@ jest.mock('../../src/services/onboarding/onboarding.service');
 jest.mock('../../src/services/onboarding/sheet-verification.service');
 jest.mock('../../src/services/telegram.service');
 jest.mock('../../src/services/business-config/config.service');
-jest.mock('../../src/services/invoice-generator/counter.service');
+jest.mock('../../src/services/document-generator/counter.service');
 jest.mock('../../src/services/customer/user-mapping.service');
 jest.mock('../../src/utils/service-account');
 jest.mock('../../src/services/invite-code.service');
