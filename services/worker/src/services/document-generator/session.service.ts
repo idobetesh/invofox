@@ -254,9 +254,12 @@ export async function getConfirmedSession(
     return null;
   }
 
-  // For invoice-receipts, payment method is required
-  if (session.documentType === 'invoice_receipt' && !session.paymentMethod) {
-    logger.warn('Payment method required for invoice-receipt but not provided');
+  // For invoice-receipts and receipts, payment method is required
+  if (
+    (session.documentType === 'invoice_receipt' || session.documentType === 'receipt') &&
+    !session.paymentMethod
+  ) {
+    logger.warn('Payment method required for invoice-receipt/receipt but not provided');
     return null;
   }
 
