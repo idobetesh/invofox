@@ -210,7 +210,10 @@ export async function handleInvoiceMessage(req: Request, res: Response): Promise
 
         // Check if amount exceeds remaining balance
         if (amount > remainingBalance) {
-          const errorMsg = `סכום גבוה מדי\n\nסכום שהוזן: ₪${amount}\nיתרה בחשבונית: ₪${remainingBalance}\n\nהזן סכום עד ₪${remainingBalance}`;
+          const errorMsg = t('he', 'invoice.amountTooHigh', {
+            amount: String(amount),
+            remainingBalance: String(remainingBalance),
+          });
           await telegramService.sendMessage(payload.chatId, errorMsg);
           log.info({ amount, remainingBalance }, 'Amount exceeds remaining balance');
           res.status(StatusCodes.OK).json({ ok: true, action: 'amount_too_high' });
@@ -220,8 +223,11 @@ export async function handleInvoiceMessage(req: Request, res: Response): Promise
         // Provide feedback on partial vs full payment
         const isFullPayment = amount === remainingBalance;
         const feedbackMsg = isFullPayment
-          ? `סכום: ₪${amount}\nתשלום מלא - החשבונית תסגר`
-          : `סכום: ₪${amount}\nתשלום חלקי\nיתרה לאחר תשלום: ₪${remainingBalance - amount}`;
+          ? t('he', 'invoice.fullPaymentFeedback', { amount: String(amount) })
+          : t('he', 'invoice.partialPaymentFeedback', {
+              amount: String(amount),
+              newRemaining: String(remainingBalance - amount),
+            });
 
         await telegramService.sendMessage(payload.chatId, feedbackMsg);
       }
@@ -328,8 +334,8 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
           // Build message with invoice count
           const invoiceListMsg =
             openInvoices.length === 10
-              ? `בחר חשבונית לתשלום:\n\nמוצגות 10 החשבוניות האחרונות`
-              : `בחר חשבונית לתשלום:`;
+              ? `${t('he', 'invoice.selectInvoiceHe')}\n\n${t('he', 'invoice.invoiceCountLimit')}`
+              : t('he', 'invoice.selectInvoiceHe');
 
           await telegramService.sendMessage(payload.chatId, invoiceListMsg, {
             replyMarkup: buildInvoiceSelectionKeyboard(openInvoices),
@@ -383,15 +389,13 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
         );
 
         // Send prompt with invoice details and remaining balance
-        const promptMsg =
-          `פרטי החשבונית:\n` +
-          `לקוח: ${invoice.customerName}\n` +
-          `סכום: ₪${invoice.amount}\n` +
-          `שולם: ₪${paidAmount}\n` +
-          `יתרה: ₪${remainingBalance}\n\n` +
-          `כמה קיבלת?\n` +
-          `תשלום מלא: ${remainingBalance}\n` +
-          `תשלום חלקי: כל סכום (לדוגמה: ${Math.floor(remainingBalance / 2)})`;
+        const promptMsg = t('he', 'invoice.invoiceDetails', {
+          customerName: invoice.customerName,
+          amount: String(invoice.amount),
+          paidAmount: String(paidAmount),
+          remainingBalance: String(remainingBalance),
+          exampleAmount: String(Math.floor(remainingBalance / 2)),
+        });
 
         await telegramService.sendMessage(payload.chatId, promptMsg);
 
