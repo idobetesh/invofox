@@ -42,7 +42,7 @@ export async function getOpenInvoices(chatId: number): Promise<OpenInvoice[]> {
       .where('documentType', '==', 'invoice')
       .where('paymentStatus', 'in', ['unpaid', 'partial'])
       .orderBy('generatedAt', 'desc')
-      .limit(20) // Limit to 20 most recent open invoices
+      .limit(10) // Limit to 10 most recent open invoices
       .get();
 
     if (snapshot.empty) {

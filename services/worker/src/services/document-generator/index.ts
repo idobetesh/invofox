@@ -243,6 +243,19 @@ async function saveInvoiceRecord(
     },
     storagePath: `${chatId}/${new Date().getFullYear()}/${invoiceNumber}.pdf`,
     storageUrl,
+    // Payment tracking fields (for invoices that can receive receipts later)
+    ...(data.documentType === 'invoice' && {
+      paymentStatus: 'unpaid' as const,
+      paidAmount: 0,
+      remainingBalance: data.amount,
+      relatedReceiptIds: [],
+    }),
+    // For invoice-receipts and receipts, mark as fully paid
+    ...(data.documentType !== 'invoice' && {
+      paymentStatus: 'paid' as const,
+      paidAmount: data.amount,
+      remainingBalance: 0,
+    }),
   };
 
   await docRef.set(record);

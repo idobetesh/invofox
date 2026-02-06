@@ -12,7 +12,7 @@ import type {
   InvoiceCallbackAction,
 } from '../../../../shared/types';
 import * as sessionService from '../services/document-generator/session.service';
-import { generateInvoice } from '../services/document-generator';
+import { generateInvoice, getGeneratedInvoice } from '../services/document-generator';
 import * as telegramService from '../services/telegram.service';
 import * as userMappingService from '../services/customer/user-mapping.service';
 import {
@@ -196,6 +196,36 @@ export async function handleInvoiceMessage(req: Request, res: Response): Promise
         return;
       }
 
+      // Validate amount doesn't exceed remaining balance
+      if (session.relatedInvoiceNumber) {
+        const invoice = await getGeneratedInvoice(payload.chatId, session.relatedInvoiceNumber);
+
+        if (!invoice) {
+          await telegramService.sendMessage(payload.chatId, t('he', 'invoice.invoiceNotFound'));
+          res.status(StatusCodes.OK).json({ ok: true, action: 'invoice_not_found' });
+          return;
+        }
+
+        const remainingBalance = invoice.remainingBalance || invoice.amount;
+
+        // Check if amount exceeds remaining balance
+        if (amount > remainingBalance) {
+          const errorMsg = `סכום גבוה מדי\n\nסכום שהוזן: ₪${amount}\nיתרה בחשבונית: ₪${remainingBalance}\n\nהזן סכום עד ₪${remainingBalance}`;
+          await telegramService.sendMessage(payload.chatId, errorMsg);
+          log.info({ amount, remainingBalance }, 'Amount exceeds remaining balance');
+          res.status(StatusCodes.OK).json({ ok: true, action: 'amount_too_high' });
+          return;
+        }
+
+        // Provide feedback on partial vs full payment
+        const isFullPayment = amount === remainingBalance;
+        const feedbackMsg = isFullPayment
+          ? `סכום: ₪${amount}\nתשלום מלא - החשבונית תסגר`
+          : `סכום: ₪${amount}\nתשלום חלקי\nיתרה לאחר תשלום: ₪${remainingBalance - amount}`;
+
+        await telegramService.sendMessage(payload.chatId, feedbackMsg);
+      }
+
       // Store amount in session
       await sessionService.updateSession(payload.chatId, payload.userId, {
         amount,
@@ -295,7 +325,13 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
             t('he', 'invoice.typeSelected', { type: typeLabel })
           );
 
-          await telegramService.sendMessage(payload.chatId, t('he', 'invoice.selectInvoiceHe'), {
+          // Build message with invoice count
+          const invoiceListMsg =
+            openInvoices.length === 10
+              ? `בחר חשבונית לתשלום:\n\nמוצגות 10 החשבוניות האחרונות`
+              : `בחר חשבונית לתשלום:`;
+
+          await telegramService.sendMessage(payload.chatId, invoiceListMsg, {
             replyMarkup: buildInvoiceSelectionKeyboard(openInvoices),
           });
 
@@ -317,12 +353,27 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
       }
 
       case 'select_invoice': {
-        // Save selected invoice and show payment method selection
+        // Save selected invoice and show payment amount prompt
         await sessionService.setSelectedInvoice(
           payload.chatId,
           payload.userId,
           action.invoiceNumber
         );
+
+        // Get invoice details to show remaining balance
+        const invoice = await getGeneratedInvoice(payload.chatId, action.invoiceNumber);
+
+        if (!invoice) {
+          await telegramService.answerCallbackQuery(payload.callbackQueryId, {
+            text: t('he', 'invoice.invoiceNotFound'),
+            showAlert: true,
+          });
+          res.status(StatusCodes.OK).json({ ok: true, action: 'invoice_not_found' });
+          return;
+        }
+
+        const remainingBalance = invoice.remainingBalance || invoice.amount;
+        const paidAmount = invoice.paidAmount || 0;
 
         await telegramService.answerCallbackQuery(payload.callbackQueryId);
         await telegramService.editMessageText(
@@ -331,7 +382,23 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
           t('he', 'invoice.invoiceSelected', { invoiceNumber: action.invoiceNumber })
         );
 
-        log.info({ invoiceNumber: action.invoiceNumber }, 'Invoice selected for receipt');
+        // Send prompt with invoice details and remaining balance
+        const promptMsg =
+          `פרטי החשבונית:\n` +
+          `לקוח: ${invoice.customerName}\n` +
+          `סכום: ₪${invoice.amount}\n` +
+          `שולם: ₪${paidAmount}\n` +
+          `יתרה: ₪${remainingBalance}\n\n` +
+          `כמה קיבלת?\n` +
+          `תשלום מלא: ${remainingBalance}\n` +
+          `תשלום חלקי: כל סכום (לדוגמה: ${Math.floor(remainingBalance / 2)})`;
+
+        await telegramService.sendMessage(payload.chatId, promptMsg);
+
+        log.info(
+          { invoiceNumber: action.invoiceNumber, remainingBalance },
+          'Invoice selected for receipt'
+        );
         res.status(StatusCodes.OK).json({ ok: true, action: 'invoice_selected' });
         break;
       }

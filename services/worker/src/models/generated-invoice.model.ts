@@ -31,7 +31,18 @@ export const GeneratedInvoiceSchema = z.object({
   date: z.string(), // ⚠️ Format is "18/01/2026" NOT "2026-01-18"!
   description: z.string().optional(),
   documentType: z.enum(['invoice', 'invoice_receipt', 'receipt']),
-  paymentMethod: z.string(),
+  paymentMethod: z.string().optional(),
+
+  // Payment tracking (for invoices that can receive receipts later)
+  paymentStatus: z.enum(['unpaid', 'partial', 'paid']).optional(),
+  paidAmount: z.number().optional(),
+  remainingBalance: z.number().optional(),
+  relatedReceiptIds: z.array(z.string()).optional(),
+
+  // Receipt linking (for receipts linked to invoices)
+  relatedInvoiceId: z.string().optional(),
+  relatedInvoiceNumber: z.string().optional(),
+  isPartialPayment: z.boolean().optional(),
 
   // Storage
   storagePath: z.string(),
