@@ -7,7 +7,7 @@
  * 2. User offboarding (complete user deletion - GDPR Right to Erasure)
  */
 
-import { Firestore } from '@google-cloud/firestore';
+import { Firestore, FieldPath } from '@google-cloud/firestore';
 import { Storage } from '@google-cloud/storage';
 import { execSync } from 'child_process';
 import {
@@ -346,15 +346,14 @@ export class OffboardingService {
 
   private async scanGeneratedInvoices(chatId: number, preview: OffboardingPreview): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection(GENERATED_INVOICES_COLLECTION).get();
-      const docs = snapshot.docs.filter((doc) => {
-        const data = doc.data();
-        return data.generatedBy?.chatId === chatId;
-      });
-      if (docs.length > 0) {
+      const snapshot = await this.firestore
+        .collection(GENERATED_INVOICES_COLLECTION)
+        .where('generatedBy.chatId', '==', chatId)
+        .get();
+      if (snapshot.size > 0) {
         preview.collections[GENERATED_INVOICES_COLLECTION] = {
-          count: docs.length,
-          docIds: docs.map((d) => d.id),
+          count: snapshot.size,
+          docIds: snapshot.docs.map((d) => d.id),
         };
       }
     } catch (error) {
@@ -364,12 +363,15 @@ export class OffboardingService {
 
   private async scanInvoiceSessions(chatId: number, preview: OffboardingPreview): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection(INVOICE_SESSIONS_COLLECTION).get();
-      const docs = snapshot.docs.filter((doc) => doc.id.startsWith(`${chatId}_`));
-      if (docs.length > 0) {
+      const snapshot = await this.firestore
+        .collection(INVOICE_SESSIONS_COLLECTION)
+        .where(FieldPath.documentId(), '>=', `${chatId}_`)
+        .where(FieldPath.documentId(), '<', `${chatId}_\uf8ff`)
+        .get();
+      if (snapshot.size > 0) {
         preview.collections[INVOICE_SESSIONS_COLLECTION] = {
-          count: docs.length,
-          docIds: docs.map((d) => d.id),
+          count: snapshot.size,
+          docIds: snapshot.docs.map((d) => d.id),
         };
       }
     } catch (error) {
@@ -412,12 +414,15 @@ export class OffboardingService {
 
   private async scanGeneratedReceipts(chatId: number, preview: OffboardingPreview): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection(GENERATED_RECEIPTS_COLLECTION).get();
-      const docs = snapshot.docs.filter((doc) => doc.id.startsWith(`chat_${chatId}_`));
-      if (docs.length > 0) {
+      const snapshot = await this.firestore
+        .collection(GENERATED_RECEIPTS_COLLECTION)
+        .where(FieldPath.documentId(), '>=', `chat_${chatId}_`)
+        .where(FieldPath.documentId(), '<', `chat_${chatId}_\uf8ff`)
+        .get();
+      if (snapshot.size > 0) {
         preview.collections[GENERATED_RECEIPTS_COLLECTION] = {
-          count: docs.length,
-          docIds: docs.map((d) => d.id),
+          count: snapshot.size,
+          docIds: snapshot.docs.map((d) => d.id),
         };
       }
     } catch (error) {
@@ -430,12 +435,15 @@ export class OffboardingService {
     preview: OffboardingPreview
   ): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection(GENERATED_INVOICE_RECEIPTS_COLLECTION).get();
-      const docs = snapshot.docs.filter((doc) => doc.id.startsWith(`chat_${chatId}_`));
-      if (docs.length > 0) {
+      const snapshot = await this.firestore
+        .collection(GENERATED_INVOICE_RECEIPTS_COLLECTION)
+        .where(FieldPath.documentId(), '>=', `chat_${chatId}_`)
+        .where(FieldPath.documentId(), '<', `chat_${chatId}_\uf8ff`)
+        .get();
+      if (snapshot.size > 0) {
         preview.collections[GENERATED_INVOICE_RECEIPTS_COLLECTION] = {
-          count: docs.length,
-          docIds: docs.map((d) => d.id),
+          count: snapshot.size,
+          docIds: snapshot.docs.map((d) => d.id),
         };
       }
     } catch (error) {
@@ -445,12 +453,15 @@ export class OffboardingService {
 
   private async scanReportSessions(chatId: number, preview: OffboardingPreview): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection(REPORT_SESSIONS_COLLECTION).get();
-      const docs = snapshot.docs.filter((doc) => doc.id.startsWith(`${chatId}_`));
-      if (docs.length > 0) {
+      const snapshot = await this.firestore
+        .collection(REPORT_SESSIONS_COLLECTION)
+        .where(FieldPath.documentId(), '>=', `${chatId}_`)
+        .where(FieldPath.documentId(), '<', `${chatId}_\uf8ff`)
+        .get();
+      if (snapshot.size > 0) {
         preview.collections[REPORT_SESSIONS_COLLECTION] = {
-          count: docs.length,
-          docIds: docs.map((d) => d.id),
+          count: snapshot.size,
+          docIds: snapshot.docs.map((d) => d.id),
         };
       }
     } catch (error) {
@@ -492,15 +503,14 @@ export class OffboardingService {
 
   private async scanProcessedCallbacks(chatId: number, preview: OffboardingPreview): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection(PROCESSED_CALLBACKS_COLLECTION).get();
-      const docs = snapshot.docs.filter((doc) => {
-        const data = doc.data();
-        return data.chatId === chatId;
-      });
-      if (docs.length > 0) {
+      const snapshot = await this.firestore
+        .collection(PROCESSED_CALLBACKS_COLLECTION)
+        .where('chatId', '==', chatId)
+        .get();
+      if (snapshot.size > 0) {
         preview.collections[PROCESSED_CALLBACKS_COLLECTION] = {
-          count: docs.length,
-          docIds: docs.map((d) => d.id),
+          count: snapshot.size,
+          docIds: snapshot.docs.map((d) => d.id),
         };
       }
     } catch (error) {
@@ -731,18 +741,16 @@ export class OffboardingService {
 
   private async deleteGeneratedInvoices(chatId: number, report: OffboardingReport): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection(GENERATED_INVOICES_COLLECTION).get();
-      let count = 0;
+      const snapshot = await this.firestore
+        .collection(GENERATED_INVOICES_COLLECTION)
+        .where('generatedBy.chatId', '==', chatId)
+        .get();
       for (const doc of snapshot.docs) {
-        const data = doc.data();
-        if (data.generatedBy?.chatId === chatId) {
-          await doc.ref.delete();
-          count++;
-        }
+        await doc.ref.delete();
       }
-      if (count > 0) {
-        report.firestoreDocs += count;
-        report.details.collections[GENERATED_INVOICES_COLLECTION] = count;
+      if (snapshot.size > 0) {
+        report.firestoreDocs += snapshot.size;
+        report.details.collections[GENERATED_INVOICES_COLLECTION] = snapshot.size;
       }
     } catch (error) {
       report.errors.push(`generated_invoices: ${error}`);
@@ -751,17 +759,17 @@ export class OffboardingService {
 
   private async deleteInvoiceSessions(chatId: number, report: OffboardingReport): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection(INVOICE_SESSIONS_COLLECTION).get();
-      let count = 0;
+      const snapshot = await this.firestore
+        .collection(INVOICE_SESSIONS_COLLECTION)
+        .where(FieldPath.documentId(), '>=', `${chatId}_`)
+        .where(FieldPath.documentId(), '<', `${chatId}_\uf8ff`)
+        .get();
       for (const doc of snapshot.docs) {
-        if (doc.id.startsWith(`${chatId}_`)) {
-          await doc.ref.delete();
-          count++;
-        }
+        await doc.ref.delete();
       }
-      if (count > 0) {
-        report.firestoreDocs += count;
-        report.details.collections[INVOICE_SESSIONS_COLLECTION] = count;
+      if (snapshot.size > 0) {
+        report.firestoreDocs += snapshot.size;
+        report.details.collections[INVOICE_SESSIONS_COLLECTION] = snapshot.size;
       }
     } catch (error) {
       report.errors.push(`invoice_sessions: ${error}`);
@@ -786,17 +794,17 @@ export class OffboardingService {
 
   private async deleteGeneratedReceipts(chatId: number, report: OffboardingReport): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection(GENERATED_RECEIPTS_COLLECTION).get();
-      let count = 0;
+      const snapshot = await this.firestore
+        .collection(GENERATED_RECEIPTS_COLLECTION)
+        .where(FieldPath.documentId(), '>=', `chat_${chatId}_`)
+        .where(FieldPath.documentId(), '<', `chat_${chatId}_\uf8ff`)
+        .get();
       for (const doc of snapshot.docs) {
-        if (doc.id.startsWith(`chat_${chatId}_`)) {
-          await doc.ref.delete();
-          count++;
-        }
+        await doc.ref.delete();
       }
-      if (count > 0) {
-        report.firestoreDocs += count;
-        report.details.collections[GENERATED_RECEIPTS_COLLECTION] = count;
+      if (snapshot.size > 0) {
+        report.firestoreDocs += snapshot.size;
+        report.details.collections[GENERATED_RECEIPTS_COLLECTION] = snapshot.size;
       }
     } catch (error) {
       report.errors.push(`generated_receipts: ${error}`);
@@ -808,17 +816,17 @@ export class OffboardingService {
     report: OffboardingReport
   ): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection(GENERATED_INVOICE_RECEIPTS_COLLECTION).get();
-      let count = 0;
+      const snapshot = await this.firestore
+        .collection(GENERATED_INVOICE_RECEIPTS_COLLECTION)
+        .where(FieldPath.documentId(), '>=', `chat_${chatId}_`)
+        .where(FieldPath.documentId(), '<', `chat_${chatId}_\uf8ff`)
+        .get();
       for (const doc of snapshot.docs) {
-        if (doc.id.startsWith(`chat_${chatId}_`)) {
-          await doc.ref.delete();
-          count++;
-        }
+        await doc.ref.delete();
       }
-      if (count > 0) {
-        report.firestoreDocs += count;
-        report.details.collections[GENERATED_INVOICE_RECEIPTS_COLLECTION] = count;
+      if (snapshot.size > 0) {
+        report.firestoreDocs += snapshot.size;
+        report.details.collections[GENERATED_INVOICE_RECEIPTS_COLLECTION] = snapshot.size;
       }
     } catch (error) {
       report.errors.push(`generated_invoice_receipts: ${error}`);
@@ -827,17 +835,17 @@ export class OffboardingService {
 
   private async deleteReportSessions(chatId: number, report: OffboardingReport): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection(REPORT_SESSIONS_COLLECTION).get();
-      let count = 0;
+      const snapshot = await this.firestore
+        .collection(REPORT_SESSIONS_COLLECTION)
+        .where(FieldPath.documentId(), '>=', `${chatId}_`)
+        .where(FieldPath.documentId(), '<', `${chatId}_\uf8ff`)
+        .get();
       for (const doc of snapshot.docs) {
-        if (doc.id.startsWith(`${chatId}_`)) {
-          await doc.ref.delete();
-          count++;
-        }
+        await doc.ref.delete();
       }
-      if (count > 0) {
-        report.firestoreDocs += count;
-        report.details.collections[REPORT_SESSIONS_COLLECTION] = count;
+      if (snapshot.size > 0) {
+        report.firestoreDocs += snapshot.size;
+        report.details.collections[REPORT_SESSIONS_COLLECTION] = snapshot.size;
       }
     } catch (error) {
       report.errors.push(`report_sessions: ${error}`);
@@ -880,18 +888,16 @@ export class OffboardingService {
 
   private async deleteProcessedCallbacks(chatId: number, report: OffboardingReport): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection(PROCESSED_CALLBACKS_COLLECTION).get();
-      let count = 0;
+      const snapshot = await this.firestore
+        .collection(PROCESSED_CALLBACKS_COLLECTION)
+        .where('chatId', '==', chatId)
+        .get();
       for (const doc of snapshot.docs) {
-        const data = doc.data();
-        if (data.chatId === chatId) {
-          await doc.ref.delete();
-          count++;
-        }
+        await doc.ref.delete();
       }
-      if (count > 0) {
-        report.firestoreDocs += count;
-        report.details.collections[PROCESSED_CALLBACKS_COLLECTION] = count;
+      if (snapshot.size > 0) {
+        report.firestoreDocs += snapshot.size;
+        report.details.collections[PROCESSED_CALLBACKS_COLLECTION] = snapshot.size;
       }
     } catch (error) {
       report.errors.push(`processed_callbacks: ${error}`);
