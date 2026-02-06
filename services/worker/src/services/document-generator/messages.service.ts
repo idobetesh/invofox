@@ -80,7 +80,7 @@ export function buildConfirmationMessage(params: {
  */
 export function buildSuccessMessage(
   documentType: InvoiceDocumentType,
-  invoiceNumber: number,
+  invoiceNumber: string | number,
   language: 'en' | 'he' = 'he'
 ): string {
   const typeLabel = getDocumentTypeLabel(documentType, language);

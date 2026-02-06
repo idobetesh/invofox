@@ -7,7 +7,7 @@ import { Firestore, Timestamp } from '@google-cloud/firestore';
 import type { DatePreset } from '../../../../../shared/report.types';
 import logger from '../../logger';
 
-const COLLECTION_NAME = 'report_sessions';
+import { REPORT_SESSIONS_COLLECTION } from '../../../../../shared/collections';
 const SESSION_TTL_MINUTES = 30;
 
 let firestore: Firestore | null = null;
@@ -89,7 +89,7 @@ export async function createReportSession(chatId: number, userId: number): Promi
     expiresAt,
   };
 
-  await db.collection(COLLECTION_NAME).doc(sessionId).set(session);
+  await db.collection(REPORT_SESSIONS_COLLECTION).doc(sessionId).set(session);
 
   logger.info({ sessionId, chatId, userId }, 'Created report session');
 
@@ -107,7 +107,7 @@ export async function getActiveSession(
   const now = Timestamp.now();
 
   const snapshot = await db
-    .collection(COLLECTION_NAME)
+    .collection(REPORT_SESSIONS_COLLECTION)
     .where('chatId', '==', chatId)
     .where('userId', '==', userId)
     .where('status', '==', 'active')
@@ -128,7 +128,7 @@ export async function getActiveSession(
  */
 export async function getReportSession(sessionId: string): Promise<ReportSession | null> {
   const db = getFirestore();
-  const doc = await db.collection(COLLECTION_NAME).doc(sessionId).get();
+  const doc = await db.collection(REPORT_SESSIONS_COLLECTION).doc(sessionId).get();
 
   if (!doc.exists) {
     return null;
@@ -145,7 +145,7 @@ export async function updateReportSession(
   updates: Partial<Omit<ReportSession, 'sessionId' | 'chatId' | 'userId' | 'createdAt'>>
 ): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(sessionId);
+  const docRef = db.collection(REPORT_SESSIONS_COLLECTION).doc(sessionId);
 
   const updateData = {
     ...updates,
@@ -163,7 +163,7 @@ export async function updateReportSession(
  */
 export async function completeReportSession(sessionId: string): Promise<void> {
   const db = getFirestore();
-  await db.collection(COLLECTION_NAME).doc(sessionId).update({
+  await db.collection(REPORT_SESSIONS_COLLECTION).doc(sessionId).update({
     status: 'completed',
     updatedAt: Timestamp.now(),
   });
@@ -176,7 +176,7 @@ export async function completeReportSession(sessionId: string): Promise<void> {
  */
 export async function cancelReportSession(sessionId: string): Promise<void> {
   const db = getFirestore();
-  await db.collection(COLLECTION_NAME).doc(sessionId).delete();
+  await db.collection(REPORT_SESSIONS_COLLECTION).doc(sessionId).delete();
 
   logger.info({ sessionId }, 'Cancelled report session');
 }
@@ -189,7 +189,7 @@ export async function cleanupExpiredSessions(): Promise<number> {
   const now = Timestamp.now();
 
   const snapshot = await db
-    .collection(COLLECTION_NAME)
+    .collection(REPORT_SESSIONS_COLLECTION)
     .where('expiresAt', '<=', now)
     .limit(100)
     .get();

@@ -3,7 +3,7 @@
  * Tests for invoice generation and Firestore saving
  */
 
-import { generateInvoice } from '../../src/services/invoice-generator';
+import { generateInvoice } from '../../src/services/document-generator';
 import type { InvoiceSession } from '../../../../shared/types';
 
 // Mock dependencies
@@ -50,11 +50,11 @@ jest.mock('@google-cloud/storage', () => {
   };
 });
 
-jest.mock('../../src/services/invoice-generator/pdf.generator', () => ({
+jest.mock('../../src/services/document-generator/pdf.generator', () => ({
   generateInvoicePDFWithConfig: jest.fn(() => mockGeneratePDF()),
 }));
 
-jest.mock('../../src/services/invoice-generator/counter.service', () => ({
+jest.mock('../../src/services/document-generator/counter.service', () => ({
   getNextDocumentNumber: jest.fn(() => mockGetNextDocumentNumber()),
   getNextInvoiceNumber: jest.fn(() => mockGetNextDocumentNumber()), // Legacy support
 }));

@@ -14,19 +14,17 @@ import type {
 
 // Mock external services
 jest.mock('../../src/services/customer/user-mapping.service');
-jest.mock('../../src/services/invoice-generator/session.service');
-jest.mock('../../src/services/invoice-generator');
+jest.mock('../../src/services/document-generator/session.service');
+jest.mock('../../src/services/document-generator');
 jest.mock('../../src/services/telegram.service');
-jest.mock('../../src/services/invoice-generator/fast-path.service');
-jest.mock('../../src/services/invoice-generator/parser.service');
+jest.mock('../../src/services/document-generator/parser.service');
 jest.mock('../../src/services/business-config/config.service');
 
 import * as userMappingService from '../../src/services/customer/user-mapping.service';
-import * as sessionService from '../../src/services/invoice-generator/session.service';
-import { generateInvoice } from '../../src/services/invoice-generator';
+import * as sessionService from '../../src/services/document-generator/session.service';
+import { generateInvoice } from '../../src/services/document-generator';
 import * as telegramService from '../../src/services/telegram.service';
-import * as fastPathService from '../../src/services/invoice-generator/fast-path.service';
-import * as parserService from '../../src/services/invoice-generator/parser.service';
+import * as parserService from '../../src/services/document-generator/parser.service';
 
 describe('Invoice Generator Integration Tests', () => {
   beforeEach(() => {
@@ -103,45 +101,6 @@ describe('Invoice Generator Integration Tests', () => {
         const response = await request(app).post('/invoice/command').send(privatePayload);
 
         expect(response.status).toBe(StatusCodes.FORBIDDEN);
-        expect(telegramService.sendMessage).toHaveBeenCalled();
-      });
-    });
-
-    describe('Fast-path command parsing', () => {
-      it('should handle fast-path command', async () => {
-        (userMappingService.getUserCustomers as jest.Mock).mockResolvedValue([{ chatId: -123456 }]);
-        (userMappingService.updateUserActivity as jest.Mock).mockResolvedValue(undefined);
-        (sessionService.createSession as jest.Mock).mockResolvedValue({});
-        (sessionService.setDocumentType as jest.Mock).mockResolvedValue(undefined);
-        (sessionService.setDetails as jest.Mock).mockResolvedValue(undefined);
-        (telegramService.sendMessage as jest.Mock).mockResolvedValue(undefined);
-        (fastPathService.parseFastPathCommand as jest.Mock).mockReturnValue({
-          customerName: 'Test Vendor',
-          amount: 100,
-          description: 'Test invoice',
-        });
-
-        const fastPathPayload = {
-          ...validCommandPayload,
-          text: '/invoice Test Vendor, 100, Test description',
-        };
-
-        const response = await request(app).post('/invoice/command').send(fastPathPayload);
-
-        expect(response.status).toBe(StatusCodes.OK);
-        expect(fastPathService.parseFastPathCommand).toHaveBeenCalled();
-      });
-
-      it('should start interactive mode for simple /invoice', async () => {
-        (userMappingService.getUserCustomers as jest.Mock).mockResolvedValue([{ chatId: -123456 }]);
-        (userMappingService.updateUserActivity as jest.Mock).mockResolvedValue(undefined);
-        (sessionService.createSession as jest.Mock).mockResolvedValue({});
-        (telegramService.sendMessage as jest.Mock).mockResolvedValue(undefined);
-        (fastPathService.parseFastPathCommand as jest.Mock).mockReturnValue(null);
-
-        const response = await request(app).post('/invoice/command').send(validCommandPayload);
-
-        expect(response.status).toBe(StatusCodes.OK);
         expect(telegramService.sendMessage).toHaveBeenCalled();
       });
     });

@@ -9,7 +9,7 @@ import { Firestore, Timestamp, FieldValue } from '@google-cloud/firestore';
 import logger from '../logger';
 import { ApprovedChat } from '../../../../shared/types';
 
-const COLLECTION_NAME = 'approved_chats';
+import { APPROVED_CHATS_COLLECTION } from '../../../../shared/collections';
 
 let firestore: Firestore | null = null;
 
@@ -27,7 +27,7 @@ function getFirestore(): Firestore {
  */
 export async function isChatApproved(chatId: number): Promise<boolean> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(String(chatId));
+  const docRef = db.collection(APPROVED_CHATS_COLLECTION).doc(String(chatId));
   const doc = await docRef.get();
 
   if (!doc.exists) {
@@ -52,7 +52,7 @@ export async function approveChatWithInviteCode(
   adminUserId?: number
 ): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(String(chatId));
+  const docRef = db.collection(APPROVED_CHATS_COLLECTION).doc(String(chatId));
 
   // Check if already approved
   const existing = await docRef.get();
@@ -92,7 +92,7 @@ export async function approveChatManually(
   note?: string
 ): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(String(chatId));
+  const docRef = db.collection(APPROVED_CHATS_COLLECTION).doc(String(chatId));
 
   const approvedChat: ApprovedChat = {
     chatId,
@@ -117,7 +117,7 @@ export async function approveChatManually(
  */
 export async function suspendChat(chatId: number): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(String(chatId));
+  const docRef = db.collection(APPROVED_CHATS_COLLECTION).doc(String(chatId));
 
   await docRef.update({
     status: 'suspended',
@@ -132,7 +132,7 @@ export async function suspendChat(chatId: number): Promise<void> {
  */
 export async function banChat(chatId: number): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(String(chatId));
+  const docRef = db.collection(APPROVED_CHATS_COLLECTION).doc(String(chatId));
 
   await docRef.update({
     status: 'banned',
@@ -147,7 +147,7 @@ export async function banChat(chatId: number): Promise<void> {
  */
 export async function reactivateChat(chatId: number): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(String(chatId));
+  const docRef = db.collection(APPROVED_CHATS_COLLECTION).doc(String(chatId));
 
   await docRef.update({
     status: 'active',
@@ -163,7 +163,7 @@ export async function reactivateChat(chatId: number): Promise<void> {
  */
 export async function getApprovedChat(chatId: number): Promise<ApprovedChat | null> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(String(chatId));
+  const docRef = db.collection(APPROVED_CHATS_COLLECTION).doc(String(chatId));
   const doc = await docRef.get();
 
   if (!doc.exists) {
@@ -182,7 +182,9 @@ export async function listApprovedChats(
   status?: 'active' | 'suspended' | 'banned'
 ): Promise<ApprovedChat[]> {
   const db = getFirestore();
-  let query: FirebaseFirestore.Query = db.collection(COLLECTION_NAME).orderBy('approvedAt', 'desc');
+  let query: FirebaseFirestore.Query = db
+    .collection(APPROVED_CHATS_COLLECTION)
+    .orderBy('approvedAt', 'desc');
 
   if (status) {
     query = query.where('status', '==', status);

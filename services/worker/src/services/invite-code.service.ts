@@ -10,7 +10,7 @@ import * as crypto from 'crypto';
 import logger from '../logger';
 import { InviteCode, ValidationResult } from '../../../../shared/types';
 
-const COLLECTION_NAME = 'invite_codes';
+import { INVITE_CODES_COLLECTION } from '../../../../shared/collections';
 
 let firestore: Firestore | null = null;
 
@@ -73,7 +73,7 @@ export async function createInviteCode(
   // Retry until we get a unique code (collision is extremely rare with 1B+ combinations)
   do {
     code = generateInviteCode();
-    const docRef = db.collection(COLLECTION_NAME).doc(code);
+    const docRef = db.collection(INVITE_CODES_COLLECTION).doc(code);
     const doc = await docRef.get();
     exists = doc.exists;
   } while (exists);
@@ -93,7 +93,7 @@ export async function createInviteCode(
     revoked: false,
   };
 
-  await db.collection(COLLECTION_NAME).doc(code).set(inviteCode);
+  await db.collection(INVITE_CODES_COLLECTION).doc(code).set(inviteCode);
 
   logger.info({ code, createdBy: createdBy.username, expiresInDays, note }, 'Invite code created');
 
@@ -114,7 +114,7 @@ export async function validateInviteCode(code: string): Promise<ValidationResult
 
   // 2. Fetch from database
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(code);
+  const docRef = db.collection(INVITE_CODES_COLLECTION).doc(code);
   const doc = await docRef.get();
 
   if (!doc.exists) {
@@ -157,7 +157,7 @@ export async function markInviteCodeAsUsed(
   usedBy: { chatId: number; chatTitle: string }
 ): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(code);
+  const docRef = db.collection(INVITE_CODES_COLLECTION).doc(code);
 
   await docRef.update({
     used: true,
@@ -174,7 +174,7 @@ export async function markInviteCodeAsUsed(
  */
 export async function revokeInviteCode(code: string): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(code);
+  const docRef = db.collection(INVITE_CODES_COLLECTION).doc(code);
 
   const doc = await docRef.get();
   if (!doc.exists) {
@@ -199,7 +199,7 @@ export async function revokeInviteCode(code: string): Promise<void> {
  */
 export async function deleteInviteCode(code: string): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(code);
+  const docRef = db.collection(INVITE_CODES_COLLECTION).doc(code);
 
   const doc = await docRef.get();
   if (!doc.exists) {
@@ -225,7 +225,7 @@ export async function listInviteCodes(
   status: 'active' | 'used' | 'expired' | 'all' = 'all'
 ): Promise<InviteCode[]> {
   const db = getFirestore();
-  const collection = db.collection(COLLECTION_NAME);
+  const collection = db.collection(INVITE_CODES_COLLECTION);
 
   let query = collection.orderBy('createdAt', 'desc');
 

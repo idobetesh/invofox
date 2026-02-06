@@ -10,9 +10,8 @@ import type {
   InvoiceDocumentType,
   PaymentMethod,
 } from '../../../../../shared/types';
+import { INVOICE_SESSIONS_COLLECTION } from '../../../../../shared/collections';
 import logger from '../../logger';
-
-const COLLECTION_NAME = 'invoice_sessions';
 const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 let firestore: Firestore | null = null;
@@ -38,7 +37,7 @@ export function getSessionId(chatId: number, userId: number): string {
 export async function getSession(chatId: number, userId: number): Promise<InvoiceSession | null> {
   const db = getFirestore();
   const sessionId = getSessionId(chatId, userId);
-  const docRef = db.collection(COLLECTION_NAME).doc(sessionId);
+  const docRef = db.collection(INVOICE_SESSIONS_COLLECTION).doc(sessionId);
   const log = logger.child({ sessionId });
 
   const doc = await docRef.get();
@@ -71,7 +70,7 @@ export async function getSession(chatId: number, userId: number): Promise<Invoic
 export async function createSession(chatId: number, userId: number): Promise<InvoiceSession> {
   const db = getFirestore();
   const sessionId = getSessionId(chatId, userId);
-  const docRef = db.collection(COLLECTION_NAME).doc(sessionId);
+  const docRef = db.collection(INVOICE_SESSIONS_COLLECTION).doc(sessionId);
   const log = logger.child({ sessionId });
 
   const session: InvoiceSession = {
@@ -97,7 +96,7 @@ export async function updateSession(
 ): Promise<InvoiceSession> {
   const db = getFirestore();
   const sessionId = getSessionId(chatId, userId);
-  const docRef = db.collection(COLLECTION_NAME).doc(sessionId);
+  const docRef = db.collection(INVOICE_SESSIONS_COLLECTION).doc(sessionId);
   const log = logger.child({ sessionId });
 
   await docRef.update({
@@ -215,7 +214,7 @@ export async function setPaymentMethod(
 export async function deleteSession(chatId: number, userId: number): Promise<void> {
   const db = getFirestore();
   const sessionId = getSessionId(chatId, userId);
-  const docRef = db.collection(COLLECTION_NAME).doc(sessionId);
+  const docRef = db.collection(INVOICE_SESSIONS_COLLECTION).doc(sessionId);
   const log = logger.child({ sessionId });
 
   await docRef.delete();
@@ -275,7 +274,7 @@ export async function cleanupStaleSessions(): Promise<number> {
   const cutoff = new Date(Date.now() - SESSION_TTL_MS);
 
   const snapshot = await db
-    .collection(COLLECTION_NAME)
+    .collection(INVOICE_SESSIONS_COLLECTION)
     .where('updatedAt', '<', Timestamp.fromDate(cutoff))
     .get();
 

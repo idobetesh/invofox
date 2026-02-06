@@ -12,7 +12,7 @@ import type {
 } from '../../../../shared/types';
 import logger from '../logger';
 
-const COLLECTION_NAME = 'invoice_jobs';
+import { INVOICE_JOBS_COLLECTION } from '../../../../shared/collections';
 const STALE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
 
 let firestore: Firestore | null = null;
@@ -48,7 +48,7 @@ export async function claimJob(
 ): Promise<{ claimed: boolean; job: InvoiceJob | null }> {
   const db = getFirestore();
   const docId = getJobId(chatId, messageId);
-  const docRef = db.collection(COLLECTION_NAME).doc(docId);
+  const docRef = db.collection(INVOICE_JOBS_COLLECTION).doc(docId);
   const log = logger.child({ jobId: docId });
 
   return db.runTransaction(async (transaction) => {
@@ -133,7 +133,7 @@ export async function updateJobStep(
 ): Promise<void> {
   const db = getFirestore();
   const docId = getJobId(chatId, messageId);
-  const docRef = db.collection(COLLECTION_NAME).doc(docId);
+  const docRef = db.collection(INVOICE_JOBS_COLLECTION).doc(docId);
 
   await docRef.update({
     lastStep: step,
@@ -156,7 +156,7 @@ export async function markJobCompleted(
 ): Promise<void> {
   const db = getFirestore();
   const docId = getJobId(chatId, messageId);
-  const docRef = db.collection(COLLECTION_NAME).doc(docId);
+  const docRef = db.collection(INVOICE_JOBS_COLLECTION).doc(docId);
 
   const updateData: Record<string, unknown> = {
     status: 'processed' as JobStatus,
@@ -185,7 +185,7 @@ export async function markJobFailed(
 ): Promise<void> {
   const db = getFirestore();
   const docId = getJobId(chatId, messageId);
-  const docRef = db.collection(COLLECTION_NAME).doc(docId);
+  const docRef = db.collection(INVOICE_JOBS_COLLECTION).doc(docId);
 
   await docRef.update({
     status: 'failed' as JobStatus,
@@ -207,7 +207,7 @@ export async function markJobPendingRetry(
 ): Promise<void> {
   const db = getFirestore();
   const docId = getJobId(chatId, messageId);
-  const docRef = db.collection(COLLECTION_NAME).doc(docId);
+  const docRef = db.collection(INVOICE_JOBS_COLLECTION).doc(docId);
 
   await docRef.update({
     status: 'pending_retry' as JobStatus,
@@ -223,7 +223,7 @@ export async function markJobPendingRetry(
 export async function getJob(chatId: number, messageId: number): Promise<InvoiceJob | null> {
   const db = getFirestore();
   const docId = getJobId(chatId, messageId);
-  const docRef = db.collection(COLLECTION_NAME).doc(docId);
+  const docRef = db.collection(INVOICE_JOBS_COLLECTION).doc(docId);
 
   const doc = await docRef.get();
   return doc.exists ? (doc.data() as InvoiceJob) : null;
@@ -251,7 +251,7 @@ export async function storeExtraction(
 ): Promise<void> {
   const db = getFirestore();
   const docId = getJobId(chatId, messageId);
-  const docRef = db.collection(COLLECTION_NAME).doc(docId);
+  const docRef = db.collection(INVOICE_JOBS_COLLECTION).doc(docId);
 
   await docRef.update({
     vendorName: extraction.vendor_name,
@@ -283,7 +283,7 @@ export async function markJobPendingDecision(
 ): Promise<void> {
   const db = getFirestore();
   const docId = getJobId(chatId, messageId);
-  const docRef = db.collection(COLLECTION_NAME).doc(docId);
+  const docRef = db.collection(INVOICE_JOBS_COLLECTION).doc(docId);
 
   await docRef.update({
     status: 'pending_decision' as JobStatus,
@@ -344,7 +344,7 @@ export async function findDuplicateInvoice(
     );
 
     const snapshot = await db
-      .collection(COLLECTION_NAME)
+      .collection(INVOICE_JOBS_COLLECTION)
       .where('telegramChatId', '==', chatId)
       .where('status', 'in', ['processed', 'processing', 'pending_decision'])
       .where('createdAt', '>=', Timestamp.fromDate(ninetyDaysAgo))

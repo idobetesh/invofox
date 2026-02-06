@@ -7,7 +7,7 @@ import { Firestore, FieldValue } from '@google-cloud/firestore';
 import type { Language } from '../i18n/languages';
 import logger from '../../logger';
 
-const COLLECTION_NAME = 'onboarding_sessions';
+import { ONBOARDING_SESSIONS_COLLECTION } from '../../../../../shared/collections';
 
 let firestore: Firestore | null = null;
 
@@ -62,7 +62,7 @@ export interface OnboardingState {
  */
 export async function startOnboarding(chatId: number, userId: number): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(chatId.toString());
+  const docRef = db.collection(ONBOARDING_SESSIONS_COLLECTION).doc(chatId.toString());
 
   const session: Omit<OnboardingState, 'startedAt' | 'updatedAt'> = {
     chatId,
@@ -87,7 +87,7 @@ export async function startOnboarding(chatId: number, userId: number): Promise<v
  */
 export async function getOnboardingSession(chatId: number): Promise<OnboardingState | null> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(chatId.toString());
+  const docRef = db.collection(ONBOARDING_SESSIONS_COLLECTION).doc(chatId.toString());
   const doc = await docRef.get();
 
   if (!doc.exists) {
@@ -105,7 +105,7 @@ export async function updateOnboardingSession(
   updates: Partial<OnboardingState>
 ): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(chatId.toString());
+  const docRef = db.collection(ONBOARDING_SESSIONS_COLLECTION).doc(chatId.toString());
 
   await docRef.update({
     ...updates,
@@ -123,7 +123,7 @@ export async function updateOnboardingData(
   dataUpdates: Partial<OnboardingState['data']>
 ): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(chatId.toString());
+  const docRef = db.collection(ONBOARDING_SESSIONS_COLLECTION).doc(chatId.toString());
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateFields: Record<string, any> = {
@@ -145,7 +145,7 @@ export async function updateOnboardingData(
  */
 export async function completeOnboarding(chatId: number): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(chatId.toString());
+  const docRef = db.collection(ONBOARDING_SESSIONS_COLLECTION).doc(chatId.toString());
 
   // Mark as inactive first (helps with webhook handler cache)
   await docRef.update({ active: false });
@@ -161,7 +161,7 @@ export async function completeOnboarding(chatId: number): Promise<void> {
  */
 export async function cancelOnboarding(chatId: number): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(chatId.toString());
+  const docRef = db.collection(ONBOARDING_SESSIONS_COLLECTION).doc(chatId.toString());
 
   await docRef.delete();
 

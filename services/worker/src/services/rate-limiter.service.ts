@@ -5,7 +5,7 @@
 
 import { Firestore, Timestamp } from '@google-cloud/firestore';
 
-const COLLECTION_NAME = 'rate_limits';
+import { RATE_LIMITS_COLLECTION } from '../../../../shared/collections';
 
 // Rate limit configuration from environment (with sensible defaults)
 const MAX_ATTEMPTS = parseInt(process.env.ONBOARD_MAX_ATTEMPTS || '3', 10);
@@ -34,7 +34,7 @@ export interface RateLimitDoc {
  */
 export async function recordFailedOnboardingAttempt(chatId: number): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(`onboard_${chatId}`);
+  const docRef = db.collection(RATE_LIMITS_COLLECTION).doc(`onboard_${chatId}`);
   const doc = await docRef.get();
 
   const now = Timestamp.now();
@@ -91,7 +91,7 @@ export async function recordFailedOnboardingAttempt(chatId: number): Promise<voi
  */
 export async function clearRateLimit(chatId: number): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(`onboard_${chatId}`);
+  const docRef = db.collection(RATE_LIMITS_COLLECTION).doc(`onboard_${chatId}`);
 
   await docRef.delete();
   console.log(`[RateLimiter] Cleared rate limit for chat ${chatId}`);

@@ -6,9 +6,11 @@
 
 import { Firestore, FieldValue } from '@google-cloud/firestore';
 import type { InvoiceCounter } from '../../../../../shared/types';
+import {
+  INVOICE_COUNTERS_COLLECTION,
+  formatDocumentNumber,
+} from '../../../../../shared/collections';
 import logger from '../../logger';
-
-const COLLECTION_NAME = 'invoice_counters';
 
 let firestore: Firestore | null = null;
 
@@ -43,8 +45,8 @@ export async function getNextDocumentNumber(
   const db = getFirestore();
   const year = getCurrentYear();
   const docId = `chat_${chatId}_${year}`;
-  const docRef = db.collection(COLLECTION_NAME).doc(docId);
-  const log = logger.child({ year, chatId, documentType, collection: COLLECTION_NAME });
+  const docRef = db.collection(INVOICE_COUNTERS_COLLECTION).doc(docId);
+  const log = logger.child({ year, chatId, documentType, collection: INVOICE_COUNTERS_COLLECTION });
 
   const counter = await db.runTransaction(async (transaction) => {
     const doc = await transaction.get(docRef);
@@ -90,22 +92,7 @@ export async function getNextDocumentNumber(
     return counter;
   });
 
-  // Format document number based on type with prefixes
-  let documentNumber: string;
-  switch (documentType) {
-    case 'invoice':
-      documentNumber = `I-${year}-${counter}`;
-      break;
-    case 'receipt':
-      documentNumber = `R-${year}-${counter}`;
-      break;
-    case 'invoice_receipt':
-      documentNumber = `IR-${year}-${counter}`;
-      break;
-    default:
-      throw new Error(`Unknown document type: ${documentType}`);
-  }
-
+  const documentNumber = formatDocumentNumber(documentType, year, counter);
   log.info({ documentNumber }, `Generated ${documentType} number for customer`);
 
   return documentNumber;
@@ -128,7 +115,7 @@ export async function getCurrentCounter(chatId: number, year?: string): Promise<
   const db = getFirestore();
   const targetYear = year || getCurrentYear();
   const docId = `chat_${chatId}_${targetYear}`;
-  const docRef = db.collection(COLLECTION_NAME).doc(docId);
+  const docRef = db.collection(INVOICE_COUNTERS_COLLECTION).doc(docId);
 
   const doc = await docRef.get();
 
@@ -156,7 +143,7 @@ export async function initializeCounter(
   const db = getFirestore();
   const targetYear = year || getCurrentYear();
   const docId = `chat_${chatId}_${targetYear}`;
-  const docRef = db.collection(COLLECTION_NAME).doc(docId);
+  const docRef = db.collection(INVOICE_COUNTERS_COLLECTION).doc(docId);
 
   // Safety check: prevent any overwrites
   const existing = await docRef.get();

@@ -8,7 +8,7 @@ import { Firestore, FieldValue } from '@google-cloud/firestore';
 import type { CustomerAccess, UserCustomerMapping } from '../../../../../shared/types';
 import logger from '../../logger';
 
-const COLLECTION_NAME = 'user_customer_mapping';
+import { USER_CUSTOMER_MAPPING_COLLECTION } from '../../../../../shared/collections';
 
 let firestore: Firestore | null = null;
 
@@ -31,7 +31,7 @@ export async function addUserToCustomer(
   addedBy?: number
 ): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(`user_${userId}`);
+  const docRef = db.collection(USER_CUSTOMER_MAPPING_COLLECTION).doc(`user_${userId}`);
 
   const doc = await docRef.get();
 
@@ -82,7 +82,7 @@ export async function addUserToCustomer(
  */
 export async function getUserCustomers(userId: number): Promise<CustomerAccess[]> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(`user_${userId}`);
+  const docRef = db.collection(USER_CUSTOMER_MAPPING_COLLECTION).doc(`user_${userId}`);
 
   const doc = await docRef.get();
 
@@ -107,7 +107,7 @@ export async function userHasAccessToCustomer(userId: number, chatId: number): P
  */
 export async function removeUserFromCustomer(userId: number, chatId: number): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(`user_${userId}`);
+  const docRef = db.collection(USER_CUSTOMER_MAPPING_COLLECTION).doc(`user_${userId}`);
 
   const doc = await docRef.get();
 
@@ -136,7 +136,7 @@ export async function removeUserFromCustomer(userId: number, chatId: number): Pr
  */
 export async function updateUserActivity(userId: number): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(`user_${userId}`);
+  const docRef = db.collection(USER_CUSTOMER_MAPPING_COLLECTION).doc(`user_${userId}`);
 
   const doc = await docRef.get();
 

@@ -11,7 +11,7 @@ import logger from '../../logger';
 import { getConfig } from '../../config';
 import { processLogoForCircularDisplay } from './logo-processor.service';
 
-const COLLECTION_NAME = 'business_config';
+import { BUSINESS_CONFIG_COLLECTION } from '../../../../../shared/collections';
 const DEFAULT_DOC_ID = 'default';
 const LOGO_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour cache for logo
 
@@ -85,11 +85,11 @@ export async function getBusinessConfig(
   }
 
   const db = getFirestore();
-  const log = logger.child({ collection: COLLECTION_NAME, chatId });
+  const log = logger.child({ collection: BUSINESS_CONFIG_COLLECTION, chatId });
 
   // If chatId provided, MUST have chat-specific config (no fallback)
   if (chatId) {
-    const chatDocRef = db.collection(COLLECTION_NAME).doc(getDocIdForChat(chatId));
+    const chatDocRef = db.collection(BUSINESS_CONFIG_COLLECTION).doc(getDocIdForChat(chatId));
     const chatDoc = await chatDocRef.get();
 
     if (chatDoc.exists) {
@@ -107,11 +107,11 @@ export async function getBusinessConfig(
   }
 
   // No chatId provided - only then use default (system-level operations)
-  const defaultDocRef = db.collection(COLLECTION_NAME).doc(DEFAULT_DOC_ID);
+  const defaultDocRef = db.collection(BUSINESS_CONFIG_COLLECTION).doc(DEFAULT_DOC_ID);
   const defaultDoc = await defaultDocRef.get();
 
   if (!defaultDoc.exists) {
-    const error = `Default business config not found in Firestore. Document ${COLLECTION_NAME}/${DEFAULT_DOC_ID} must exist for system-level operations.`;
+    const error = `Default business config not found in Firestore. Document ${BUSINESS_CONFIG_COLLECTION}/${DEFAULT_DOC_ID} must exist for system-level operations.`;
     log.error(error);
     throw new Error(error);
   }
@@ -177,7 +177,7 @@ export async function getLogoBase64(
 
       // Try chat-specific config first
       if (chatId) {
-        const chatDocRef = db.collection(COLLECTION_NAME).doc(getDocIdForChat(chatId));
+        const chatDocRef = db.collection(BUSINESS_CONFIG_COLLECTION).doc(getDocIdForChat(chatId));
         const chatDoc = await chatDocRef.get();
 
         if (chatDoc.exists) {
@@ -188,7 +188,7 @@ export async function getLogoBase64(
 
       // Fall back to default if no chat-specific logo
       if (!resolvedLogoUrl) {
-        const defaultDocRef = db.collection(COLLECTION_NAME).doc(DEFAULT_DOC_ID);
+        const defaultDocRef = db.collection(BUSINESS_CONFIG_COLLECTION).doc(DEFAULT_DOC_ID);
         const defaultDoc = await defaultDocRef.get();
 
         if (defaultDoc.exists) {
@@ -266,8 +266,8 @@ export async function saveBusinessConfig(
 ): Promise<void> {
   const db = getFirestore();
   const docId = getDocIdForChat(chatId);
-  const docRef = db.collection(COLLECTION_NAME).doc(docId);
-  const log = logger.child({ collection: COLLECTION_NAME, docId, chatId });
+  const docRef = db.collection(BUSINESS_CONFIG_COLLECTION).doc(docId);
+  const log = logger.child({ collection: BUSINESS_CONFIG_COLLECTION, docId, chatId });
 
   const existingDoc = await docRef.get();
 
@@ -334,7 +334,7 @@ export async function uploadLogo(
   if (updateConfig) {
     const db = getFirestore();
     const docId = getDocIdForChat(chatId);
-    const docRef = db.collection(COLLECTION_NAME).doc(docId);
+    const docRef = db.collection(BUSINESS_CONFIG_COLLECTION).doc(docId);
 
     await docRef.set(
       {
@@ -378,7 +378,7 @@ export function clearConfigCache(chatId?: number): void {
 export async function hasBusinessConfig(chatId?: number): Promise<boolean> {
   const db = getFirestore();
   const docId = getDocIdForChat(chatId);
-  const docRef = db.collection(COLLECTION_NAME).doc(docId);
+  const docRef = db.collection(BUSINESS_CONFIG_COLLECTION).doc(docId);
   const doc = await docRef.get();
   return doc.exists;
 }
@@ -390,7 +390,7 @@ export async function listCustomerConfigs(): Promise<
   Array<{ chatId: number | null; businessName: string }>
 > {
   const db = getFirestore();
-  const snapshot = await db.collection(COLLECTION_NAME).get();
+  const snapshot = await db.collection(BUSINESS_CONFIG_COLLECTION).get();
 
   return snapshot.docs.map((doc) => {
     const data = doc.data() as BusinessConfigDocument;

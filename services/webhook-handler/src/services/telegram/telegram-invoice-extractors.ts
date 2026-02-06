@@ -102,8 +102,10 @@ export function extractInvoiceCallbackPayload(
 export function isInvoiceCallback(data: string): boolean {
   try {
     const parsed = JSON.parse(data);
-    // Invoice callbacks have action like 'select_type', 'select_payment', 'confirm', 'cancel'
-    return ['select_type', 'select_payment', 'confirm', 'cancel'].includes(parsed.action);
+    // Invoice callbacks have action like 'select_type', 'select_invoice', 'select_payment', 'confirm', 'cancel'
+    return ['select_type', 'select_invoice', 'select_payment', 'confirm', 'cancel'].includes(
+      parsed.action
+    );
   } catch {
     return false;
   }

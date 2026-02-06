@@ -7,7 +7,7 @@ import { Firestore } from '@google-cloud/firestore';
 import {
   getOpenInvoices,
   formatInvoiceForButton,
-} from '../../src/services/invoice-generator/open-invoices.service';
+} from '../../src/services/document-generator/open-invoices.service';
 
 // Mock Firestore
 const mockGet = jest.fn();

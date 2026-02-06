@@ -6,7 +6,7 @@
 import { Firestore, Timestamp } from '@google-cloud/firestore';
 import logger from '../../logger';
 
-const COLLECTION_NAME = 'rate_limits';
+import { RATE_LIMITS_COLLECTION } from '../../../../../shared/collections';
 
 // Parse and validate MAX_REPORTS_PER_DAY from environment variable
 const parsedMaxReports = parseInt(process.env.REPORT_MAX_PER_DAY || '3', 10);
@@ -37,7 +37,7 @@ export async function checkReportLimit(
   chatId: number
 ): Promise<{ allowed: boolean; resetAt?: Date; remaining?: number }> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(`report_${chatId}`);
+  const docRef = db.collection(RATE_LIMITS_COLLECTION).doc(`report_${chatId}`);
   const doc = await docRef.get();
 
   const today = getTodayDateString();
@@ -74,7 +74,7 @@ export async function checkReportLimit(
  */
 export async function recordReportGeneration(chatId: number): Promise<void> {
   const db = getFirestore();
-  const docRef = db.collection(COLLECTION_NAME).doc(`report_${chatId}`);
+  const docRef = db.collection(RATE_LIMITS_COLLECTION).doc(`report_${chatId}`);
   const doc = await docRef.get();
 
   const today = getTodayDateString();
