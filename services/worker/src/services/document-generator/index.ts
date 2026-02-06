@@ -10,6 +10,7 @@ import type {
   BusinessConfig,
   GeneratedInvoice,
   InvoiceSession,
+  PaymentStatus,
 } from '../../../../../shared/types';
 import {
   getCollectionForDocumentType,
@@ -147,6 +148,20 @@ export async function generateInvoice(
   // Save to Firestore audit log
   await saveInvoiceRecord(invoiceNumber, invoiceData, userId, username, chatId, pdfUrl);
   log.info('Invoice record saved to Firestore');
+
+  // If this is a receipt, update the parent invoice's payment tracking
+  if (session.documentType === 'receipt' && session.relatedInvoiceNumber) {
+    await updateParentInvoicePayment(
+      chatId,
+      session.relatedInvoiceNumber,
+      invoiceNumber,
+      session.amount
+    );
+    log.info(
+      { parentInvoice: session.relatedInvoiceNumber, receiptAmount: session.amount },
+      'Updated parent invoice payment tracking'
+    );
+  }
 
   // Log to Google Sheets (pass sheetId from already-loaded config to avoid duplicate Firestore read)
   await appendGeneratedInvoiceRow(
@@ -290,6 +305,73 @@ export async function getGeneratedInvoice(
   }
 
   return null;
+}
+
+/**
+ * Update parent invoice payment tracking after receipt creation
+ * @param chatId - Customer's Telegram chat ID
+ * @param parentInvoiceNumber - Parent invoice number to update
+ * @param receiptNumber - Receipt number to add to relatedReceiptIds
+ * @param paymentAmount - Amount paid in this receipt
+ */
+async function updateParentInvoicePayment(
+  chatId: number,
+  parentInvoiceNumber: string,
+  receiptNumber: string,
+  paymentAmount: number
+): Promise<void> {
+  const db = getFirestore();
+  const docId = `chat_${chatId}_${parentInvoiceNumber}`;
+  const docRef = db.collection(GENERATED_INVOICES_COLLECTION).doc(docId);
+
+  const log = logger.child({ chatId, parentInvoiceNumber, receiptNumber, paymentAmount });
+
+  // Use transaction to ensure atomic update
+  await db.runTransaction(async (transaction) => {
+    const doc = await transaction.get(docRef);
+
+    if (!doc.exists) {
+      log.error('Parent invoice not found');
+      throw new Error(`Parent invoice ${parentInvoiceNumber} not found`);
+    }
+
+    const invoice = doc.data() as GeneratedInvoice;
+    const currentPaid = invoice.paidAmount || 0;
+    const currentRemaining = invoice.remainingBalance || invoice.amount;
+
+    const newPaidAmount = currentPaid + paymentAmount;
+    const newRemainingBalance = currentRemaining - paymentAmount;
+
+    // Determine new payment status
+    let newPaymentStatus: PaymentStatus;
+    if (newRemainingBalance <= 0) {
+      newPaymentStatus = 'paid';
+    } else if (newPaidAmount > 0) {
+      newPaymentStatus = 'partial';
+    } else {
+      newPaymentStatus = 'unpaid';
+    }
+
+    // Update invoice
+    transaction.update(docRef, {
+      paidAmount: newPaidAmount,
+      remainingBalance: Math.max(0, newRemainingBalance), // Ensure non-negative
+      paymentStatus: newPaymentStatus,
+      relatedReceiptIds: FieldValue.arrayUnion(receiptNumber),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    log.debug(
+      {
+        oldPaid: currentPaid,
+        newPaid: newPaidAmount,
+        oldRemaining: currentRemaining,
+        newRemaining: newRemainingBalance,
+        newStatus: newPaymentStatus,
+      },
+      'Invoice payment tracking updated'
+    );
+  });
 }
 
 // Re-export sub-services

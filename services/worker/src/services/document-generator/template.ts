@@ -23,7 +23,16 @@ export function escapeHtml(text: string): string {
  * Get document type label in Hebrew
  */
 function getDocumentTypeLabel(type: InvoiceDocumentType): string {
-  return type === 'invoice' ? 'חשבונית' : 'חשבונית קבלה';
+  switch (type) {
+    case 'invoice':
+      return 'חשבונית';
+    case 'invoice_receipt':
+      return 'חשבונית קבלה';
+    case 'receipt':
+      return 'קבלה';
+    default:
+      return 'חשבונית';
+  }
 }
 
 /**
