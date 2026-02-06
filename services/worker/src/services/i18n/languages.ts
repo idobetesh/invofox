@@ -129,6 +129,14 @@ You're ready to go! Try these commands:
       invalidAmount: '❌ Invalid amount. Please send a positive number\n(Example: 500)',
       invoiceSelected:
         '✅ Selected: {invoiceNumber}\n\n📝 Send in format:\nPayment amount\n(Example: 500)',
+      invoiceCountLimit: 'Showing 10 most recent invoices',
+      invoiceDetails:
+        'Invoice details:\nCustomer: {customerName}\nAmount: ₪{amount}\nPaid: ₪{paidAmount}\nRemaining: ₪{remainingBalance}\n\nHow much did you receive?\nFull payment: {remainingBalance}\nPartial payment: any amount (example: {exampleAmount})',
+      amountTooHigh:
+        'Amount too high\n\nAmount entered: ₪{amount}\nInvoice balance: ₪{remainingBalance}\n\nEnter amount up to ₪{remainingBalance}',
+      fullPaymentFeedback: 'Amount: ₪{amount}\nFull payment - invoice will be closed',
+      partialPaymentFeedback:
+        'Amount: ₪{amount}\nPartial payment\nRemaining after payment: ₪{newRemaining}',
     },
 
     validation: {
@@ -274,6 +282,13 @@ docs.google.com/spreadsheets/d/[זה_השדה]/edit`,
       noOpenInvoicesHe: 'לא נמצאו חשבוניות פתוחות. כל החשבוניות שולמו במלואן.',
       invalidAmount: '❌ סכום לא תקין. אנא שלח מספר חיובי\n(לדוגמה: 500)',
       invoiceSelected: '✅ נבחר: {invoiceNumber}\n\n📝 שלח בפורמט:\nסכום תשלום\n(לדוגמה: 500)',
+      invoiceCountLimit: 'מוצגות 10 החשבוניות האחרונות',
+      invoiceDetails:
+        'פרטי החשבונית:\nלקוח: {customerName}\nסכום: ₪{amount}\nשולם: ₪{paidAmount}\nיתרה: ₪{remainingBalance}\n\nכמה קיבלת?\nתשלום מלא: {remainingBalance}\nתשלום חלקי: כל סכום (לדוגמה: {exampleAmount})',
+      amountTooHigh:
+        'סכום גבוה מדי\n\nסכום שהוזן: ₪{amount}\nיתרה בחשבונית: ₪{remainingBalance}\n\nהזן סכום עד ₪{remainingBalance}',
+      fullPaymentFeedback: 'סכום: ₪{amount}\nתשלום מלא - החשבונית תסגר',
+      partialPaymentFeedback: 'סכום: ₪{amount}\nתשלום חלקי\nיתרה לאחר תשלום: ₪{newRemaining}',
     },
 
     validation: {
