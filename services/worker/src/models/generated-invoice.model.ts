@@ -11,6 +11,7 @@
 
 import { z } from 'zod';
 import type { Firestore, Timestamp } from '@google-cloud/firestore';
+import { GENERATED_INVOICES_COLLECTION } from '../../../../shared/collections';
 
 /**
  * Zod schema for generated_invoices collection (revenue)
@@ -67,7 +68,7 @@ export const generatedInvoiceConverter = {
  *   .get();
  */
 export function getGeneratedInvoicesCollection(db: Firestore) {
-  return db.collection('generated_invoices').withConverter(generatedInvoiceConverter);
+  return db.collection(GENERATED_INVOICES_COLLECTION).withConverter(generatedInvoiceConverter);
 }
 
 /**

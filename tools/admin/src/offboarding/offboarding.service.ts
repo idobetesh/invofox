@@ -10,6 +10,22 @@
 import { Firestore } from '@google-cloud/firestore';
 import { Storage } from '@google-cloud/storage';
 import { execSync } from 'child_process';
+import {
+  BUSINESS_CONFIG_COLLECTION,
+  INVOICE_COUNTERS_COLLECTION,
+  INVOICE_JOBS_COLLECTION,
+  PROCESSING_JOBS_COLLECTION,
+  GENERATED_INVOICES_COLLECTION,
+  GENERATED_RECEIPTS_COLLECTION,
+  GENERATED_INVOICE_RECEIPTS_COLLECTION,
+  INVOICE_SESSIONS_COLLECTION,
+  ONBOARDING_SESSIONS_COLLECTION,
+  REPORT_SESSIONS_COLLECTION,
+  USER_CUSTOMER_MAPPING_COLLECTION,
+  APPROVED_CHATS_COLLECTION,
+  RATE_LIMITS_COLLECTION,
+  PROCESSED_CALLBACKS_COLLECTION,
+} from '../../../../shared/collections';
 
 export interface OffboardingReport {
   mode: 'business' | 'user';
@@ -37,19 +53,27 @@ export interface OffboardingPreview {
 
 export class OffboardingService {
   private readonly BUSINESS_COLLECTIONS = [
-    'business_config',
-    'invoice_counters',
-    'invoice_jobs',
-    'Invoices',
-    'generated_invoices',
-    'invoice_sessions',
-    'onboarding_sessions',
+    BUSINESS_CONFIG_COLLECTION,
+    INVOICE_COUNTERS_COLLECTION,
+    INVOICE_JOBS_COLLECTION,
+    PROCESSING_JOBS_COLLECTION,
+    'Invoices', // Legacy collection (pre-split)
+    GENERATED_INVOICES_COLLECTION,
+    GENERATED_RECEIPTS_COLLECTION, // Split collection for receipts
+    GENERATED_INVOICE_RECEIPTS_COLLECTION, // Split collection for invoice-receipts
+    INVOICE_SESSIONS_COLLECTION,
+    ONBOARDING_SESSIONS_COLLECTION,
+    REPORT_SESSIONS_COLLECTION, // Report generation sessions
+    RATE_LIMITS_COLLECTION, // Rate limiting data
+    APPROVED_CHATS_COLLECTION, // Chat approval data
+    PROCESSED_CALLBACKS_COLLECTION, // Callback deduplication
   ];
 
   private readonly USER_COLLECTIONS = [
-    'user_customer_mapping',
-    'invoice_sessions',
-    'onboarding_sessions',
+    USER_CUSTOMER_MAPPING_COLLECTION,
+    INVOICE_SESSIONS_COLLECTION,
+    ONBOARDING_SESSIONS_COLLECTION,
+    REPORT_SESSIONS_COLLECTION, // User report sessions
   ];
 
   constructor(
@@ -77,7 +101,7 @@ export class OffboardingService {
     // Get business name
     try {
       const configDoc = await this.firestore
-        .collection('business_config')
+        .collection(BUSINESS_CONFIG_COLLECTION)
         .doc(`chat_${chatId}`)
         .get();
       if (configDoc.exists) {
@@ -89,7 +113,9 @@ export class OffboardingService {
 
     // Find associated users
     try {
-      const userMappingSnapshot = await this.firestore.collection('user_customer_mapping').get();
+      const userMappingSnapshot = await this.firestore
+        .collection(USER_CUSTOMER_MAPPING_COLLECTION)
+        .get();
       for (const doc of userMappingSnapshot.docs) {
         const data = doc.data();
         const customers = data.customers || [];
@@ -108,8 +134,14 @@ export class OffboardingService {
       this.scanInvoiceJobs(chatId, preview),
       this.scanInvoices(chatId, preview),
       this.scanGeneratedInvoices(chatId, preview),
+      this.scanGeneratedReceipts(chatId, preview),
+      this.scanGeneratedInvoiceReceipts(chatId, preview),
       this.scanInvoiceSessions(chatId, preview),
       this.scanOnboardingSession(chatId, preview),
+      this.scanReportSessions(chatId, preview),
+      this.scanRateLimits(chatId, preview),
+      this.scanApprovedChats(chatId, preview),
+      this.scanProcessedCallbacks(chatId, preview),
       this.scanUserMappings(chatId, preview),
     ]);
 
@@ -148,7 +180,7 @@ export class OffboardingService {
     // Get user info and associated businesses
     try {
       const userDoc = await this.firestore
-        .collection('user_customer_mapping')
+        .collection(USER_CUSTOMER_MAPPING_COLLECTION)
         .doc(`user_${userId}`)
         .get();
       if (userDoc.exists) {
@@ -168,6 +200,7 @@ export class OffboardingService {
       this.scanUserMapping(userId, preview),
       this.scanUserInvoiceSessions(userId, preview),
       this.scanUserOnboardingSessions(userId, preview),
+      this.scanUserReportSessions(userId, preview),
       this.scanUserInvoiceJobs(userId, preview),
     ]);
 
@@ -200,8 +233,14 @@ export class OffboardingService {
     await this.deleteInvoiceJobs(chatId, report);
     await this.deleteInvoices(chatId, report);
     await this.deleteGeneratedInvoices(chatId, report);
+    await this.deleteGeneratedReceipts(chatId, report); // NEW: Split collection
+    await this.deleteGeneratedInvoiceReceipts(chatId, report); // NEW: Split collection
     await this.deleteInvoiceSessions(chatId, report);
     await this.deleteOnboardingSession(chatId, report);
+    await this.deleteReportSessions(chatId, report); // NEW: Report sessions
+    await this.deleteRateLimits(chatId, report); // NEW: Rate limit data
+    await this.deleteApprovedChats(chatId, report); // NEW: Approved chats
+    await this.deleteProcessedCallbacks(chatId, report); // NEW: Callback dedup
     await this.updateUserMappings(chatId, report);
 
     // Delete Cloud Storage files
@@ -230,6 +269,7 @@ export class OffboardingService {
     await this.deleteUserMapping(userId, report);
     await this.deleteUserInvoiceSessions(userId, report);
     await this.deleteUserOnboardingSessions(userId, report);
+    await this.deleteUserReportSessions(userId, report);
     await this.anonymizeGeneratedInvoices(userId, report);
     await this.anonymizeInvoiceJobs(userId, report);
 
@@ -242,9 +282,12 @@ export class OffboardingService {
 
   private async scanBusinessConfig(chatId: number, preview: OffboardingPreview): Promise<void> {
     try {
-      const doc = await this.firestore.collection('business_config').doc(`chat_${chatId}`).get();
+      const doc = await this.firestore
+        .collection(BUSINESS_CONFIG_COLLECTION)
+        .doc(`chat_${chatId}`)
+        .get();
       if (doc.exists) {
-        preview.collections['business_config'] = { count: 1, docIds: [doc.id] };
+        preview.collections[BUSINESS_CONFIG_COLLECTION] = { count: 1, docIds: [doc.id] };
       }
     } catch (error) {
       // Collection doesn't exist or no access
@@ -253,12 +296,12 @@ export class OffboardingService {
 
   private async scanInvoiceCounters(chatId: number, preview: OffboardingPreview): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection('invoice_counters').get();
+      const snapshot = await this.firestore.collection(INVOICE_COUNTERS_COLLECTION).get();
       const docs = snapshot.docs.filter(
         (doc) => doc.id.startsWith(`chat_${chatId}_`) || doc.id === chatId.toString()
       );
       if (docs.length > 0) {
-        preview.collections['invoice_counters'] = {
+        preview.collections[INVOICE_COUNTERS_COLLECTION] = {
           count: docs.length,
           docIds: docs.map((d) => d.id),
         };
@@ -270,13 +313,16 @@ export class OffboardingService {
 
   private async scanInvoiceJobs(chatId: number, preview: OffboardingPreview): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection('invoice_jobs').get();
+      const snapshot = await this.firestore.collection(INVOICE_JOBS_COLLECTION).get();
       const docs = snapshot.docs.filter((doc) => {
         const data = doc.data();
         return data.chatId === chatId || data.telegramChatId === chatId;
       });
       if (docs.length > 0) {
-        preview.collections['invoice_jobs'] = { count: docs.length, docIds: docs.map((d) => d.id) };
+        preview.collections[INVOICE_JOBS_COLLECTION] = {
+          count: docs.length,
+          docIds: docs.map((d) => d.id),
+        };
       }
     } catch (error) {
       // Collection doesn't exist
@@ -300,13 +346,13 @@ export class OffboardingService {
 
   private async scanGeneratedInvoices(chatId: number, preview: OffboardingPreview): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection('generated_invoices').get();
+      const snapshot = await this.firestore.collection(GENERATED_INVOICES_COLLECTION).get();
       const docs = snapshot.docs.filter((doc) => {
         const data = doc.data();
         return data.generatedBy?.chatId === chatId;
       });
       if (docs.length > 0) {
-        preview.collections['generated_invoices'] = {
+        preview.collections[GENERATED_INVOICES_COLLECTION] = {
           count: docs.length,
           docIds: docs.map((d) => d.id),
         };
@@ -318,10 +364,10 @@ export class OffboardingService {
 
   private async scanInvoiceSessions(chatId: number, preview: OffboardingPreview): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection('invoice_sessions').get();
+      const snapshot = await this.firestore.collection(INVOICE_SESSIONS_COLLECTION).get();
       const docs = snapshot.docs.filter((doc) => doc.id.startsWith(`${chatId}_`));
       if (docs.length > 0) {
-        preview.collections['invoice_sessions'] = {
+        preview.collections[INVOICE_SESSIONS_COLLECTION] = {
           count: docs.length,
           docIds: docs.map((d) => d.id),
         };
@@ -334,11 +380,11 @@ export class OffboardingService {
   private async scanOnboardingSession(chatId: number, preview: OffboardingPreview): Promise<void> {
     try {
       const doc = await this.firestore
-        .collection('onboarding_sessions')
+        .collection(ONBOARDING_SESSIONS_COLLECTION)
         .doc(chatId.toString())
         .get();
       if (doc.exists) {
-        preview.collections['onboarding_sessions'] = { count: 1, docIds: [doc.id] };
+        preview.collections[ONBOARDING_SESSIONS_COLLECTION] = { count: 1, docIds: [doc.id] };
       }
     } catch (error) {
       // Collection doesn't exist
@@ -347,14 +393,112 @@ export class OffboardingService {
 
   private async scanUserMappings(chatId: number, preview: OffboardingPreview): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection('user_customer_mapping').get();
+      const snapshot = await this.firestore.collection(USER_CUSTOMER_MAPPING_COLLECTION).get();
       const docs = snapshot.docs.filter((doc) => {
         const data = doc.data();
         const customers = data.customers || [];
         return customers.some((c: { chatId: number }) => c.chatId === chatId);
       });
       if (docs.length > 0) {
-        preview.collections['user_customer_mapping'] = {
+        preview.collections[USER_CUSTOMER_MAPPING_COLLECTION] = {
+          count: docs.length,
+          docIds: docs.map((d) => d.id),
+        };
+      }
+    } catch (error) {
+      // Collection doesn't exist
+    }
+  }
+
+  private async scanGeneratedReceipts(chatId: number, preview: OffboardingPreview): Promise<void> {
+    try {
+      const snapshot = await this.firestore.collection(GENERATED_RECEIPTS_COLLECTION).get();
+      const docs = snapshot.docs.filter((doc) => doc.id.startsWith(`chat_${chatId}_`));
+      if (docs.length > 0) {
+        preview.collections[GENERATED_RECEIPTS_COLLECTION] = {
+          count: docs.length,
+          docIds: docs.map((d) => d.id),
+        };
+      }
+    } catch (error) {
+      // Collection doesn't exist
+    }
+  }
+
+  private async scanGeneratedInvoiceReceipts(
+    chatId: number,
+    preview: OffboardingPreview
+  ): Promise<void> {
+    try {
+      const snapshot = await this.firestore.collection(GENERATED_INVOICE_RECEIPTS_COLLECTION).get();
+      const docs = snapshot.docs.filter((doc) => doc.id.startsWith(`chat_${chatId}_`));
+      if (docs.length > 0) {
+        preview.collections[GENERATED_INVOICE_RECEIPTS_COLLECTION] = {
+          count: docs.length,
+          docIds: docs.map((d) => d.id),
+        };
+      }
+    } catch (error) {
+      // Collection doesn't exist
+    }
+  }
+
+  private async scanReportSessions(chatId: number, preview: OffboardingPreview): Promise<void> {
+    try {
+      const snapshot = await this.firestore.collection(REPORT_SESSIONS_COLLECTION).get();
+      const docs = snapshot.docs.filter((doc) => doc.id.startsWith(`${chatId}_`));
+      if (docs.length > 0) {
+        preview.collections[REPORT_SESSIONS_COLLECTION] = {
+          count: docs.length,
+          docIds: docs.map((d) => d.id),
+        };
+      }
+    } catch (error) {
+      // Collection doesn't exist
+    }
+  }
+
+  private async scanRateLimits(chatId: number, preview: OffboardingPreview): Promise<void> {
+    try {
+      const snapshot = await this.firestore.collection(RATE_LIMITS_COLLECTION).get();
+      const docs = snapshot.docs.filter((doc) => {
+        const data = doc.data();
+        return data.chatId === chatId || doc.id.includes(`_${chatId}`);
+      });
+      if (docs.length > 0) {
+        preview.collections[RATE_LIMITS_COLLECTION] = {
+          count: docs.length,
+          docIds: docs.map((d) => d.id),
+        };
+      }
+    } catch (error) {
+      // Collection doesn't exist
+    }
+  }
+
+  private async scanApprovedChats(chatId: number, preview: OffboardingPreview): Promise<void> {
+    try {
+      const doc = await this.firestore
+        .collection(APPROVED_CHATS_COLLECTION)
+        .doc(chatId.toString())
+        .get();
+      if (doc.exists) {
+        preview.collections[APPROVED_CHATS_COLLECTION] = { count: 1, docIds: [doc.id] };
+      }
+    } catch (error) {
+      // Collection doesn't exist
+    }
+  }
+
+  private async scanProcessedCallbacks(chatId: number, preview: OffboardingPreview): Promise<void> {
+    try {
+      const snapshot = await this.firestore.collection(PROCESSED_CALLBACKS_COLLECTION).get();
+      const docs = snapshot.docs.filter((doc) => {
+        const data = doc.data();
+        return data.chatId === chatId;
+      });
+      if (docs.length > 0) {
+        preview.collections[PROCESSED_CALLBACKS_COLLECTION] = {
           count: docs.length,
           docIds: docs.map((d) => d.id),
         };
@@ -409,11 +553,11 @@ export class OffboardingService {
   private async scanUserMapping(userId: number, preview: OffboardingPreview): Promise<void> {
     try {
       const doc = await this.firestore
-        .collection('user_customer_mapping')
+        .collection(USER_CUSTOMER_MAPPING_COLLECTION)
         .doc(`user_${userId}`)
         .get();
       if (doc.exists) {
-        preview.collections['user_customer_mapping'] = { count: 1, docIds: [doc.id] };
+        preview.collections[USER_CUSTOMER_MAPPING_COLLECTION] = { count: 1, docIds: [doc.id] };
       }
     } catch (error) {
       // Document doesn't exist
@@ -425,10 +569,10 @@ export class OffboardingService {
     preview: OffboardingPreview
   ): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection('invoice_sessions').get();
+      const snapshot = await this.firestore.collection(INVOICE_SESSIONS_COLLECTION).get();
       const docs = snapshot.docs.filter((doc) => doc.id.includes(`_${userId}`));
       if (docs.length > 0) {
-        preview.collections['invoice_sessions'] = {
+        preview.collections[INVOICE_SESSIONS_COLLECTION] = {
           count: docs.length,
           docIds: docs.map((d) => d.id),
         };
@@ -443,13 +587,28 @@ export class OffboardingService {
     preview: OffboardingPreview
   ): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection('onboarding_sessions').get();
+      const snapshot = await this.firestore.collection(ONBOARDING_SESSIONS_COLLECTION).get();
       const docs = snapshot.docs.filter((doc) => {
         const data = doc.data();
         return data.userId?.toString() === userId.toString();
       });
       if (docs.length > 0) {
-        preview.collections['onboarding_sessions'] = {
+        preview.collections[ONBOARDING_SESSIONS_COLLECTION] = {
+          count: docs.length,
+          docIds: docs.map((d) => d.id),
+        };
+      }
+    } catch (error) {
+      // Collection doesn't exist
+    }
+  }
+
+  private async scanUserReportSessions(userId: number, preview: OffboardingPreview): Promise<void> {
+    try {
+      const snapshot = await this.firestore.collection(REPORT_SESSIONS_COLLECTION).get();
+      const docs = snapshot.docs.filter((doc) => doc.id.includes(`_${userId}`));
+      if (docs.length > 0) {
+        preview.collections[REPORT_SESSIONS_COLLECTION] = {
           count: docs.length,
           docIds: docs.map((d) => d.id),
         };
@@ -465,7 +624,7 @@ export class OffboardingService {
       let username: string | null = null;
       try {
         const userDoc = await this.firestore
-          .collection('user_customer_mapping')
+          .collection(USER_CUSTOMER_MAPPING_COLLECTION)
           .doc(`user_${userId}`)
           .get();
         if (userDoc.exists) {
@@ -476,13 +635,13 @@ export class OffboardingService {
       }
 
       if (username) {
-        const snapshot = await this.firestore.collection('invoice_jobs').get();
+        const snapshot = await this.firestore.collection(INVOICE_JOBS_COLLECTION).get();
         const docs = snapshot.docs.filter((doc) => {
           const data = doc.data();
           return data.uploaderUsername === username;
         });
         if (docs.length > 0) {
-          preview.collections['invoice_jobs'] = {
+          preview.collections[INVOICE_JOBS_COLLECTION] = {
             count: docs.length,
             docIds: docs.map((d) => d.id),
           };
@@ -499,12 +658,12 @@ export class OffboardingService {
 
   private async deleteBusinessConfig(chatId: number, report: OffboardingReport): Promise<void> {
     try {
-      const docRef = this.firestore.collection('business_config').doc(`chat_${chatId}`);
+      const docRef = this.firestore.collection(BUSINESS_CONFIG_COLLECTION).doc(`chat_${chatId}`);
       const doc = await docRef.get();
       if (doc.exists) {
         await docRef.delete();
         report.firestoreDocs++;
-        report.details.collections['business_config'] = 1;
+        report.details.collections[BUSINESS_CONFIG_COLLECTION] = 1;
       }
     } catch (error) {
       report.errors.push(`business_config: ${error}`);
@@ -513,7 +672,7 @@ export class OffboardingService {
 
   private async deleteInvoiceCounters(chatId: number, report: OffboardingReport): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection('invoice_counters').get();
+      const snapshot = await this.firestore.collection(INVOICE_COUNTERS_COLLECTION).get();
       let count = 0;
       for (const doc of snapshot.docs) {
         if (doc.id.startsWith(`chat_${chatId}_`) || doc.id === chatId.toString()) {
@@ -523,7 +682,7 @@ export class OffboardingService {
       }
       if (count > 0) {
         report.firestoreDocs += count;
-        report.details.collections['invoice_counters'] = count;
+        report.details.collections[INVOICE_COUNTERS_COLLECTION] = count;
       }
     } catch (error) {
       report.errors.push(`invoice_counters: ${error}`);
@@ -532,7 +691,7 @@ export class OffboardingService {
 
   private async deleteInvoiceJobs(chatId: number, report: OffboardingReport): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection('invoice_jobs').get();
+      const snapshot = await this.firestore.collection(INVOICE_JOBS_COLLECTION).get();
       let count = 0;
       for (const doc of snapshot.docs) {
         const data = doc.data();
@@ -543,7 +702,7 @@ export class OffboardingService {
       }
       if (count > 0) {
         report.firestoreDocs += count;
-        report.details.collections['invoice_jobs'] = count;
+        report.details.collections[INVOICE_JOBS_COLLECTION] = count;
       }
     } catch (error) {
       report.errors.push(`invoice_jobs: ${error}`);
@@ -572,7 +731,7 @@ export class OffboardingService {
 
   private async deleteGeneratedInvoices(chatId: number, report: OffboardingReport): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection('generated_invoices').get();
+      const snapshot = await this.firestore.collection(GENERATED_INVOICES_COLLECTION).get();
       let count = 0;
       for (const doc of snapshot.docs) {
         const data = doc.data();
@@ -583,7 +742,7 @@ export class OffboardingService {
       }
       if (count > 0) {
         report.firestoreDocs += count;
-        report.details.collections['generated_invoices'] = count;
+        report.details.collections[GENERATED_INVOICES_COLLECTION] = count;
       }
     } catch (error) {
       report.errors.push(`generated_invoices: ${error}`);
@@ -592,7 +751,7 @@ export class OffboardingService {
 
   private async deleteInvoiceSessions(chatId: number, report: OffboardingReport): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection('invoice_sessions').get();
+      const snapshot = await this.firestore.collection(INVOICE_SESSIONS_COLLECTION).get();
       let count = 0;
       for (const doc of snapshot.docs) {
         if (doc.id.startsWith(`${chatId}_`)) {
@@ -602,7 +761,7 @@ export class OffboardingService {
       }
       if (count > 0) {
         report.firestoreDocs += count;
-        report.details.collections['invoice_sessions'] = count;
+        report.details.collections[INVOICE_SESSIONS_COLLECTION] = count;
       }
     } catch (error) {
       report.errors.push(`invoice_sessions: ${error}`);
@@ -611,21 +770,137 @@ export class OffboardingService {
 
   private async deleteOnboardingSession(chatId: number, report: OffboardingReport): Promise<void> {
     try {
-      const docRef = this.firestore.collection('onboarding_sessions').doc(chatId.toString());
+      const docRef = this.firestore
+        .collection(ONBOARDING_SESSIONS_COLLECTION)
+        .doc(chatId.toString());
       const doc = await docRef.get();
       if (doc.exists) {
         await docRef.delete();
         report.firestoreDocs++;
-        report.details.collections['onboarding_sessions'] = 1;
+        report.details.collections[ONBOARDING_SESSIONS_COLLECTION] = 1;
       }
     } catch (error) {
       report.errors.push(`onboarding_sessions: ${error}`);
     }
   }
 
+  private async deleteGeneratedReceipts(chatId: number, report: OffboardingReport): Promise<void> {
+    try {
+      const snapshot = await this.firestore.collection(GENERATED_RECEIPTS_COLLECTION).get();
+      let count = 0;
+      for (const doc of snapshot.docs) {
+        if (doc.id.startsWith(`chat_${chatId}_`)) {
+          await doc.ref.delete();
+          count++;
+        }
+      }
+      if (count > 0) {
+        report.firestoreDocs += count;
+        report.details.collections[GENERATED_RECEIPTS_COLLECTION] = count;
+      }
+    } catch (error) {
+      report.errors.push(`generated_receipts: ${error}`);
+    }
+  }
+
+  private async deleteGeneratedInvoiceReceipts(
+    chatId: number,
+    report: OffboardingReport
+  ): Promise<void> {
+    try {
+      const snapshot = await this.firestore.collection(GENERATED_INVOICE_RECEIPTS_COLLECTION).get();
+      let count = 0;
+      for (const doc of snapshot.docs) {
+        if (doc.id.startsWith(`chat_${chatId}_`)) {
+          await doc.ref.delete();
+          count++;
+        }
+      }
+      if (count > 0) {
+        report.firestoreDocs += count;
+        report.details.collections[GENERATED_INVOICE_RECEIPTS_COLLECTION] = count;
+      }
+    } catch (error) {
+      report.errors.push(`generated_invoice_receipts: ${error}`);
+    }
+  }
+
+  private async deleteReportSessions(chatId: number, report: OffboardingReport): Promise<void> {
+    try {
+      const snapshot = await this.firestore.collection(REPORT_SESSIONS_COLLECTION).get();
+      let count = 0;
+      for (const doc of snapshot.docs) {
+        if (doc.id.startsWith(`${chatId}_`)) {
+          await doc.ref.delete();
+          count++;
+        }
+      }
+      if (count > 0) {
+        report.firestoreDocs += count;
+        report.details.collections[REPORT_SESSIONS_COLLECTION] = count;
+      }
+    } catch (error) {
+      report.errors.push(`report_sessions: ${error}`);
+    }
+  }
+
+  private async deleteRateLimits(chatId: number, report: OffboardingReport): Promise<void> {
+    try {
+      const snapshot = await this.firestore.collection(RATE_LIMITS_COLLECTION).get();
+      let count = 0;
+      for (const doc of snapshot.docs) {
+        const data = doc.data();
+        if (data.chatId === chatId || doc.id.includes(`_${chatId}`)) {
+          await doc.ref.delete();
+          count++;
+        }
+      }
+      if (count > 0) {
+        report.firestoreDocs += count;
+        report.details.collections[RATE_LIMITS_COLLECTION] = count;
+      }
+    } catch (error) {
+      report.errors.push(`rate_limits: ${error}`);
+    }
+  }
+
+  private async deleteApprovedChats(chatId: number, report: OffboardingReport): Promise<void> {
+    try {
+      const docRef = this.firestore.collection(APPROVED_CHATS_COLLECTION).doc(chatId.toString());
+      const doc = await docRef.get();
+      if (doc.exists) {
+        await docRef.delete();
+        report.firestoreDocs++;
+        report.details.collections[APPROVED_CHATS_COLLECTION] = 1;
+      }
+    } catch (error) {
+      report.errors.push(`approved_chats: ${error}`);
+    }
+  }
+
+  private async deleteProcessedCallbacks(chatId: number, report: OffboardingReport): Promise<void> {
+    try {
+      const snapshot = await this.firestore.collection(PROCESSED_CALLBACKS_COLLECTION).get();
+      let count = 0;
+      for (const doc of snapshot.docs) {
+        const data = doc.data();
+        if (data.chatId === chatId) {
+          await doc.ref.delete();
+          count++;
+        }
+      }
+      if (count > 0) {
+        report.firestoreDocs += count;
+        report.details.collections[PROCESSED_CALLBACKS_COLLECTION] = count;
+      }
+    } catch (error) {
+      report.errors.push(`processed_callbacks: ${error}`);
+    }
+  }
+
   private async updateUserMappings(chatId: number, report: OffboardingReport): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection('user_customer_mapping').get();
+      const snapshot = await this.firestore.collection(USER_CUSTOMER_MAPPING_COLLECTION).get();
       let updates = 0;
       for (const doc of snapshot.docs) {
         const data = doc.data();
@@ -648,7 +923,7 @@ export class OffboardingService {
         }
       }
       if (updates > 0) {
-        report.details.collections['user_customer_mapping'] = updates;
+        report.details.collections[USER_CUSTOMER_MAPPING_COLLECTION] = updates;
       }
     } catch (error) {
       report.errors.push(`user_customer_mapping: ${error}`);
@@ -779,12 +1054,14 @@ export class OffboardingService {
 
   private async deleteUserMapping(userId: number, report: OffboardingReport): Promise<void> {
     try {
-      const docRef = this.firestore.collection('user_customer_mapping').doc(`user_${userId}`);
+      const docRef = this.firestore
+        .collection(USER_CUSTOMER_MAPPING_COLLECTION)
+        .doc(`user_${userId}`);
       const doc = await docRef.get();
       if (doc.exists) {
         await docRef.delete();
         report.firestoreDocs++;
-        report.details.collections['user_customer_mapping'] = 1;
+        report.details.collections[USER_CUSTOMER_MAPPING_COLLECTION] = 1;
       }
     } catch (error) {
       report.errors.push(`user_customer_mapping: ${error}`);
@@ -796,7 +1073,7 @@ export class OffboardingService {
     report: OffboardingReport
   ): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection('invoice_sessions').get();
+      const snapshot = await this.firestore.collection(INVOICE_SESSIONS_COLLECTION).get();
       let count = 0;
       for (const doc of snapshot.docs) {
         if (doc.id.includes(`_${userId}`)) {
@@ -806,7 +1083,7 @@ export class OffboardingService {
       }
       if (count > 0) {
         report.firestoreDocs += count;
-        report.details.collections['invoice_sessions'] = count;
+        report.details.collections[INVOICE_SESSIONS_COLLECTION] = count;
       }
     } catch (error) {
       report.errors.push(`invoice_sessions: ${error}`);
@@ -818,7 +1095,7 @@ export class OffboardingService {
     report: OffboardingReport
   ): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection('onboarding_sessions').get();
+      const snapshot = await this.firestore.collection(ONBOARDING_SESSIONS_COLLECTION).get();
       let count = 0;
       for (const doc of snapshot.docs) {
         const data = doc.data();
@@ -829,10 +1106,29 @@ export class OffboardingService {
       }
       if (count > 0) {
         report.firestoreDocs += count;
-        report.details.collections['onboarding_sessions'] = count;
+        report.details.collections[ONBOARDING_SESSIONS_COLLECTION] = count;
       }
     } catch (error) {
       report.errors.push(`onboarding_sessions: ${error}`);
+    }
+  }
+
+  private async deleteUserReportSessions(userId: number, report: OffboardingReport): Promise<void> {
+    try {
+      const snapshot = await this.firestore.collection(REPORT_SESSIONS_COLLECTION).get();
+      let count = 0;
+      for (const doc of snapshot.docs) {
+        if (doc.id.includes(`_${userId}`)) {
+          await doc.ref.delete();
+          count++;
+        }
+      }
+      if (count > 0) {
+        report.firestoreDocs += count;
+        report.details.collections[REPORT_SESSIONS_COLLECTION] = count;
+      }
+    } catch (error) {
+      report.errors.push(`report_sessions: ${error}`);
     }
   }
 
@@ -841,7 +1137,7 @@ export class OffboardingService {
     report: OffboardingReport
   ): Promise<void> {
     try {
-      const snapshot = await this.firestore.collection('generated_invoices').get();
+      const snapshot = await this.firestore.collection(GENERATED_INVOICES_COLLECTION).get();
       let count = 0;
       for (const doc of snapshot.docs) {
         const data = doc.data();
@@ -873,7 +1169,7 @@ export class OffboardingService {
       let username: string | null = null;
       try {
         const userDoc = await this.firestore
-          .collection('user_customer_mapping')
+          .collection(USER_CUSTOMER_MAPPING_COLLECTION)
           .doc(`user_${userId}`)
           .get();
         if (userDoc.exists) {
@@ -885,7 +1181,7 @@ export class OffboardingService {
 
       // If we have a username, anonymize all invoice_jobs with that username
       if (username) {
-        const snapshot = await this.firestore.collection('invoice_jobs').get();
+        const snapshot = await this.firestore.collection(INVOICE_JOBS_COLLECTION).get();
         let count = 0;
         for (const doc of snapshot.docs) {
           const data = doc.data();

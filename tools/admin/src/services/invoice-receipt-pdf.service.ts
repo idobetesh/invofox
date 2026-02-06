@@ -351,7 +351,7 @@ export class InvoiceReceiptPDFService {
         <td class="amount">${currencySymbol}${amount.toFixed(2)}</td>
       </tr>
       <tr class="total-row">
-        <td colspan="3" class="total-label">סה״כ לתשלום</td>
+        <td colspan="3" class="total-label">סה״כ שולם</td>
         <td class="amount">${currencySymbol}${amount.toFixed(2)}</td>
       </tr>
     </tbody>

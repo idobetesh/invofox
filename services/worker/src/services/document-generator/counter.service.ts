@@ -8,6 +8,7 @@ import { Firestore, FieldValue } from '@google-cloud/firestore';
 import type { InvoiceCounter } from '../../../../../shared/types';
 import {
   INVOICE_COUNTERS_COLLECTION,
+  GENERATED_INVOICES_COLLECTION,
   formatDocumentNumber,
 } from '../../../../../shared/collections';
 import logger from '../../logger';
@@ -184,7 +185,7 @@ export async function initializeCounter(
 export async function invoiceNumberExists(chatId: number, invoiceNumber: string): Promise<boolean> {
   const db = getFirestore();
   const docId = `chat_${chatId}_${invoiceNumber}`;
-  const docRef = db.collection('generated_invoices').doc(docId);
+  const docRef = db.collection(GENERATED_INVOICES_COLLECTION).doc(docId);
 
   const doc = await docRef.get();
   return doc.exists;

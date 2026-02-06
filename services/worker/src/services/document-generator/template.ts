@@ -334,13 +334,13 @@ export function buildInvoiceHTML(
       </thead>
       <tbody>
         <tr>
-          <td>${data.paymentMethod ? escapeHtml(data.paymentMethod) : ''}</td>
+          <td>${data.paymentMethod ? escapeHtml(data.paymentMethod) : data.documentType === 'invoice' ? 'ממתין לתשלום' : ''}</td>
           <td></td>
           <td>${formattedDate}</td>
           <td class="amount">${data.amount.toFixed(2)}</td>
         </tr>
         <tr class="total-row">
-          <td colspan="3" class="total-label">סה״כ שולם</td>
+          <td colspan="3" class="total-label">${data.documentType === 'invoice' ? 'סה״כ לתשלום' : 'סה״כ שולם'}</td>
           <td class="amount">₪${data.amount.toFixed(2)}</td>
         </tr>
       </tbody>

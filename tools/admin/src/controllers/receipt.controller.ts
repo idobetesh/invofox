@@ -7,6 +7,7 @@ import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { Firestore } from '@google-cloud/firestore';
 import { ReceiptService } from '../services/receipt.service';
+import { GENERATED_INVOICES_COLLECTION } from '../../../../shared/collections';
 
 type ValidationRule = { field: string; message?: string; validate?: (value: unknown) => boolean };
 
@@ -113,7 +114,7 @@ export class ReceiptController {
       const firestore = new Firestore();
 
       const query = firestore
-        .collection('generated_invoices')
+        .collection(GENERATED_INVOICES_COLLECTION)
         .where('chatId', '==', chatId)
         .where('documentType', '==', 'invoice');
 
