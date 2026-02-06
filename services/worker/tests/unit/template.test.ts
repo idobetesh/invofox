@@ -81,11 +81,11 @@ describe('Template Utilities', () => {
       const html = buildInvoiceHTML(invoiceData, mockBusinessConfig);
 
       expect(html).toContain('חשבונית / TEST-2026-1');
-      expect(html).not.toContain('חשבונית מס - קבלה');
+      expect(html).not.toContain('חשבונית - קבלה');
       expect(html).not.toContain('קבלה / TEST-2026-1');
     });
 
-    it('should render חשבונית מס - קבלה for invoice_receipt type', () => {
+    it('should render חשבונית - קבלה for invoice_receipt type', () => {
       const invoiceData: InvoiceData = {
         ...baseInvoiceData,
         documentType: 'invoice_receipt',
@@ -94,7 +94,7 @@ describe('Template Utilities', () => {
 
       const html = buildInvoiceHTML(invoiceData, mockBusinessConfig);
 
-      expect(html).toContain('חשבונית מס - קבלה / TEST-2026-1');
+      expect(html).toContain('חשבונית - קבלה / TEST-2026-1');
       expect(html).not.toContain('חשבונית / TEST-2026-1');
     });
 
@@ -108,7 +108,7 @@ describe('Template Utilities', () => {
       const html = buildInvoiceHTML(invoiceData, mockBusinessConfig);
 
       expect(html).toContain('קבלה / TEST-2026-1');
-      expect(html).not.toContain('חשבונית מס - קבלה');
+      expect(html).not.toContain('חשבונית - קבלה');
       expect(html).not.toContain('חשבונית / TEST-2026-1');
     });
   });

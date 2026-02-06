@@ -87,7 +87,7 @@ describe('Invoice Generator', () => {
         address: '123 Test St',
         phone: '123-456-7890',
         taxId: '123456789',
-        taxStatus: 'עוסק מורשה',
+        taxStatus: 'עוסק פטור מס',
         email: 'test@example.com',
       },
       invoice: {

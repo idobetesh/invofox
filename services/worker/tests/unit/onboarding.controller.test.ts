@@ -297,28 +297,6 @@ describe('Onboarding Controller', () => {
       });
     });
 
-    it('should set licensed business status', async () => {
-      const query = createQuery(-1001234567, 'onboard_tax_licensed');
-
-      (onboardingService.getOnboardingSession as jest.Mock).mockResolvedValue({
-        chatId: -1001234567,
-        userId: 123456,
-        language: 'he',
-        step: 'tax_status',
-        data: {},
-      });
-      (onboardingService.updateOnboardingData as jest.Mock).mockResolvedValue(undefined);
-      (onboardingService.updateOnboardingSession as jest.Mock).mockResolvedValue(undefined);
-      (telegramService.answerCallbackQuery as jest.Mock).mockResolvedValue(undefined);
-      (telegramService.sendMessage as jest.Mock).mockResolvedValue(undefined);
-
-      await handleTaxStatusCallback(query);
-
-      expect(onboardingService.updateOnboardingData).toHaveBeenCalledWith(-1001234567, {
-        taxStatus: 'עוסק מורשה',
-      });
-    });
-
     it('should not proceed if session is missing', async () => {
       const query = createQuery(-1001234567, 'onboard_tax_exempt');
 

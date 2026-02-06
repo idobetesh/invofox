@@ -91,7 +91,6 @@ You're ready to go! Try these commands:
 
     taxStatus: {
       exempt: 'Tax Exempt Business (עוסק פטור מס)',
-      licensed: 'Licensed Business (עוסק מורשה)',
     },
 
     counter: {
@@ -243,7 +242,6 @@ docs.google.com/spreadsheets/d/[זה_השדה]/edit`,
 
     taxStatus: {
       exempt: 'עוסק פטור מס',
-      licensed: 'עוסק מורשה',
     },
 
     counter: {

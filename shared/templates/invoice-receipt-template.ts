@@ -66,7 +66,7 @@ export function buildInvoiceReceiptHTML(params: InvoiceReceiptTemplateParams): s
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>חשבונית מס - קבלה / ${invoiceReceiptNumber}</title>
+  <title>חשבונית - קבלה / ${invoiceReceiptNumber}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&display=swap');
 
@@ -280,7 +280,7 @@ export function buildInvoiceReceiptHTML(params: InvoiceReceiptTemplateParams): s
 
   <!-- Invoice-Receipt Title Bar -->
   <div class="invoice-title-bar">
-    חשבונית מס - קבלה / ${invoiceReceiptNumber}
+    חשבונית - קבלה / ${invoiceReceiptNumber}
   </div>
 
   <!-- Meta Section -->

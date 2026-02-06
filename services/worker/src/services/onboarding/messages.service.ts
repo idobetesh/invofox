@@ -37,10 +37,7 @@ export function getLanguageSelectionMessage(): string {
 export function getTaxStatusSelectionKeyboard(language: Language): TelegramInlineKeyboardMarkup {
   return {
     inline_keyboard: [
-      [
-        { text: t(language, 'taxStatus.exempt'), callback_data: 'onboard_tax_exempt' },
-        { text: t(language, 'taxStatus.licensed'), callback_data: 'onboard_tax_licensed' },
-      ],
+      [{ text: t(language, 'taxStatus.exempt'), callback_data: 'onboard_tax_exempt' }],
     ],
   };
 }

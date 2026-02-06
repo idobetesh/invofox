@@ -455,7 +455,7 @@ describe('Onboarding E2E Tests', () => {
           phone: '+972501234567',
           email: 'john@test.com',
           address: '123 Main Street',
-          taxStatus: 'Licensed Business (עוסק מורשה)',
+          taxStatus: 'Tax Exempt Business (עוסק פטור מס)',
         },
       });
       await handleOnboardingMessage(createMessage('/skip'));
@@ -477,7 +477,7 @@ describe('Onboarding E2E Tests', () => {
           phone: '+972501234567',
           email: 'john@test.com',
           address: '123 Main Street',
-          taxStatus: 'Licensed Business (עוסק מורשה)',
+          taxStatus: 'Tax Exempt Business (עוסק פטור מס)',
         },
       });
 
@@ -503,7 +503,7 @@ describe('Onboarding E2E Tests', () => {
           phone: '+972501234567',
           email: 'john@test.com',
           address: '123 Main Street',
-          taxStatus: 'Licensed Business (עוסק מורשה)',
+          taxStatus: 'Tax Exempt Business (עוסק פטור מס)',
           startingCounter: 0,
         },
       });
@@ -518,7 +518,7 @@ describe('Onboarding E2E Tests', () => {
             email: 'john@test.com',
             phone: '+972501234567',
             address: '123 Main Street',
-            taxStatus: 'Licensed Business (עוסק מורשה)',
+            taxStatus: 'Tax Exempt Business (עוסק פטור מס)',
           }),
         }),
         CHAT_ID
