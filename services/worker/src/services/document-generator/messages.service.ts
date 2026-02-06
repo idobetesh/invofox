@@ -86,6 +86,6 @@ export function buildSuccessMessage(
   const typeLabel = getDocumentTypeLabel(documentType, language);
   return t(language, 'invoice.created', {
     type: typeLabel,
-    number: typeof invoiceNumber === 'number' ? invoiceNumber.toString() : invoiceNumber,
+    number: invoiceNumber.toString(),
   });
 }
