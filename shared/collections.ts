@@ -17,13 +17,18 @@ export const ONBOARDING_SESSIONS_COLLECTION = 'onboarding_sessions';
 
 // User management collections
 export const USER_CUSTOMER_MAPPING_COLLECTION = 'user_customer_mapping';
+export const APPROVED_CHATS_COLLECTION = 'approved_chats';
 
 // Job tracking collections
 export const INVOICE_JOBS_COLLECTION = 'invoice_jobs';
 export const PROCESSING_JOBS_COLLECTION = 'processing_jobs';
 
-// Report collections
+// Session collections
+export const INVOICE_SESSIONS_COLLECTION = 'invoice_sessions';
 export const REPORT_SESSIONS_COLLECTION = 'report_sessions';
+
+// Rate limiting collections
+export const RATE_LIMITS_COLLECTION = 'rate_limits';
 
 // Invite and callback collections
 export const INVITE_CODES_COLLECTION = 'invite_codes';
