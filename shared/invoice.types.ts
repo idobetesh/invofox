@@ -27,6 +27,11 @@ export type InvoiceSessionStatus =
 export type PaymentMethod = 'מזומן' | 'ביט' | 'PayBox' | 'העברה' | 'אשראי' | 'צ׳ק';
 
 /**
+ * Payment status for invoice tracking
+ */
+export type PaymentStatus = 'unpaid' | 'partial' | 'paid';
+
+/**
  * Invoice generation session stored in Firestore
  * Document ID: `${chatId}_${userId}`
  */
@@ -70,7 +75,7 @@ export interface GeneratedInvoice {
   storageUrl: string;
 
   // Invoice-specific fields (for tracking payments)
-  paymentStatus?: 'unpaid' | 'partial' | 'paid';
+  paymentStatus?: PaymentStatus;
   paidAmount?: number;
   remainingBalance?: number;
   relatedReceiptIds?: string[]; // Receipt doc IDs linked to this invoice

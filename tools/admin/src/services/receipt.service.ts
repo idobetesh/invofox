@@ -12,6 +12,7 @@ import {
   GENERATED_INVOICES_COLLECTION,
   GENERATED_RECEIPTS_COLLECTION,
 } from '../../../../shared/collections';
+import type { PaymentStatus } from '../../../../shared/invoice.types';
 
 interface InvoiceDocument {
   id: string;
@@ -25,7 +26,7 @@ interface InvoiceDocument {
   currency: string;
   date: string;
   paymentMethod?: string;
-  paymentStatus: 'unpaid' | 'partial' | 'paid';
+  paymentStatus: PaymentStatus;
   paidAmount: number;
   remainingBalance: number;
   relatedReceiptIds: string[];
@@ -51,7 +52,7 @@ interface GenerateReceiptResult {
   invoiceUpdated: {
     newPaidAmount: number;
     newRemainingBalance: number;
-    newPaymentStatus: 'unpaid' | 'partial' | 'paid';
+    newPaymentStatus: PaymentStatus;
   };
 }
 
@@ -61,7 +62,7 @@ interface ValidationResult {
   isPartialPayment: boolean;
   newPaidAmount: number;
   newRemainingBalance: number;
-  newPaymentStatus: 'unpaid' | 'partial' | 'paid';
+  newPaymentStatus: PaymentStatus;
 }
 
 export class ReceiptService {

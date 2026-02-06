@@ -1,6 +1,6 @@
 /**
- * Invoice generation controller
- * Handles /invoice command, conversation messages, and button callbacks
+ * Document generation controller
+ * Handles /new command, conversation messages, and button callbacks
  */
 
 import { Request, Response } from 'express';
@@ -9,8 +9,8 @@ import type {
   InvoiceCommandPayload,
   InvoiceMessagePayload,
   InvoiceCallbackPayload,
-  InvoiceCallbackAction,
-} from '../../../../shared/types';
+} from '../../../../shared/task.types';
+import type { InvoiceCallbackAction, InvoiceDocumentType } from '../../../../shared/invoice.types';
 import * as sessionService from '../services/document-generator/session.service';
 import { generateInvoice, getGeneratedInvoice } from '../services/document-generator';
 import * as telegramService from '../services/telegram.service';
@@ -32,7 +32,7 @@ import { t } from '../services/i18n/languages';
 import logger from '../logger';
 
 /**
- * Handle /invoice command
+ * Handle /new command for creating documents (invoices, receipts, invoice-receipts)
  */
 export async function handleInvoiceCommand(req: Request, res: Response): Promise<void> {
   const payload = req.body as InvoiceCommandPayload;
@@ -42,7 +42,7 @@ export async function handleInvoiceCommand(req: Request, res: Response): Promise
     handler: 'handleInvoiceCommand',
   });
 
-  log.info('Processing invoice command');
+  log.info('Processing /new command');
 
   try {
     // Get user's customers (single Firestore read, avoids duplicate reads)
@@ -95,11 +95,9 @@ export async function handleInvoiceCommand(req: Request, res: Response): Promise
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
-    log.error({ error: errorMessage, stack: errorStack }, 'Failed to handle invoice command');
+    log.error({ error: errorMessage, stack: errorStack }, 'Failed to handle /new command');
     await telegramService.sendMessage(payload.chatId, t('he', 'invoice.error'));
-    res
-      .status(StatusCodes.INTERNAL_SERVER_ERROR)
-      .json({ error: 'Failed to handle invoice command' });
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to handle /new command' });
   }
 }
 
@@ -495,7 +493,7 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
           // Delete session on success
           await sessionService.deleteSession(payload.chatId, payload.userId);
 
-          const docType = confirmedSession.documentType as 'invoice' | 'invoice_receipt';
+          const docType = confirmedSession.documentType as InvoiceDocumentType;
           const typeLabel = getDocumentTypeLabel(docType);
 
           await telegramService.sendDocument(
