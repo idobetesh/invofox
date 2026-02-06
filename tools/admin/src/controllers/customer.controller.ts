@@ -2,6 +2,14 @@ import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { CustomerService } from '../services/customer.service';
 import { OffboardingService } from '../offboarding/offboarding.service';
+import {
+  INVOICE_COUNTERS_COLLECTION,
+  GENERATED_INVOICES_COLLECTION,
+  USER_CUSTOMER_MAPPING_COLLECTION,
+  INVOICE_JOBS_COLLECTION,
+  BUSINESS_CONFIG_COLLECTION,
+  ONBOARDING_SESSIONS_COLLECTION,
+} from '../../../../shared/collections';
 
 export class CustomerController {
   constructor(
@@ -63,19 +71,19 @@ export class CustomerController {
       chatId,
       customerName: preview.name,
       summary: {
-        businessConfig: (preview.collections['business_config']?.count || 0) > 0,
+        businessConfig: (preview.collections[BUSINESS_CONFIG_COLLECTION]?.count || 0) > 0,
         logo: {
           exists: (preview.storage['logos']?.count || 0) > 0,
           path: preview.storage['logos']?.paths?.[0],
         },
-        onboardingSession: (preview.collections['onboarding_sessions']?.count || 0) > 0,
+        onboardingSession: (preview.collections[ONBOARDING_SESSIONS_COLLECTION]?.count || 0) > 0,
         counters: {
-          count: preview.collections['invoice_counters']?.count || 0,
-          docIds: preview.collections['invoice_counters']?.docIds || [],
+          count: preview.collections[INVOICE_COUNTERS_COLLECTION]?.count || 0,
+          docIds: preview.collections[INVOICE_COUNTERS_COLLECTION]?.docIds || [],
         },
         generatedInvoices: {
-          count: preview.collections['generated_invoices']?.count || 0,
-          docIds: preview.collections['generated_invoices']?.docIds || [],
+          count: preview.collections[GENERATED_INVOICES_COLLECTION]?.count || 0,
+          docIds: preview.collections[GENERATED_INVOICES_COLLECTION]?.docIds || [],
         },
         generatedPDFs: {
           count: preview.storage['generated_pdfs']?.count || 0,
@@ -86,12 +94,12 @@ export class CustomerController {
           paths: preview.storage['received_invoices']?.paths || [],
         },
         userMappings: {
-          count: preview.collections['user_customer_mapping']?.count || 0,
-          userIds: preview.collections['user_customer_mapping']?.docIds || [],
+          count: preview.collections[USER_CUSTOMER_MAPPING_COLLECTION]?.count || 0,
+          userIds: preview.collections[USER_CUSTOMER_MAPPING_COLLECTION]?.docIds || [],
         },
         processingJobs: {
-          count: preview.collections['invoice_jobs']?.count || 0,
-          docIds: preview.collections['invoice_jobs']?.docIds || [],
+          count: preview.collections[INVOICE_JOBS_COLLECTION]?.count || 0,
+          docIds: preview.collections[INVOICE_JOBS_COLLECTION]?.docIds || [],
         },
       },
       totalItems: preview.totalItems,
