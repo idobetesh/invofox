@@ -359,14 +359,7 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
       }
 
       case 'select_invoice': {
-        // Save selected invoice and show payment amount prompt
-        await sessionService.setSelectedInvoice(
-          payload.chatId,
-          payload.userId,
-          action.invoiceNumber
-        );
-
-        // Get invoice details to show remaining balance
+        // Get invoice details first
         const invoice = await getGeneratedInvoice(payload.chatId, action.invoiceNumber);
 
         if (!invoice) {
@@ -377,6 +370,19 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
           res.status(StatusCodes.OK).json({ ok: true, action: 'invoice_not_found' });
           return;
         }
+
+        // Save selected invoice with customer details for receipt
+        await sessionService.setSelectedInvoice(
+          payload.chatId,
+          payload.userId,
+          action.invoiceNumber
+        );
+
+        // Update session with customer name and description from invoice
+        await sessionService.updateSession(payload.chatId, payload.userId, {
+          customerName: invoice.customerName,
+          description: `קבלה עבור חשבונית ${action.invoiceNumber}`,
+        });
 
         const remainingBalance = invoice.remainingBalance || invoice.amount;
         const paidAmount = invoice.paidAmount || 0;
