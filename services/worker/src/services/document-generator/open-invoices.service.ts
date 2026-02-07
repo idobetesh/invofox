@@ -28,10 +28,17 @@ export interface OpenInvoice {
 /**
  * Query open invoices (unpaid or partially paid) for a customer
  * Returns invoices sorted by date (newest first)
+ * @param chatId - Customer's chat ID
+ * @param offset - Pagination offset (default 0)
+ * @param limit - Number of invoices to fetch (default 10)
  */
-export async function getOpenInvoices(chatId: number): Promise<OpenInvoice[]> {
+export async function getOpenInvoices(
+  chatId: number,
+  offset: number = 0,
+  limit: number = 10
+): Promise<OpenInvoice[]> {
   const db = getFirestore();
-  const log = logger.child({ chatId, function: 'getOpenInvoices' });
+  const log = logger.child({ chatId, offset, limit, function: 'getOpenInvoices' });
 
   try {
     // Query invoices that are not fully paid
@@ -42,7 +49,8 @@ export async function getOpenInvoices(chatId: number): Promise<OpenInvoice[]> {
       .where('documentType', '==', 'invoice')
       .where('paymentStatus', 'in', ['unpaid', 'partial'])
       .orderBy('generatedAt', 'desc')
-      .limit(10) // Limit to 10 most recent open invoices
+      .offset(offset) // Skip already shown invoices
+      .limit(limit) // Fetch next batch
       .get();
 
     if (snapshot.empty) {
@@ -68,11 +76,37 @@ export async function getOpenInvoices(chatId: number): Promise<OpenInvoice[]> {
       }
     }
 
-    log.info({ count: openInvoices.length }, 'Found open invoices');
+    log.info({ count: openInvoices.length, offset }, 'Found open invoices');
     return openInvoices;
   } catch (error) {
     log.error({ error }, 'Failed to query open invoices');
     throw error;
+  }
+}
+
+/**
+ * Count total open invoices for a customer
+ * Used to determine if "Show More" button should be displayed
+ */
+export async function countOpenInvoices(chatId: number): Promise<number> {
+  const db = getFirestore();
+  const log = logger.child({ chatId, function: 'countOpenInvoices' });
+
+  try {
+    const snapshot = await db
+      .collection(GENERATED_INVOICES_COLLECTION)
+      .where('chatId', '==', chatId)
+      .where('documentType', '==', 'invoice')
+      .where('paymentStatus', 'in', ['unpaid', 'partial'])
+      .count()
+      .get();
+
+    const count = snapshot.data().count;
+    log.info({ count }, 'Counted open invoices');
+    return count;
+  } catch (error) {
+    log.error({ error }, 'Failed to count open invoices');
+    return 0; // Return 0 on error to avoid breaking the flow
   }
 }
 

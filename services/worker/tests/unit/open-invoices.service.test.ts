@@ -12,7 +12,8 @@ import {
 // Mock Firestore
 const mockGet = jest.fn();
 const mockLimit = jest.fn(() => ({ get: mockGet }));
-const mockOrderBy = jest.fn(() => ({ limit: mockLimit }));
+const mockOffset = jest.fn(() => ({ limit: mockLimit }));
+const mockOrderBy = jest.fn(() => ({ offset: mockOffset }));
 
 // Create whereChain that supports multiple .where() calls
 const whereChain = {

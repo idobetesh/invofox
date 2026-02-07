@@ -21,7 +21,10 @@ import {
   buildConfirmationKeyboard,
   buildInvoiceSelectionKeyboard,
 } from '../services/document-generator/keyboards.service';
-import { getOpenInvoices } from '../services/document-generator/open-invoices.service';
+import {
+  getOpenInvoices,
+  countOpenInvoices,
+} from '../services/document-generator/open-invoices.service';
 import { parseInvoiceDetails } from '../services/document-generator/parser.service';
 import {
   buildConfirmationMessage,
@@ -309,9 +312,12 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
 
         // For receipts: show open invoices
         if (action.documentType === 'receipt') {
-          const openInvoices = await getOpenInvoices(payload.chatId);
+          const [openInvoices, totalCount] = await Promise.all([
+            getOpenInvoices(payload.chatId, 0, 10),
+            countOpenInvoices(payload.chatId),
+          ]);
 
-          if (openInvoices.length === 0) {
+          if (totalCount === 0) {
             await telegramService.editMessageText(
               payload.chatId,
               payload.messageId,
@@ -329,17 +335,18 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
             t('he', 'invoice.typeSelected', { type: typeLabel })
           );
 
-          // Build message with invoice count
-          const invoiceListMsg =
-            openInvoices.length === 10
-              ? `${t('he', 'invoice.selectInvoiceHe')}\n\n${t('he', 'invoice.invoiceCountLimit')}`
-              : t('he', 'invoice.selectInvoiceHe');
+          // Build message with pagination info
+          const showing = Math.min(10, totalCount);
+          const invoiceListMsg = `${t('he', 'invoice.selectInvoiceHe')}\n\n📋 מציג ${showing} מתוך ${totalCount} חשבוניות`;
 
           await telegramService.sendMessage(payload.chatId, invoiceListMsg, {
-            replyMarkup: buildInvoiceSelectionKeyboard(openInvoices),
+            replyMarkup: buildInvoiceSelectionKeyboard(openInvoices, 0, totalCount),
           });
 
-          log.info({ count: openInvoices.length }, 'Showed open invoices for receipt creation');
+          log.info(
+            { count: openInvoices.length, total: totalCount },
+            'Showed open invoices for receipt creation'
+          );
           res.status(StatusCodes.OK).json({ ok: true, action: 'showing_open_invoices' });
           return;
         }
@@ -405,6 +412,44 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
           'Invoice selected for receipt'
         );
         res.status(StatusCodes.OK).json({ ok: true, action: 'invoice_selected' });
+        break;
+      }
+
+      case 'show_more': {
+        // Fetch next batch of invoices with pagination
+        const [openInvoices, totalCount] = await Promise.all([
+          getOpenInvoices(payload.chatId, action.offset, 10),
+          countOpenInvoices(payload.chatId),
+        ]);
+
+        if (openInvoices.length === 0) {
+          await telegramService.answerCallbackQuery(payload.callbackQueryId, {
+            text: 'אין עוד חשבוניות להצגה',
+            showAlert: true,
+          });
+          res.status(StatusCodes.OK).json({ ok: true, action: 'no_more_invoices' });
+          return;
+        }
+
+        await telegramService.answerCallbackQuery(payload.callbackQueryId);
+
+        // Update message with new pagination info
+        const endIndex = Math.min(action.offset + openInvoices.length, totalCount);
+        const invoiceListMsg = `${t('he', 'invoice.selectInvoiceHe')}\n\n📋 מציג ${action.offset + 1}-${endIndex} מתוך ${totalCount} חשבוניות`;
+
+        await telegramService.editMessageText(payload.chatId, payload.messageId, invoiceListMsg);
+
+        // Update keyboard with new invoices
+        await telegramService.editMessageReplyMarkup(payload.chatId, payload.messageId, {
+          inline_keyboard: buildInvoiceSelectionKeyboard(openInvoices, action.offset, totalCount)
+            .inline_keyboard,
+        });
+
+        log.info(
+          { offset: action.offset, count: openInvoices.length, total: totalCount },
+          'Showed more invoices'
+        );
+        res.status(StatusCodes.OK).json({ ok: true, action: 'showed_more_invoices' });
         break;
       }
 
@@ -474,12 +519,19 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
           text: t('he', 'invoice.creating'),
         });
 
-        // Remove confirmation buttons and show brief confirmation
-        await telegramService.editMessageText(
-          payload.chatId,
-          payload.messageId,
-          t('he', 'invoice.creating')
-        );
+        // Build summary message with context
+        const docType = confirmedSession.documentType as InvoiceDocumentType;
+        const typeLabel = getDocumentTypeLabel(docType);
+        const currencySymbol =
+          confirmedSession.currency === 'USD'
+            ? '$'
+            : confirmedSession.currency === 'EUR'
+              ? '€'
+              : '₪';
+        const summaryText = `⏳ מייצר ${typeLabel} עבור ${confirmedSession.customerName} - ${currencySymbol}${confirmedSession.amount?.toLocaleString('he-IL')}...`;
+
+        // Remove confirmation buttons and show summary
+        await telegramService.editMessageText(payload.chatId, payload.messageId, summaryText);
 
         try {
           // Generate invoice
@@ -493,8 +545,13 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
           // Delete session on success
           await sessionService.deleteSession(payload.chatId, payload.userId);
 
-          const docType = confirmedSession.documentType as InvoiceDocumentType;
-          const typeLabel = getDocumentTypeLabel(docType);
+          // Delete "generating" message (clean UI)
+          try {
+            await telegramService.deleteMessage(payload.chatId, payload.messageId);
+          } catch (error) {
+            // Ignore error if message already deleted
+            log.debug({ error }, 'Failed to delete generating message (may already be deleted)');
+          }
 
           await telegramService.sendDocument(
             payload.chatId,
