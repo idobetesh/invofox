@@ -5,6 +5,7 @@
 
 import type { DatePreset } from '../../../../../shared/report.types';
 import * as telegramService from '../telegram.service';
+import logger from '../../logger';
 
 /**
  * Send type selection message (Revenue or Expenses)
@@ -202,6 +203,11 @@ export async function sendReportGeneratedMessage(
       await telegramService.deleteMessage(chatId, generatingMessageId);
     } catch (error) {
       // Ignore error if message already deleted or not found
+      // Log at debug level for troubleshooting (e.g., permission issues)
+      logger.debug(
+        { error, chatId, messageId: generatingMessageId },
+        'Failed to delete generating message (may already be deleted)'
+      );
     }
   }
 

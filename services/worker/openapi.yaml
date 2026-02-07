@@ -339,7 +339,7 @@ paths:
                     type: boolean
                   action:
                     type: string
-                    enum: [type_selected, showing_open_invoices, invoice_selected, showed_more_invoices, payment_selected, invoice_generated, cancelled]
+                    enum: [type_selected, showing_open_invoices, invoice_selected, showed_more_invoices, no_more_invoices, payment_selected, invoice_generated, cancelled]
               examples:
                 showingInvoices:
                   summary: Showed open invoices with pagination

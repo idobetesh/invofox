@@ -22,7 +22,8 @@ import { generateInvoicePDFWithConfig } from './pdf.generator';
 import { getNextDocumentNumber } from './counter.service';
 import { getBusinessConfig, getLogoBase64 } from '../business-config/config.service';
 import { appendGeneratedInvoiceRow } from '../sheets.service';
-import { getDocumentTypeLabel, getRelatedInvoice } from './invoice-sheet-helpers';
+import { getRelatedInvoice } from './invoice-sheet-helpers';
+import { getDocumentTypeLabel } from './messages.service';
 import logger from '../../logger';
 import { getConfig } from '../../config';
 
