@@ -22,6 +22,7 @@ jobs:
       - name: Get Docker Hub JWT Token
         id: auth
         run: |
+          # Docker Hub API requires JWT token for delete operations
           TOKEN=$(curl -s -X POST "https://hub.docker.com/v2/users/login" \
             -H "Content-Type: application/json" \
             -d '{"username": "${{ env.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' \
@@ -34,85 +35,92 @@ jobs:
           echo "✅ Authenticated with Docker Hub"
           echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
-      - name: Get all digests for ${{ matrix.service }}
+      - name: Get tag count for ${{ matrix.service }}
         id: get-digests
         run: |
-          REPO="${{ env.DOCKERHUB_USERNAME }}/${{ matrix.service }}"
+          NAMESPACE="${{ env.DOCKERHUB_USERNAME }}"
+          REPO="${{ matrix.service }}"
+          TOKEN="${{ steps.auth.outputs.token }}"
           
-          # Get all images with their digests and tags, sorted by last_pushed (newest first)
-          IMAGES=$(curl -s "https://hub.docker.com/v2/repositories/$REPO/tags/?page_size=100" \
-            | jq -r '.results | sort_by(.last_pushed) | reverse | .[].digest' \
-            | uniq)
+          # Get all tags using the correct v2/namespaces endpoint
+          TAGS=$(curl -s -H "Authorization: Bearer $TOKEN" \
+            "https://hub.docker.com/v2/namespaces/$NAMESPACE/repositories/$REPO/tags?page_size=100" \
+            | jq -r '.results | sort_by(.last_pushed) | reverse | .[].name')
           
-          TOTAL=$(echo "$IMAGES" | grep -c . || echo "0")
+          TOTAL=$(echo "$TAGS" | grep -c . || echo "0")
           echo "total_images=$TOTAL" >> $GITHUB_OUTPUT
+          echo "Found $TOTAL total tags"
           
-          # Get the digest of 'latest' tag to always preserve it
-          LATEST_DIGEST=$(curl -s "https://hub.docker.com/v2/repositories/$REPO/tags/latest" \
-            | jq -r '.digest // empty')
-          
-          echo "Latest digest: $LATEST_DIGEST"
-          
-          # Keep first N unique digests plus the latest digest
-          KEEP_DIGESTS=$(echo "$IMAGES" | head -n ${{ env.KEEP_IMAGES }})
-          if [ -n "$LATEST_DIGEST" ]; then
-            KEEP_DIGESTS=$(echo -e "$KEEP_DIGESTS\n$LATEST_DIGEST" | sort -u)
+          # Calculate how many to delete (total - keep - 1 for latest)
+          KEEP=${{ env.KEEP_IMAGES }}
+          TO_DELETE_COUNT=$((TOTAL - KEEP))
+          if [ $TO_DELETE_COUNT -lt 0 ]; then
+            TO_DELETE_COUNT=0
           fi
           
-          # Find digests to delete (not in keep list)
-          TO_DELETE=""
-          for digest in $IMAGES; do
-            if ! echo "$KEEP_DIGESTS" | grep -q "^$digest$"; then
-              TO_DELETE="$TO_DELETE$digest"$'\n'
-            fi
-          done
-          TO_DELETE=$(echo "$TO_DELETE" | sed '/^$/d')
+          # Check if latest is in the keep range, if not we need to account for it
+          LATEST_IN_TOP=$(echo "$TAGS" | head -n $KEEP | grep -c "^latest$" || echo "0")
           
-          if [ -z "$TO_DELETE" ]; then
-            echo "No images to delete (only $TOTAL images exist, keeping ${{ env.KEEP_IMAGES }})"
+          echo "Tags to keep: $KEEP (+ latest if not in top $KEEP)"
+          echo "Tags to delete: $TO_DELETE_COUNT"
+          
+          if [ $TO_DELETE_COUNT -gt 0 ]; then
+            echo "should_delete=true" >> $GITHUB_OUTPUT
+            echo "to_delete_count=$TO_DELETE_COUNT" >> $GITHUB_OUTPUT
+          else
             echo "should_delete=false" >> $GITHUB_OUTPUT
             echo "to_delete_count=0" >> $GITHUB_OUTPUT
-          else
-            COUNT=$(echo "$TO_DELETE" | grep -c . || echo "0")
-            echo "Will delete $COUNT old images"
-            echo "should_delete=true" >> $GITHUB_OUTPUT
-            echo "to_delete_count=$COUNT" >> $GITHUB_OUTPUT
-            echo "digests<<EOF" >> $GITHUB_OUTPUT
-            echo "$TO_DELETE" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
           fi
 
       - name: Delete old images for ${{ matrix.service }}
         id: delete
         if: steps.get-digests.outputs.should_delete == 'true'
         run: |
-          REPO="${{ env.DOCKERHUB_USERNAME }}/${{ matrix.service }}"
+          NAMESPACE="${{ env.DOCKERHUB_USERNAME }}"
+          REPO="${{ matrix.service }}"
           TOKEN="${{ steps.auth.outputs.token }}"
           DELETED=0
           FAILED=0
           
-          echo "Deleting old images for ${{ matrix.service }}..."
+          echo "Deleting old tags for $REPO..."
           
-          while read digest; do
-            if [ -z "$digest" ]; then continue; fi
+          # Get tags to delete (excluding latest and keeping most recent N)
+          # Using the correct v2/namespaces endpoint format
+          TAGS_TO_DELETE=$(curl -s -H "Authorization: Bearer $TOKEN" \
+            "https://hub.docker.com/v2/namespaces/$NAMESPACE/repositories/$REPO/tags?page_size=100" \
+            | jq -r '.results | sort_by(.last_pushed) | reverse | .[${{ env.KEEP_IMAGES }}:] | .[].name' \
+            | grep -v "^latest$" || true)
+          
+          if [ -z "$TAGS_TO_DELETE" ]; then
+            echo "No tags to delete"
+            echo "deleted_count=0" >> $GITHUB_OUTPUT
+            echo "failed_count=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          TOTAL=$(echo "$TAGS_TO_DELETE" | grep -c . || echo "0")
+          echo "Found $TOTAL tags to delete"
+          
+          while read tag; do
+            if [ -z "$tag" ]; then continue; fi
             
-            echo "Deleting digest: ${digest:0:20}..."
+            echo "Deleting tag: $tag..."
             
-            # Delete by digest using the manifests endpoint
+            # Use the correct v2/namespaces endpoint for deletion
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
               -H "Authorization: Bearer $TOKEN" \
-              "https://hub.docker.com/v2/repositories/$REPO/images/$digest")
+              "https://hub.docker.com/v2/namespaces/$NAMESPACE/repositories/$REPO/tags/$tag")
             
             if [ "$HTTP_CODE" = "202" ] || [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
-              echo "✅ Deleted ${digest:0:20}..."
+              echo "✅ Deleted tag: $tag"
               DELETED=$((DELETED + 1))
             else
-              echo "❌ Failed to delete ${digest:0:20}... (HTTP $HTTP_CODE)"
+              echo "❌ Failed to delete tag: $tag (HTTP $HTTP_CODE)"
               FAILED=$((FAILED + 1))
             fi
             
-            sleep 0.5  # Rate limit protection
-          done <<< "${{ steps.get-digests.outputs.digests }}"
+            sleep 0.3
+          done <<< "$TAGS_TO_DELETE"
           
           echo "deleted_count=$DELETED" >> $GITHUB_OUTPUT
           echo "failed_count=$FAILED" >> $GITHUB_OUTPUT
