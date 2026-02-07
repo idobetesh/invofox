@@ -132,6 +132,7 @@ export interface InvoiceData {
 
 /**
  * Generated Invoices sheet row
+ * Columns A-K are existing, L-M are new (appended at end for backward compatibility)
  */
 export interface GeneratedInvoiceSheetRow {
   invoice_number: string;
@@ -145,6 +146,9 @@ export interface GeneratedInvoiceSheetRow {
   generated_by: string;
   generated_at: string;
   pdf_link: string;
+  // New columns (L-M) - appended at end to avoid breaking existing data
+  currency: string; // Column L: "ILS" | "USD" | "EUR"
+  related_invoice: string; // Column M: For receipts - parent invoice number
 }
 
 /**
@@ -154,5 +158,6 @@ export type InvoiceCallbackAction =
   | { action: 'select_type'; documentType: InvoiceDocumentType }
   | { action: 'select_invoice'; invoiceNumber: string }
   | { action: 'select_payment'; paymentMethod: PaymentMethod }
+  | { action: 'show_more'; offset: number }
   | { action: 'confirm' }
   | { action: 'cancel' };

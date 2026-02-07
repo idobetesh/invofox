@@ -22,6 +22,7 @@ import { generateInvoicePDFWithConfig } from './pdf.generator';
 import { getNextDocumentNumber } from './counter.service';
 import { getBusinessConfig, getLogoBase64 } from '../business-config/config.service';
 import { appendGeneratedInvoiceRow } from '../sheets.service';
+import { getDocumentTypeLabel, getRelatedInvoice } from './invoice-sheet-helpers';
 import logger from '../../logger';
 import { getConfig } from '../../config';
 
@@ -191,7 +192,7 @@ export async function generateInvoice(
     chatId,
     {
       invoice_number: invoiceNumber,
-      document_type: invoiceData.documentType === 'invoice' ? 'חשבונית' : 'חשבונית-קבלה',
+      document_type: getDocumentTypeLabel(invoiceData.documentType),
       date: formatDateDisplay(invoiceData.date),
       customer_name: invoiceData.customerName,
       customer_tax_id: invoiceData.customerTaxId || '',
@@ -201,6 +202,9 @@ export async function generateInvoice(
       generated_by: username,
       generated_at: new Date().toISOString(),
       pdf_link: pdfUrl,
+      // New columns (L-M) - appended at end for backward compatibility
+      currency: invoiceData.currency || 'ILS',
+      related_invoice: getRelatedInvoice(invoiceData.documentType, session),
     },
     config.business.sheetId // Pass sheetId from already-loaded config (avoids duplicate Firestore read)
   );
