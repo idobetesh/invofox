@@ -19,67 +19,125 @@ jobs:
         service: [webhook-handler, worker]
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
+      - name: Get Docker Hub JWT Token
+        id: auth
         run: |
-          npm install -g docker-hub-utils
+          # Docker Hub API requires JWT token for delete operations
+          TOKEN=$(curl -s -X POST "https://hub.docker.com/v2/users/login" \
+            -H "Content-Type: application/json" \
+            -d '{"username": "${{ env.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' \
+            | jq -r '.token')
+          
+          if [ "$TOKEN" = "null" ] || [ -z "$TOKEN" ]; then
+            echo "❌ Failed to authenticate with Docker Hub"
+            exit 1
+          fi
+          echo "✅ Authenticated with Docker Hub"
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
-      - name: Login to Docker Hub
+      - name: Get tag count for ${{ matrix.service }}
+        id: get-digests
         run: |
-          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ env.DOCKERHUB_USERNAME }} --password-stdin
-
-      - name: Get all tags for ${{ matrix.service }}
-        id: get-tags
-        run: |
-          # Get all tags except 'latest'
-          TAGS=$(curl -s "https://hub.docker.com/v2/repositories/${{ env.DOCKERHUB_USERNAME }}/${{ matrix.service }}/tags/?page_size=100" \
-            | jq -r '.results[] | select(.name != "latest") | .name' \
-            | sort -r)
-
-          # Count total tags
-          TOTAL=$(echo "$TAGS" | wc -l)
-          echo "Found $TOTAL tags for ${{ matrix.service }}"
-
-          # Get tags to delete (skip first N to keep)
-          TO_DELETE=$(echo "$TAGS" | tail -n +$((${{ env.KEEP_IMAGES }} + 1)))
-
-          if [ -z "$TO_DELETE" ]; then
-            echo "No tags to delete (only $TOTAL tags exist)"
-            echo "should_delete=false" >> $GITHUB_OUTPUT
-          else
-            COUNT=$(echo "$TO_DELETE" | wc -l)
-            echo "Will delete $COUNT old tags"
+          NAMESPACE="${{ env.DOCKERHUB_USERNAME }}"
+          REPO="${{ matrix.service }}"
+          TOKEN="${{ steps.auth.outputs.token }}"
+          
+          # Get all tags using the correct v2/namespaces endpoint
+          TAGS=$(curl -s -H "Authorization: Bearer $TOKEN" \
+            "https://hub.docker.com/v2/namespaces/$NAMESPACE/repositories/$REPO/tags?page_size=100" \
+            | jq -r '.results | sort_by(.last_pushed) | reverse | .[].name')
+          
+          TOTAL=$(echo "$TAGS" | grep -c . || echo "0")
+          echo "total_images=$TOTAL" >> $GITHUB_OUTPUT
+          echo "Found $TOTAL total tags"
+          
+          # Calculate how many to delete (total - keep - 1 for latest)
+          KEEP=${{ env.KEEP_IMAGES }}
+          TO_DELETE_COUNT=$((TOTAL - KEEP))
+          if [ $TO_DELETE_COUNT -lt 0 ]; then
+            TO_DELETE_COUNT=0
+          fi
+          
+          # Check if latest is in the keep range, if not we need to account for it
+          LATEST_IN_TOP=$(echo "$TAGS" | head -n $KEEP | grep -c "^latest$" || echo "0")
+          
+          echo "Tags to keep: $KEEP (+ latest if not in top $KEEP)"
+          echo "Tags to delete: $TO_DELETE_COUNT"
+          
+          if [ $TO_DELETE_COUNT -gt 0 ]; then
             echo "should_delete=true" >> $GITHUB_OUTPUT
-            echo "tags<<EOF" >> $GITHUB_OUTPUT
-            echo "$TO_DELETE" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            echo "to_delete_count=$TO_DELETE_COUNT" >> $GITHUB_OUTPUT
+          else
+            echo "should_delete=false" >> $GITHUB_OUTPUT
+            echo "to_delete_count=0" >> $GITHUB_OUTPUT
           fi
 
-      - name: Delete old tags for ${{ matrix.service }}
-        if: steps.get-tags.outputs.should_delete == 'true'
+      - name: Delete old images for ${{ matrix.service }}
+        id: delete
+        if: steps.get-digests.outputs.should_delete == 'true'
         run: |
-          echo "Deleting old tags for ${{ matrix.service }}..."
-          echo "${{ steps.get-tags.outputs.tags }}" | while read tag; do
-            echo "Deleting tag: $tag"
-            curl -X DELETE \
-              -H "Authorization: Bearer ${{ secrets.DOCKERHUB_TOKEN }}" \
-              "https://hub.docker.com/v2/repositories/${{ env.DOCKERHUB_USERNAME }}/${{ matrix.service }}/tags/$tag/" \
-              && echo "✅ Deleted $tag" \
-              || echo "❌ Failed to delete $tag"
-            sleep 1  # Rate limit protection
-          done
+          NAMESPACE="${{ env.DOCKERHUB_USERNAME }}"
+          REPO="${{ matrix.service }}"
+          TOKEN="${{ steps.auth.outputs.token }}"
+          DELETED=0
+          FAILED=0
+          
+          echo "Deleting old tags for $REPO..."
+          
+          # Get tags to delete (excluding latest and keeping most recent N)
+          # Using the correct v2/namespaces endpoint format
+          TAGS_TO_DELETE=$(curl -s -H "Authorization: Bearer $TOKEN" \
+            "https://hub.docker.com/v2/namespaces/$NAMESPACE/repositories/$REPO/tags?page_size=100" \
+            | jq -r '.results | sort_by(.last_pushed) | reverse | .[${{ env.KEEP_IMAGES }}:] | .[].name' \
+            | grep -v "^latest$" || true)
+          
+          if [ -z "$TAGS_TO_DELETE" ]; then
+            echo "No tags to delete"
+            echo "deleted_count=0" >> $GITHUB_OUTPUT
+            echo "failed_count=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          TOTAL=$(echo "$TAGS_TO_DELETE" | grep -c . || echo "0")
+          echo "Found $TOTAL tags to delete"
+          
+          while read tag; do
+            if [ -z "$tag" ]; then continue; fi
+            
+            echo "Deleting tag: $tag..."
+            
+            # Use the correct v2/namespaces endpoint for deletion
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
+              -H "Authorization: Bearer $TOKEN" \
+              "https://hub.docker.com/v2/namespaces/$NAMESPACE/repositories/$REPO/tags/$tag")
+            
+            if [ "$HTTP_CODE" = "202" ] || [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Deleted tag: $tag"
+              DELETED=$((DELETED + 1))
+            else
+              echo "❌ Failed to delete tag: $tag (HTTP $HTTP_CODE)"
+              FAILED=$((FAILED + 1))
+            fi
+            
+            sleep 0.3
+          done <<< "$TAGS_TO_DELETE"
+          
+          echo "deleted_count=$DELETED" >> $GITHUB_OUTPUT
+          echo "failed_count=$FAILED" >> $GITHUB_OUTPUT
 
       - name: Summary
         run: |
-          echo "### Cleanup Summary for ${{ matrix.service }} 🧹" >> $GITHUB_STEP_SUMMARY
+          echo "### Cleanup Summary for ${{ matrix.service }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Kept:** Last ${{ env.KEEP_IMAGES }} images" >> $GITHUB_STEP_SUMMARY
-          echo "- **Deleted:** Old tags successfully removed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Latest tag:** Preserved ✅" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Total images found | ${{ steps.get-digests.outputs.total_images }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Images kept | ${{ env.KEEP_IMAGES }} + latest |" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.get-digests.outputs.should_delete }}" = "true" ]; then
+            echo "| Images deleted | ${{ steps.delete.outputs.deleted_count || '0' }} ✅ |" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ steps.delete.outputs.failed_count }}" != "0" ] && [ -n "${{ steps.delete.outputs.failed_count }}" ]; then
+              echo "| Failed to delete | ${{ steps.delete.outputs.failed_count }} ❌ |" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "| Images deleted | 0 (no cleanup needed) |" >> $GITHUB_STEP_SUMMARY
+          fi
