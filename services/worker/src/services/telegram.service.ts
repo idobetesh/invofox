@@ -114,7 +114,7 @@ export async function sendMessage(
     disableWebPagePreview?: boolean;
     replyMarkup?: TelegramInlineKeyboardMarkup;
   }
-): Promise<void> {
+): Promise<TelegramMessage> {
   const config = getConfig();
   const url = `${TELEGRAM_API_BASE}/bot${config.telegramBotToken}/sendMessage`;
 
@@ -139,7 +139,7 @@ export async function sendMessage(
     body.reply_markup = options.replyMarkup;
   }
 
-  await telegramPost(url, body, 'Failed to send message');
+  return await telegramPost<TelegramMessage>(url, body, 'Failed to send message');
 }
 
 /**
@@ -200,6 +200,41 @@ export async function editMessageText(
   }
 
   await telegramPost(url, body, 'Failed to edit message');
+}
+
+/**
+ * Edit message reply markup (update inline keyboard without changing text)
+ */
+export async function editMessageReplyMarkup(
+  chatId: number,
+  messageId: number,
+  replyMarkup: TelegramInlineKeyboardMarkup
+): Promise<void> {
+  const config = getConfig();
+  const url = `${TELEGRAM_API_BASE}/bot${config.telegramBotToken}/editMessageReplyMarkup`;
+
+  const body: Record<string, unknown> = {
+    chat_id: chatId,
+    message_id: messageId,
+    reply_markup: replyMarkup,
+  };
+
+  await telegramPost(url, body, 'Failed to edit message reply markup');
+}
+
+/**
+ * Delete a message
+ */
+export async function deleteMessage(chatId: number, messageId: number): Promise<void> {
+  const config = getConfig();
+  const url = `${TELEGRAM_API_BASE}/bot${config.telegramBotToken}/deleteMessage`;
+
+  const body: Record<string, unknown> = {
+    chat_id: chatId,
+    message_id: messageId,
+  };
+
+  await telegramPost(url, body, 'Failed to delete message');
 }
 
 /**
