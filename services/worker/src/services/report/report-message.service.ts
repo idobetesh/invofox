@@ -8,8 +8,9 @@ import * as telegramService from '../telegram.service';
 
 /**
  * Send type selection message (Revenue or Expenses)
+ * Returns the message ID for later deletion
  */
-export async function sendTypeSelectionMessage(chatId: number, sessionId: string): Promise<void> {
+export async function sendTypeSelectionMessage(chatId: number, sessionId: string): Promise<number> {
   const message = '\u200F📊 איזה סוג דוח תרצה ליצור?';
   const keyboard = {
     inline_keyboard: [
@@ -43,15 +44,17 @@ export async function sendTypeSelectionMessage(chatId: number, sessionId: string
     ],
   };
 
-  await telegramService.sendMessage(chatId, message, {
+  const result = await telegramService.sendMessage(chatId, message, {
     replyMarkup: keyboard,
   });
+  return result.message_id;
 }
 
 /**
  * Send date range selection message
+ * Returns the message ID for later deletion
  */
-export async function sendDateSelectionMessage(chatId: number, sessionId: string): Promise<void> {
+export async function sendDateSelectionMessage(chatId: number, sessionId: string): Promise<number> {
   const message = '\u200F📅 באיזו תקופה תרצה לראות את הדוח?';
   const keyboard = {
     inline_keyboard: [
@@ -95,19 +98,21 @@ export async function sendDateSelectionMessage(chatId: number, sessionId: string
     ],
   };
 
-  await telegramService.sendMessage(chatId, message, {
+  const result = await telegramService.sendMessage(chatId, message, {
     replyMarkup: keyboard,
   });
+  return result.message_id;
 }
 
 /**
  * Send format selection message (PDF, Excel, CSV)
+ * Returns the message ID for later deletion
  */
 export async function sendFormatSelectionMessage(
   chatId: number,
   sessionId: string,
   invoiceCount: number
-): Promise<void> {
+): Promise<number> {
   const message = `\u200F✅ מצאנו ${invoiceCount} חשבוניות!\n\n\u200F📄 באיזה פורמט תרצה את הדוח?`;
   const keyboard = {
     inline_keyboard: [
@@ -149,9 +154,10 @@ export async function sendFormatSelectionMessage(
     ],
   };
 
-  await telegramService.sendMessage(chatId, message, {
+  const result = await telegramService.sendMessage(chatId, message, {
     replyMarkup: keyboard,
   });
+  return result.message_id;
 }
 
 /**
@@ -168,6 +174,7 @@ export function getDateLabel(preset: DatePreset): string {
 
 /**
  * Send report generated message with file
+ * Deletes the "generating" message before sending the file
  */
 export async function sendReportGeneratedMessage(
   chatId: number,
@@ -176,7 +183,8 @@ export async function sendReportGeneratedMessage(
   reportType: 'revenue' | 'expenses',
   datePreset: DatePreset,
   dateRange: { start: string; end: string },
-  metrics: { totalRevenue: number; invoiceCount: number; avgInvoice: number }
+  metrics: { totalRevenue: number; invoiceCount: number; avgInvoice: number },
+  generatingMessageId?: number
 ): Promise<void> {
   const reportTypeName = reportType === 'revenue' ? 'הכנסות' : 'הוצאות';
   const dateLabel = getDateLabel(datePreset);
@@ -187,6 +195,15 @@ export async function sendReportGeneratedMessage(
     `\u200F💰 סה"כ: ₪${metrics.totalRevenue.toLocaleString('he-IL')}\n` +
     `\u200F📄 חשבוניות: ${metrics.invoiceCount}\n` +
     `\u200F📈 ממוצע: ₪${Math.round(metrics.avgInvoice).toLocaleString('he-IL')}\n\n`;
+
+  // Delete generating message first (for clean UI)
+  if (generatingMessageId) {
+    try {
+      await telegramService.deleteMessage(chatId, generatingMessageId);
+    } catch (error) {
+      // Ignore error if message already deleted or not found
+    }
+  }
 
   await telegramService.sendDocument(chatId, fileBuffer, filename, {
     caption,

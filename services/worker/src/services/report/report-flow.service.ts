@@ -48,8 +48,13 @@ export async function handleTypeSelection(
       text: `✅ ${typeName}`,
     });
 
-    // Remove type selection buttons silently
-    await telegramService.editMessageText(chatId, messageId, `✅ ${typeName}`);
+    // Delete type selection message (clean UI)
+    try {
+      await telegramService.deleteMessage(chatId, messageId);
+    } catch (error) {
+      // Ignore error if message already deleted
+      log.debug({ error }, 'Failed to delete type selection message (may already be deleted)');
+    }
 
     // Send date selection message
     await reportMessageService.sendDateSelectionMessage(chatId, sessionId);
@@ -132,8 +137,13 @@ export async function handleDateSelection(
       text: `✅ ${dateLabel}`,
     });
 
-    // Remove period selection buttons silently
-    await telegramService.editMessageText(chatId, messageId, `✅ ${dateLabel}`);
+    // Delete date selection message (clean UI)
+    try {
+      await telegramService.deleteMessage(chatId, messageId);
+    } catch (error) {
+      // Ignore error if message already deleted
+      log.debug({ error }, 'Failed to delete date selection message (may already be deleted)');
+    }
 
     // Send format selection message
     await reportMessageService.sendFormatSelectionMessage(
@@ -180,20 +190,34 @@ export async function handleFormatSelection(
       throw new Error('Missing report type or date preset');
     }
 
-    // Update session with format
+    // Answer callback query with popup feedback
+    const formatName = format === 'pdf' ? 'PDF' : format === 'excel' ? 'Excel' : 'CSV';
+    await telegramService.answerCallbackQuery(callbackQueryId, {
+      text: `✅ ${formatName}`,
+    });
+
+    // Delete format selection message (clean UI)
+    try {
+      await telegramService.deleteMessage(chatId, messageId);
+    } catch (error) {
+      // Ignore error if message already deleted
+      log.debug({ error }, 'Failed to delete format selection message (may already be deleted)');
+    }
+
+    // Build summary message with context
+    const reportTypeName = session.reportType === 'revenue' ? 'הכנסות' : 'הוצאות';
+    const dateLabel = reportMessageService.getDateLabel(session.datePreset);
+    const summaryText = `⏳ מייצר דוח ${reportTypeName} עבור ${dateLabel} (${formatName})...`;
+
+    // Send summary "generating report" message and save message ID
+    const generatingMessage = await telegramService.sendMessage(chatId, summaryText);
+
+    // Update session with format and generating message ID
     await reportSessionService.updateReportSession(sessionId, {
       format,
       currentStep: 'generating',
+      generatingMessageId: generatingMessage.message_id,
     });
-
-    // Answer callback query with popup feedback (shows generating status)
-    const formatName = format === 'pdf' ? 'PDF' : format === 'excel' ? 'Excel' : 'CSV';
-    await telegramService.answerCallbackQuery(callbackQueryId, {
-      text: `⏳ מייצר דוח ${formatName}...`,
-    });
-
-    // Remove format selection buttons silently
-    await telegramService.editMessageText(chatId, messageId, `✅ ${formatName}`);
 
     // Get business config
     const config = await businessConfigService.getBusinessConfig(chatId);
@@ -229,7 +253,7 @@ export async function handleFormatSelection(
       filename = `report_${session.reportType}_${dateRange.start}_${dateRange.end}.csv`;
     }
 
-    // Send report to user
+    // Send report to user (will delete generating message)
     await reportMessageService.sendReportGeneratedMessage(
       chatId,
       fileBuffer,
@@ -237,7 +261,8 @@ export async function handleFormatSelection(
       session.reportType,
       session.datePreset,
       dateRange,
-      reportData.metrics
+      reportData.metrics,
+      session.generatingMessageId
     );
 
     // Mark session as completed
