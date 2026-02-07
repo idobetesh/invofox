@@ -73,16 +73,19 @@ export function buildConfirmationKeyboard(): TelegramInlineKeyboardMarkup {
 /**
  * Build invoice selection keyboard for receipt creation
  * Shows open invoices with invoice number, customer name, and remaining balance
+ * @param openInvoices - List of open invoices to display
+ * @param offset - Current pagination offset
+ * @param totalCount - Total number of open invoices available
  */
 export function buildInvoiceSelectionKeyboard(
-  openInvoices: OpenInvoice[]
+  openInvoices: OpenInvoice[],
+  offset: number = 0,
+  totalCount: number = 0
 ): TelegramInlineKeyboardMarkup {
   const rows: { text: string; callback_data: string }[][] = [];
 
-  // Add a button for each open invoice (max 10 to avoid message size limits)
-  const invoicesToShow = openInvoices.slice(0, 10);
-
-  for (const invoice of invoicesToShow) {
+  // Add a button for each open invoice
+  for (const invoice of openInvoices) {
     const data: InvoiceCallbackAction = {
       action: 'select_invoice',
       invoiceNumber: invoice.invoiceNumber,
@@ -91,6 +94,21 @@ export function buildInvoiceSelectionKeyboard(
       {
         text: formatInvoiceForButton(invoice),
         callback_data: JSON.stringify(data),
+      },
+    ]);
+  }
+
+  // Add "Show More" button if there are more invoices to display
+  const hasMore = offset + openInvoices.length < totalCount;
+  if (hasMore) {
+    const showMoreData: InvoiceCallbackAction = {
+      action: 'show_more',
+      offset: offset + openInvoices.length,
+    };
+    rows.push([
+      {
+        text: `📄 הצג עוד (${offset + openInvoices.length}/${totalCount})`,
+        callback_data: JSON.stringify(showMoreData),
       },
     ]);
   }

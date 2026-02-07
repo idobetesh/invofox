@@ -43,6 +43,9 @@ export interface ReportSession {
   customDateEnd?: string; // YYYY-MM-DD
   format?: ReportFormat;
 
+  // Message tracking (for clean UI - delete intermediate messages)
+  generatingMessageId?: number;
+
   // Metadata
   createdAt: Timestamp;
   updatedAt: Timestamp;

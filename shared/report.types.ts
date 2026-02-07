@@ -25,6 +25,9 @@ export interface ReportSession {
   datePreset?: DatePreset;
   format?: ReportFormat;
 
+  // Message tracking (for clean UI - delete intermediate messages)
+  generatingMessageId?: number;
+
   // Metadata
   createdAt: Date | FirestoreTimestamp;
   updatedAt: Date | FirestoreTimestamp;

@@ -244,9 +244,31 @@ paths:
       summary: Handle invoice button callback
       description: |
         Processes inline keyboard callbacks during invoice generation:
-        - Document type selection (invoice / invoice-receipt)
+        - Document type selection (invoice / invoice-receipt / receipt)
+        - Invoice selection (for receipt creation - with pagination support)
+        - Show More (pagination - loads next 10 invoices)
         - Payment method selection
         - Confirm / Cancel
+
+        **Receipt Creation Flow:**
+        1. User selects "receipt" document type
+        2. System shows first 10 open invoices with pagination info
+        3. If more than 10 invoices exist, "Show More" button appears
+        4. User clicks "Show More" to load next batch (offset-based pagination)
+        5. User selects an invoice to create receipt for
+
+        **Pagination:**
+        - Default page size: 10 invoices
+        - Show More button displays current position (e.g., "10/45")
+        - Message updates to show range (e.g., "מציג 11-20 מתוך 45 חשבוניות")
+
+        **Callback Actions:**
+        - `select_type`: Choose document type (invoice/invoice_receipt/receipt)
+        - `select_invoice`: Select invoice for receipt creation
+        - `show_more`: Load next page of invoices (includes offset)
+        - `select_payment`: Choose payment method
+        - `confirm`: Confirm and generate document
+        - `cancel`: Cancel operation
       operationId: handleInvoiceCallback
       requestBody:
         required: true
@@ -254,9 +276,86 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/InvoiceCallbackPayload"
+            examples:
+              selectType:
+                summary: Document type selection
+                value:
+                  type: callback
+                  chatId: -123456
+                  userId: 789
+                  messageId: 100
+                  username: testuser
+                  callbackQueryId: cb123
+                  data: '{"action":"select_type","documentType":"receipt"}'
+              selectInvoice:
+                summary: Invoice selection for receipt
+                value:
+                  type: callback
+                  chatId: -123456
+                  userId: 789
+                  messageId: 101
+                  username: testuser
+                  callbackQueryId: cb124
+                  data: '{"action":"select_invoice","invoiceNumber":"I-2026-15"}'
+              showMore:
+                summary: Pagination - load next 10 invoices
+                value:
+                  type: callback
+                  chatId: -123456
+                  userId: 789
+                  messageId: 101
+                  username: testuser
+                  callbackQueryId: cb125
+                  data: '{"action":"show_more","offset":10}'
+              selectPayment:
+                summary: Payment method selection
+                value:
+                  type: callback
+                  chatId: -123456
+                  userId: 789
+                  messageId: 102
+                  username: testuser
+                  callbackQueryId: cb126
+                  data: '{"action":"select_payment","paymentMethod":"מזומן"}'
+              confirm:
+                summary: Confirm and generate document
+                value:
+                  type: callback
+                  chatId: -123456
+                  userId: 789
+                  messageId: 103
+                  username: testuser
+                  callbackQueryId: cb127
+                  data: '{"action":"confirm"}'
       responses:
         "200":
           description: Callback handled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  action:
+                    type: string
+                    enum: [type_selected, showing_open_invoices, invoice_selected, showed_more_invoices, no_more_invoices, payment_selected, invoice_generated, cancelled]
+              examples:
+                showingInvoices:
+                  summary: Showed open invoices with pagination
+                  value:
+                    ok: true
+                    action: showing_open_invoices
+                showedMoreInvoices:
+                  summary: Loaded next batch of invoices
+                  value:
+                    ok: true
+                    action: showed_more_invoices
+                noMoreInvoices:
+                  summary: No more invoices to show
+                  value:
+                    ok: true
+                    action: no_more_invoices
 
   /notify-failure:
     post:
@@ -841,22 +940,50 @@ components:
 
     InvoiceCallbackPayload:
       type: object
+      required:
+        - type
+        - callbackQueryId
+        - chatId
+        - messageId
+        - userId
+        - data
       properties:
         type:
           type: string
           enum: [callback]
+          description: Payload type identifier
         callbackQueryId:
           type: string
+          description: Telegram callback query ID (for answering)
         chatId:
           type: integer
+          description: Telegram chat ID
         messageId:
           type: integer
+          description: Message ID containing the inline keyboard
         userId:
           type: integer
+          description: User ID who clicked the button
         username:
           type: string
+          description: Username (optional)
         data:
           type: string
+          description: |
+            JSON-stringified callback action. Structure varies by action type:
+
+            **select_type**: `{"action":"select_type","documentType":"invoice"|"invoice_receipt"|"receipt"}`
+
+            **select_invoice**: `{"action":"select_invoice","invoiceNumber":"I-2026-15"}`
+
+            **show_more**: `{"action":"show_more","offset":10}` (offset for pagination)
+
+            **select_payment**: `{"action":"select_payment","paymentMethod":"מזומן"|"ביט"|"PayBox"|"העברה"|"אשראי"|"צ'ק"}`
+
+            **confirm**: `{"action":"confirm"}`
+
+            **cancel**: `{"action":"cancel"}`
+          example: '{"action":"select_type","documentType":"receipt"}'
 
     ReportCommandPayload:
       type: object

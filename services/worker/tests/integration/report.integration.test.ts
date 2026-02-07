@@ -59,6 +59,12 @@ describe('Report API Integration Tests', () => {
         status: 'active',
         currentStep: 'type',
       });
+      (telegramService.sendMessage as jest.Mock).mockResolvedValue({
+        message_id: 12345,
+        chat: { id: -123456, type: 'group' },
+        date: Date.now(),
+        text: 'test message',
+      });
 
       const response = await request(app).post('/report/command').send(validPayload);
 
@@ -99,6 +105,12 @@ describe('Report API Integration Tests', () => {
         userId: 12345,
         status: 'active',
         currentStep: 'type',
+      });
+      (telegramService.sendMessage as jest.Mock).mockResolvedValue({
+        message_id: 12345,
+        chat: { id: -123456, type: 'group' },
+        date: Date.now(),
+        text: 'test message',
       });
 
       const response = await request(app).post('/report/command').send(validPayload);
@@ -179,8 +191,14 @@ describe('Report API Integration Tests', () => {
       ]);
       (telegramService.editMessageText as jest.Mock).mockResolvedValue(undefined);
       (telegramService.answerCallbackQuery as jest.Mock).mockResolvedValue(undefined);
-      (telegramService.sendMessage as jest.Mock).mockResolvedValue(undefined);
+      (telegramService.sendMessage as jest.Mock).mockResolvedValue({
+        message_id: 12345,
+        chat: { id: -123456, type: 'group' },
+        date: Date.now(),
+        text: 'test message',
+      });
       (telegramService.sendDocument as jest.Mock).mockResolvedValue(undefined);
+      (telegramService.deleteMessage as jest.Mock).mockResolvedValue(undefined);
     });
 
     describe('Type Selection', () => {
