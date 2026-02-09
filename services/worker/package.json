@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@google-cloud/firestore": "^7.3.0",
-    "@google-cloud/storage": "^7.7.0",
+    "@google-cloud/storage": "^7.19.0",
     "@google/generative-ai": "^0.24.1",
     "csv-stringify": "^6.5.2",
     "exceljs": "^4.4.0",
@@ -37,7 +37,7 @@
     "pdf2pic": "^3.1.3",
     "pino": "^8.17.0",
     "pino-http": "^9.0.0",
-    "playwright": "^1.58.1",
+    "playwright": "^1.58.2",
     "sharp": "^0.34.5",
     "zod": "^3.25.76"
   },
