@@ -24,7 +24,7 @@ describe('Duplicate Detection', () => {
         456
       );
 
-      expect(result.text).toContain('Exact duplicate detected');
+      expect(result.text).toContain('כפילות מלאה זוהתה!');
       expect(result.text).toContain('05/01/2026');
       expect(result.text).toContain('150');
       expect(result.text).toContain('Cafe Hillel');
@@ -50,7 +50,7 @@ describe('Duplicate Detection', () => {
         456
       );
 
-      expect(result.text).toContain('Similar invoice detected');
+      expect(result.text).toContain('חשבונית דומה זוהתה!');
       expect(result.text).toContain('?'); // No date
       expect(result.text).toContain('89.5');
       expect(result.text).toContain('SuperMarket');
@@ -74,7 +74,7 @@ describe('Duplicate Detection', () => {
         456
       );
 
-      expect(result.text).toContain('Unknown');
+      expect(result.text).toContain('לא ידוע');
       expect(result.text).toContain('200');
     });
 
@@ -94,8 +94,8 @@ describe('Duplicate Detection', () => {
       const keepBothButton = result.keyboard.inline_keyboard[0][0];
       const deleteNewButton = result.keyboard.inline_keyboard[0][1];
 
-      expect(keepBothButton.text).toBe('✅ Keep Both');
-      expect(deleteNewButton.text).toBe('🗑️ Delete New');
+      expect(keepBothButton.text).toBe('✅ שמור שניים');
+      expect(deleteNewButton.text).toBe('🗑️ מחק חדש');
 
       const keepBothData = JSON.parse(keepBothButton.callback_data || '{}');
       expect(keepBothData.action).toBe('keep_both');
@@ -107,14 +107,14 @@ describe('Duplicate Detection', () => {
   describe('formatDuplicateResolved', () => {
     it('should format keep both message', () => {
       const result = formatDuplicateResolved('keep_both', 'https://new.com', 'https://old.com');
-      expect(result).toContain('Both invoices kept');
+      expect(result).toContain('שתי החשבוניות נשמרו');
       expect(result).toContain('https://new.com');
       expect(result).toContain('https://old.com');
     });
 
     it('should format delete new message', () => {
       const result = formatDuplicateResolved('delete_new', 'https://new.com', 'https://old.com');
-      expect(result).toContain('Duplicate deleted');
+      expect(result).toContain('הכפילות נמחקה');
       expect(result).toContain('https://old.com');
     });
   });

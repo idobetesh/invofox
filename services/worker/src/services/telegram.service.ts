@@ -325,7 +325,7 @@ export function formatSuccessMessage(
   const curr = currency || '';
   const amountDisplay = amount === '?' ? '?' : `${amount} ${curr}`.trim();
 
-  return `✅ Invoice processed
+  return `✅ החשבונית נקלטה בהצלחה
 📅 ${date}
 💰 ${amountDisplay}
 📎 [View](${driveLink})`;
@@ -356,15 +356,15 @@ export function formatDuplicateWarning(
 ): { text: string; keyboard: TelegramInlineKeyboardMarkup } {
   const date = formatDateForDisplay(duplicate.invoiceDate);
   const amount = duplicate.totalAmount !== null ? duplicate.totalAmount.toString() : '?';
-  const vendor = duplicate.vendorName || 'Unknown';
-  const matchLabel = duplicate.matchType === 'exact' ? 'Exact duplicate' : 'Similar invoice';
+  const vendor = duplicate.vendorName || 'לא ידוע';
+  const matchLabel = duplicate.matchType === 'exact' ? 'כפילות מלאה' : 'חשבונית דומה';
 
-  const text = `⚠️ ${matchLabel} detected!
+  const text = `⚠️ ${matchLabel} זוהתה!
 📅 ${date} | 💰 ${amount}
 🏢 ${vendor}
-📎 [Existing](${duplicate.driveLink})
+📎 [קיים](${duplicate.driveLink})
 
-New upload pending - choose action:`;
+העלאה חדשה ממתינה - בחר פעולה:`;
 
   // Encode callback data as JSON
   const keepBothData: DuplicateDecision = { action: 'keep_both', chatId, messageId };
@@ -373,8 +373,8 @@ New upload pending - choose action:`;
   const keyboard: TelegramInlineKeyboardMarkup = {
     inline_keyboard: [
       [
-        { text: '✅ Keep Both', callback_data: JSON.stringify(keepBothData) },
-        { text: '🗑️ Delete New', callback_data: JSON.stringify(deleteNewData) },
+        { text: '✅ שמור שניים', callback_data: JSON.stringify(keepBothData) },
+        { text: '🗑️ מחק חדש', callback_data: JSON.stringify(deleteNewData) },
       ],
     ],
   };
@@ -391,10 +391,10 @@ export function formatDuplicateResolved(
   existingLink: string
 ): string {
   if (action === 'keep_both') {
-    return `✅ Both invoices kept
-📎 [New](${driveLink}) | [Existing](${existingLink})`;
+    return `✅ שתי החשבוניות נשמרו
+📎 [חדש](${driveLink}) | [קיים](${existingLink})`;
   } else {
-    return `🗑️ Duplicate deleted
-📎 [Existing](${existingLink}) kept`;
+    return `🗑️ הכפילות נמחקה
+📎 [קיים](${existingLink}) נשמר`;
   }
 }

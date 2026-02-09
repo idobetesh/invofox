@@ -166,7 +166,7 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
 
     // Answer callback immediately to remove loading state
     await telegramService.answerCallbackQuery(callbackQueryId, {
-      text: action === 'keep_both' ? 'Keeping both...' : 'Deleting...',
+      text: action === 'keep_both' ? 'שומר שניים...' : 'מוחק...',
     });
 
     // Process the decision
