@@ -3,6 +3,7 @@ import {
   formatDuplicateResolved,
 } from '../../src/services/telegram.service';
 import type { DuplicateMatch, InvoiceExtraction } from '../../../../shared/types';
+import { MESSAGES } from '../../src/constants/messages';
 
 describe('Duplicate Detection', () => {
   describe('formatDuplicateWarning', () => {
@@ -24,7 +25,8 @@ describe('Duplicate Detection', () => {
         456
       );
 
-      expect(result.text).toContain('Exact duplicate detected');
+      expect(result.text).toContain(MESSAGES.DUPLICATE_EXACT);
+      expect(result.text).toContain(MESSAGES.DUPLICATE_DETECTED);
       expect(result.text).toContain('05/01/2026');
       expect(result.text).toContain('150');
       expect(result.text).toContain('Cafe Hillel');
@@ -50,7 +52,8 @@ describe('Duplicate Detection', () => {
         456
       );
 
-      expect(result.text).toContain('Similar invoice detected');
+      expect(result.text).toContain(MESSAGES.DUPLICATE_SIMILAR);
+      expect(result.text).toContain(MESSAGES.DUPLICATE_DETECTED);
       expect(result.text).toContain('?'); // No date
       expect(result.text).toContain('89.5');
       expect(result.text).toContain('SuperMarket');
@@ -74,7 +77,7 @@ describe('Duplicate Detection', () => {
         456
       );
 
-      expect(result.text).toContain('Unknown');
+      expect(result.text).toContain(MESSAGES.VENDOR_UNKNOWN);
       expect(result.text).toContain('200');
     });
 
@@ -94,8 +97,8 @@ describe('Duplicate Detection', () => {
       const keepBothButton = result.keyboard.inline_keyboard[0][0];
       const deleteNewButton = result.keyboard.inline_keyboard[0][1];
 
-      expect(keepBothButton.text).toBe('✅ Keep Both');
-      expect(deleteNewButton.text).toBe('🗑️ Delete New');
+      expect(keepBothButton.text).toBe(MESSAGES.BUTTON_KEEP_BOTH);
+      expect(deleteNewButton.text).toBe(MESSAGES.BUTTON_DELETE_NEW);
 
       const keepBothData = JSON.parse(keepBothButton.callback_data || '{}');
       expect(keepBothData.action).toBe('keep_both');
@@ -107,14 +110,14 @@ describe('Duplicate Detection', () => {
   describe('formatDuplicateResolved', () => {
     it('should format keep both message', () => {
       const result = formatDuplicateResolved('keep_both', 'https://new.com', 'https://old.com');
-      expect(result).toContain('Both invoices kept');
+      expect(result).toContain(MESSAGES.RESOLUTION_BOTH_KEPT);
       expect(result).toContain('https://new.com');
       expect(result).toContain('https://old.com');
     });
 
     it('should format delete new message', () => {
       const result = formatDuplicateResolved('delete_new', 'https://new.com', 'https://old.com');
-      expect(result).toContain('Duplicate deleted');
+      expect(result).toContain(MESSAGES.RESOLUTION_DUPLICATE_DELETED);
       expect(result).toContain('https://old.com');
     });
   });

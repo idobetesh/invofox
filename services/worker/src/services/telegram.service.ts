@@ -11,6 +11,7 @@ import type {
   TelegramMessage,
 } from '../../../../shared/types';
 import { getConfig } from '../config';
+import { MESSAGES, getDuplicateLabel } from '../constants/messages';
 
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
 
@@ -325,7 +326,7 @@ export function formatSuccessMessage(
   const curr = currency || '';
   const amountDisplay = amount === '?' ? '?' : `${amount} ${curr}`.trim();
 
-  return `✅ Invoice processed
+  return `✅ ${MESSAGES.INVOICE_PROCESSED_SUCCESSFULLY}
 📅 ${date}
 💰 ${amountDisplay}
 📎 [View](${driveLink})`;
@@ -356,15 +357,15 @@ export function formatDuplicateWarning(
 ): { text: string; keyboard: TelegramInlineKeyboardMarkup } {
   const date = formatDateForDisplay(duplicate.invoiceDate);
   const amount = duplicate.totalAmount !== null ? duplicate.totalAmount.toString() : '?';
-  const vendor = duplicate.vendorName || 'Unknown';
-  const matchLabel = duplicate.matchType === 'exact' ? 'Exact duplicate' : 'Similar invoice';
+  const vendor = duplicate.vendorName || MESSAGES.VENDOR_UNKNOWN;
+  const matchLabel = getDuplicateLabel(duplicate.matchType);
 
-  const text = `⚠️ ${matchLabel} detected!
+  const text = `⚠️ ${matchLabel} ${MESSAGES.DUPLICATE_DETECTED}
 📅 ${date} | 💰 ${amount}
 🏢 ${vendor}
-📎 [Existing](${duplicate.driveLink})
+📎 [${MESSAGES.LINK_EXISTING}](${duplicate.driveLink})
 
-New upload pending - choose action:`;
+${MESSAGES.DUPLICATE_PENDING_ACTION}`;
 
   // Encode callback data as JSON
   const keepBothData: DuplicateDecision = { action: 'keep_both', chatId, messageId };
@@ -373,8 +374,8 @@ New upload pending - choose action:`;
   const keyboard: TelegramInlineKeyboardMarkup = {
     inline_keyboard: [
       [
-        { text: '✅ Keep Both', callback_data: JSON.stringify(keepBothData) },
-        { text: '🗑️ Delete New', callback_data: JSON.stringify(deleteNewData) },
+        { text: MESSAGES.BUTTON_KEEP_BOTH, callback_data: JSON.stringify(keepBothData) },
+        { text: MESSAGES.BUTTON_DELETE_NEW, callback_data: JSON.stringify(deleteNewData) },
       ],
     ],
   };
@@ -391,10 +392,10 @@ export function formatDuplicateResolved(
   existingLink: string
 ): string {
   if (action === 'keep_both') {
-    return `✅ Both invoices kept
-📎 [New](${driveLink}) | [Existing](${existingLink})`;
+    return `✅ ${MESSAGES.RESOLUTION_BOTH_KEPT}
+📎 [${MESSAGES.LINK_NEW}](${driveLink}) | [${MESSAGES.LINK_EXISTING}](${existingLink})`;
   } else {
-    return `🗑️ Duplicate deleted
-📎 [Existing](${existingLink}) kept`;
+    return `🗑️ ${MESSAGES.RESOLUTION_DUPLICATE_DELETED}
+📎 [${MESSAGES.LINK_EXISTING}](${existingLink}) ${MESSAGES.RESOLUTION_KEPT}`;
   }
 }

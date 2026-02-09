@@ -15,6 +15,7 @@ import type {
   DuplicateAction,
 } from '../../../../shared/types';
 import * as telegramService from '../services/telegram.service';
+import { MESSAGES } from '../constants/messages';
 
 /**
  * Process an invoice image
@@ -166,7 +167,7 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
 
     // Answer callback immediately to remove loading state
     await telegramService.answerCallbackQuery(callbackQueryId, {
-      text: action === 'keep_both' ? 'Keeping both...' : 'Deleting...',
+      text: action === 'keep_both' ? MESSAGES.LOADING_KEEPING_BOTH : MESSAGES.LOADING_DELETING,
     });
 
     // Process the decision
