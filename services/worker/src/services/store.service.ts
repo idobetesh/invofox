@@ -334,9 +334,11 @@ export async function findDuplicateInvoice(
     // Query for processed invoices with same vendor (case-insensitive via lowercase)
     const vendorLower = extraction.vendor_name.toLowerCase().trim();
 
-    // Get all processed jobs from last 90 days for this customer only
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    // Get all processed jobs from start of current calendar year for this customer only
+    const startOfYear = new Date();
+    startOfYear.setMonth(0); // January
+    startOfYear.setDate(1); // 1st
+    startOfYear.setHours(0, 0, 0, 0); // Midnight
 
     log.info(
       { vendorLower, amount: extraction.total_amount, date: extraction.invoice_date },
@@ -347,7 +349,7 @@ export async function findDuplicateInvoice(
       .collection(INVOICE_JOBS_COLLECTION)
       .where('telegramChatId', '==', chatId)
       .where('status', 'in', ['processed', 'processing', 'pending_decision'])
-      .where('createdAt', '>=', Timestamp.fromDate(ninetyDaysAgo))
+      .where('createdAt', '>=', Timestamp.fromDate(startOfYear))
       .get();
 
     log.info({ jobsFound: snapshot.docs.length }, 'Query completed');
