@@ -271,8 +271,8 @@ export async function handleFormatSelection(
     log.info(
       {
         format,
-        invoiceCount: reportData.metrics.invoiceCount,
-        totalRevenue: reportData.metrics.totalRevenue,
+        invoicedCount: reportData.metrics.invoicedCount,
+        totalInvoiced: reportData.metrics.totalInvoiced,
         fileSizeKb: Math.round(fileBuffer.length / 1024),
       },
       'Report generated and sent successfully'

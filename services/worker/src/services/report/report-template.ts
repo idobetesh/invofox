@@ -225,7 +225,6 @@ export function generateReportHTML(data: ReportData): string {
 
   // Dynamic titles based on report type
   const reportTitle = reportType === 'revenue' ? 'דוח הכנסות' : 'דוח הוצאות';
-  const totalLabel = reportType === 'revenue' ? 'סה"כ הכנסות' : 'סה"כ הוצאות';
 
   // Generate chart data
   const chartData = groupInvoicesByPeriod(invoices, dateRange);
@@ -370,6 +369,39 @@ export function generateReportHTML(data: ReportData): string {
     }
     .metric .label { font-size: 12px; color: #666; margin-bottom: 5px; }
     .metric .value { font-size: 20px; font-weight: bold; color: #111; }
+    .metric.highlight { border-right-color: #10b981; }
+    .metric.warning { border-right-color: #f59e0b; }
+
+    .status-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .status-paid {
+      background: #d1fae5;
+      color: #047857;
+    }
+    .status-unpaid {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .status-partial {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .collection-rate {
+      margin-top: 15px;
+      padding: 12px;
+      background: white;
+      border-radius: 6px;
+      border-right: 4px solid #8b5cf6;
+      font-size: 14px;
+    }
+    .collection-rate .label { color: #666; margin-left: 8px; }
+    .collection-rate .value { font-weight: bold; color: #8b5cf6; font-size: 16px; }
 
     .footer {
       margin-top: 40px;
@@ -398,32 +430,52 @@ export function generateReportHTML(data: ReportData): string {
   </div>
 
   <div class="table-container">
-    <h2>פירוט חשבוניות</h2>
+    <h2>פירוט ${reportType === 'revenue' ? 'חשבוניות' : 'הוצאות'}</h2>
     <table>
       <thead>
         <tr>
           <th>תאריך</th>
-          <th>לקוח</th>
+          <th>${reportType === 'revenue' ? 'לקוח' : 'ספק'}</th>
           <th>סכום</th>
+          ${reportType === 'revenue' ? '<th>סטטוס</th>' : ''}
           <th>קטגוריה</th>
         </tr>
       </thead>
       <tbody>
         ${invoices
-          .map(
-            (inv) => `
+          .filter((inv) => !inv.isLinkedReceipt) // Filter out linked receipts
+          .map((inv) => {
+            // Status badge only for revenue
+            let statusCell = '';
+            if (reportType === 'revenue') {
+              let statusText = 'ממתין';
+              let statusClass = 'status-unpaid';
+
+              if (inv.paymentStatus === 'paid') {
+                statusText = 'שולם';
+                statusClass = 'status-paid';
+              } else if (inv.paymentStatus === 'partial') {
+                const symbol = getCurrencySymbol(inv.currency);
+                statusText = `חלקי (${symbol}${(inv.paidAmount || 0).toLocaleString()})`;
+                statusClass = 'status-partial';
+              }
+              statusCell = `<td><span class="status-badge ${statusClass}">${statusText}</span></td>`;
+            }
+
+            return `
           <tr>
             <td>${formatInvoiceDate(inv.date)}</td>
             <td>${
               inv.driveLink
-                ? `<a href="${escapeHtml(inv.driveLink)}" target="_blank" title="לחץ לפתיחת החשבונית">${escapeHtml(inv.customerName)}</a>`
+                ? `<a href="${escapeHtml(inv.driveLink)}" target="_blank" title="לחץ לפתיחת ה${reportType === 'revenue' ? 'חשבונית' : 'קבלה'}">${escapeHtml(inv.customerName)}</a>`
                 : escapeHtml(inv.customerName)
             }</td>
             <td>${getCurrencySymbol(inv.currency)}${inv.amount.toLocaleString()}</td>
+            ${statusCell}
             <td>${escapeHtml(inv.category || 'כללי')}</td>
           </tr>
-        `
-          )
+        `;
+          })
           .join('')}
       </tbody>
     </table>
@@ -436,14 +488,34 @@ export function generateReportHTML(data: ReportData): string {
       metrics.currencies.length > 1
         ? `
     <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 6px; border-right: 4px solid #2563eb;">
-      <div style="font-size: 14px; font-weight: bold; color: #2563eb; margin-bottom: 10px;">${totalLabel} (לפי מטבע)</div>
+      <div style="font-size: 14px; font-weight: bold; color: #2563eb; margin-bottom: 10px;">סה"כ לפי מטבע</div>
       ${metrics.currencies
         .map((curr) => {
           const symbol = getCurrencySymbol(curr.currency);
-          return `<div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-          <span style="color: #666; font-size: 13px;">${curr.currency}</span>
-          <span style="font-weight: bold; font-size: 16px;">${symbol}${curr.totalRevenue.toLocaleString()}</span>
-        </div>`;
+          if (reportType === 'revenue') {
+            return `<div style="margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+              <span style="color: #666; font-size: 12px;">${curr.currency} - הונפקו</span>
+              <span style="font-weight: bold; font-size: 14px;">${symbol}${curr.totalInvoiced.toLocaleString()}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+              <span style="color: #059669; font-size: 12px;">${curr.currency} - התקבלו</span>
+              <span style="font-weight: bold; font-size: 14px; color: #059669;">${symbol}${curr.totalReceived.toLocaleString()}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #d97706; font-size: 12px;">${curr.currency} - ממתינות</span>
+              <span style="font-weight: bold; font-size: 14px; color: #d97706;">${symbol}${curr.totalOutstanding.toLocaleString()}</span>
+            </div>
+          </div>`;
+          } else {
+            // Expenses - just show total
+            return `<div style="margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #666; font-size: 12px;">${curr.currency} - סה"כ</span>
+              <span style="font-weight: bold; font-size: 14px;">${symbol}${curr.totalInvoiced.toLocaleString()}</span>
+            </div>
+          </div>`;
+          }
         })
         .join('')}
     </div>
@@ -453,33 +525,60 @@ export function generateReportHTML(data: ReportData): string {
 
     <div class="summary-grid">
       ${
-        metrics.currencies.length === 1
+        reportType === 'revenue'
           ? `
       <div class="metric">
-        <div class="label">${totalLabel}</div>
-        <div class="value">${getCurrencySymbol(metrics.currencies[0].currency)}${metrics.totalRevenue.toLocaleString()}</div>
+        <div class="label">סה"כ חשבוניות שהונפקו</div>
+        <div class="value">${getCurrencySymbol(metrics.currencies[0].currency)}${metrics.totalInvoiced.toLocaleString()}</div>
+        <div style="font-size: 11px; color: #999; margin-top: 5px;">${metrics.invoicedCount} מסמכים</div>
+      </div>
+      <div class="metric highlight">
+        <div class="label">תקבולים בפועל</div>
+        <div class="value">${getCurrencySymbol(metrics.currencies[0].currency)}${metrics.totalReceived.toLocaleString()}</div>
+        <div style="font-size: 11px; color: #999; margin-top: 5px;">${metrics.receivedCount} תשלומים</div>
+      </div>
+      <div class="metric warning">
+        <div class="label">חשבוניות ממתינות</div>
+        <div class="value">${getCurrencySymbol(metrics.currencies[0].currency)}${metrics.totalOutstanding.toLocaleString()}</div>
+        <div style="font-size: 11px; color: #999; margin-top: 5px;">${metrics.outstandingCount} חשבוניות</div>
+      </div>
+      <div class="metric">
+        <div class="label">ממוצע לחשבונית</div>
+        <div class="value">${getCurrencySymbol(metrics.currencies[0].currency)}${Math.round(metrics.avgInvoiced).toLocaleString()}</div>
       </div>
       `
           : `
       <div class="metric">
-        <div class="label">סה"כ חשבוניות</div>
-        <div class="value">${invoices.length}</div>
+        <div class="label">סה"כ הוצאות</div>
+        <div class="value">${getCurrencySymbol(metrics.currencies[0].currency)}${metrics.totalInvoiced.toLocaleString()}</div>
+        <div style="font-size: 11px; color: #999; margin-top: 5px;">${metrics.invoicedCount} הוצאות</div>
+      </div>
+      <div class="metric">
+        <div class="label">ממוצע להוצאה</div>
+        <div class="value">${getCurrencySymbol(metrics.currencies[0].currency)}${Math.round(metrics.avgInvoiced).toLocaleString()}</div>
+      </div>
+      <div class="metric">
+        <div class="label">הוצאה מקסימלית</div>
+        <div class="value">${getCurrencySymbol(metrics.currencies[0].currency)}${metrics.maxInvoice.toLocaleString()}</div>
+      </div>
+      <div class="metric">
+        <div class="label">הוצאה מינימלית</div>
+        <div class="value">${getCurrencySymbol(metrics.currencies[0].currency)}${metrics.minInvoice.toLocaleString()}</div>
       </div>
       `
       }
-      <div class="metric">
-        <div class="label">מספר חשבוניות (${metrics.currencies[0].currency})</div>
-        <div class="value">${metrics.invoiceCount}</div>
-      </div>
-      <div class="metric">
-        <div class="label">ממוצע לחשבונית (${metrics.currencies[0].currency})</div>
-        <div class="value">${getCurrencySymbol(metrics.currencies[0].currency)}${Math.round(metrics.avgInvoice).toLocaleString()}</div>
-      </div>
-      <div class="metric">
-        <div class="label">חשבונית מקסימלית (${metrics.currencies[0].currency})</div>
-        <div class="value">${getCurrencySymbol(metrics.currencies[0].currency)}${metrics.maxInvoice.toLocaleString()}</div>
-      </div>
     </div>
+
+    ${
+      reportType === 'revenue' && metrics.totalInvoiced > 0
+        ? `
+    <div class="collection-rate">
+      <span class="label">אחוז גביה:</span>
+      <span class="value">${((metrics.totalReceived / metrics.totalInvoiced) * 100).toFixed(1)}%</span>
+    </div>
+    `
+        : ''
+    }
   </div>
 
   <div class="chart-container">

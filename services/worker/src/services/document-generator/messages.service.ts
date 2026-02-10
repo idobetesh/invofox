@@ -60,7 +60,7 @@ export function buildConfirmationMessage(params: {
         type: typeLabel,
         customer: params.customerName,
         description: params.description,
-        amount: params.amount.toString(),
+        amount: params.amount.toLocaleString(),
         payment: params.paymentMethod,
         date: formatDateDisplay(params.date),
       })
@@ -68,7 +68,7 @@ export function buildConfirmationMessage(params: {
         type: typeLabel,
         customer: params.customerName,
         description: params.description,
-        amount: params.amount.toString(),
+        amount: params.amount.toLocaleString(),
         date: formatDateDisplay(params.date),
       });
 

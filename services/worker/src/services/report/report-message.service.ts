@@ -3,7 +3,7 @@
  * Handles Telegram message formatting and keyboard building for report flow
  */
 
-import type { DatePreset } from '../../../../../shared/report.types';
+import type { DatePreset, ReportMetrics } from '../../../../../shared/report.types';
 import * as telegramService from '../telegram.service';
 import logger from '../../logger';
 
@@ -184,18 +184,31 @@ export async function sendReportGeneratedMessage(
   reportType: 'revenue' | 'expenses',
   datePreset: DatePreset,
   dateRange: { start: string; end: string },
-  metrics: { totalRevenue: number; invoiceCount: number; avgInvoice: number },
+  metrics: ReportMetrics,
   generatingMessageId?: number
 ): Promise<void> {
   const reportTypeName = reportType === 'revenue' ? 'הכנסות' : 'הוצאות';
   const dateLabel = getDateLabel(datePreset);
-  const caption =
+
+  // Build caption with payment tracking for revenue
+  let caption =
     `\u200F✅ דוח ${reportTypeName} נוצר!\n\n` +
     `\u200F📊 תקופה: ${dateLabel}\n` +
-    `\u200F📅 תאריכים: ${dateRange.start} עד ${dateRange.end}\n` +
-    `\u200F💰 סה"כ: ₪${metrics.totalRevenue.toLocaleString('he-IL')}\n` +
-    `\u200F📄 חשבוניות: ${metrics.invoiceCount}\n` +
-    `\u200F📈 ממוצע: ₪${Math.round(metrics.avgInvoice).toLocaleString('he-IL')}\n\n`;
+    `\u200F📅 תאריכים: ${dateRange.start} עד ${dateRange.end}\n`;
+
+  if (reportType === 'revenue') {
+    caption +=
+      `\u200F💰 הונפקו: ₪${metrics.totalInvoiced.toLocaleString('he-IL')}\n` +
+      `\u200F✅ התקבלו: ₪${metrics.totalReceived.toLocaleString('he-IL')}\n` +
+      `\u200F⏳ ממתינות: ₪${metrics.totalOutstanding.toLocaleString('he-IL')}\n` +
+      `\u200F📄 מסמכים: ${metrics.invoicedCount}\n` +
+      `\u200F📈 ממוצע: ₪${Math.round(metrics.avgInvoiced).toLocaleString('he-IL')}\n\n`;
+  } else {
+    caption +=
+      `\u200F💰 סה"כ: ₪${metrics.totalInvoiced.toLocaleString('he-IL')}\n` +
+      `\u200F📄 הוצאות: ${metrics.invoicedCount}\n` +
+      `\u200F📈 ממוצע: ₪${Math.round(metrics.avgInvoiced).toLocaleString('he-IL')}\n\n`;
+  }
 
   // Delete generating message first (for clean UI)
   if (generatingMessageId) {

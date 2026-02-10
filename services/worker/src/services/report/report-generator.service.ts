@@ -106,11 +106,29 @@ export async function generateExcelReport(data: ReportData): Promise<Buffer> {
   // Currency breakdown
   summarySheet.addRow([]);
   if (data.metrics.currencies.length > 1) {
-    summarySheet.addRow([`סה"כ ${data.reportType === 'revenue' ? 'הכנסות' : 'הוצאות'} (לפי מטבע)`]);
+    summarySheet.addRow(['סה"כ לפי מטבע']);
     summarySheet.getRow(4).font = { bold: true, color: { argb: 'FF2563EB' }, size: 14 };
     data.metrics.currencies.forEach((curr) => {
       const symbol = getCurrencySymbol(curr.currency);
-      summarySheet.addRow([curr.currency, `${symbol}${curr.totalRevenue.toLocaleString()}`]);
+      if (data.reportType === 'revenue') {
+        summarySheet.addRow([
+          `${curr.currency} - הונפקו`,
+          `${symbol}${curr.totalInvoiced.toLocaleString()}`,
+        ]);
+        summarySheet.addRow([
+          `${curr.currency} - התקבלו`,
+          `${symbol}${curr.totalReceived.toLocaleString()}`,
+        ]);
+        summarySheet.addRow([
+          `${curr.currency} - ממתינות`,
+          `${symbol}${curr.totalOutstanding.toLocaleString()}`,
+        ]);
+      } else {
+        summarySheet.addRow([
+          `${curr.currency} - סה"כ`,
+          `${symbol}${curr.totalInvoiced.toLocaleString()}`,
+        ]);
+      }
     });
     summarySheet.addRow([]);
   }
@@ -129,16 +147,48 @@ export async function generateExcelReport(data: ReportData): Promise<Buffer> {
   const primaryCurrency = data.metrics.currencies[0];
   const symbol = getCurrencySymbol(primaryCurrency.currency);
 
-  if (data.metrics.currencies.length === 1) {
+  // Metrics based on report type
+  if (data.reportType === 'revenue') {
+    // Payment tracking metrics for revenue
     summarySheet.addRow([
-      `סה"כ ${data.reportType === 'revenue' ? 'הכנסות' : 'הוצאות'}`,
-      `${symbol}${data.metrics.totalRevenue.toLocaleString()}`,
+      `סה"כ חשבוניות שהונפקו (${primaryCurrency.currency})`,
+      `${symbol}${data.metrics.totalInvoiced.toLocaleString()}`,
     ]);
+    summarySheet.addRow([
+      `תקבולים בפועל (${primaryCurrency.currency})`,
+      `${symbol}${data.metrics.totalReceived.toLocaleString()}`,
+    ]);
+    summarySheet.addRow([
+      `חשבוניות ממתינות (${primaryCurrency.currency})`,
+      `${symbol}${data.metrics.totalOutstanding.toLocaleString()}`,
+    ]);
+    summarySheet.addRow([
+      'אחוז גביה',
+      data.metrics.totalInvoiced > 0
+        ? `${((data.metrics.totalReceived / data.metrics.totalInvoiced) * 100).toFixed(1)}%`
+        : '0%',
+    ]);
+    summarySheet.addRow([]); // Blank row
+
+    // Count metrics
+    summarySheet.addRow([`מספר מסמכים שהונפקו`, data.metrics.invoicedCount]);
+    summarySheet.addRow([`מספר תשלומים שהתקבלו`, data.metrics.receivedCount]);
+    summarySheet.addRow([`מספר חשבוניות ממתינות`, data.metrics.outstandingCount]);
+    summarySheet.addRow([]); // Blank row
+  } else {
+    // Simple metrics for expenses
+    summarySheet.addRow([
+      `סה"כ הוצאות (${primaryCurrency.currency})`,
+      `${symbol}${data.metrics.totalInvoiced.toLocaleString()}`,
+    ]);
+    summarySheet.addRow([`מספר הוצאות`, data.metrics.invoicedCount]);
+    summarySheet.addRow([]); // Blank row
   }
-  summarySheet.addRow([`מספר חשבוניות (${primaryCurrency.currency})`, data.metrics.invoiceCount]);
+
+  // Average metrics
   summarySheet.addRow([
     `ממוצע לחשבונית (${primaryCurrency.currency})`,
-    `${symbol}${data.metrics.avgInvoice.toFixed(2)}`,
+    `${symbol}${data.metrics.avgInvoiced.toFixed(2)}`,
   ]);
   summarySheet.addRow([
     `חשבונית מקסימלית (${primaryCurrency.currency})`,
@@ -154,11 +204,28 @@ export async function generateExcelReport(data: ReportData): Promise<Buffer> {
   summarySheet.getColumn(2).width = 20;
 
   // Invoices Sheet
-  const invoicesSheet = workbook.addWorksheet('חשבוניות');
+  const invoicesSheet = workbook.addWorksheet(
+    data.reportType === 'revenue' ? 'חשבוניות' : 'הוצאות'
+  );
   invoicesSheet.views = [{ rightToLeft: true }];
 
-  // Header
-  invoicesSheet.addRow(['תאריך', 'לקוח', 'סכום', 'מטבע', 'אמצעי תשלום', 'קטגוריה', 'קישור']);
+  // Header - conditional based on report type
+  if (data.reportType === 'revenue') {
+    invoicesSheet.addRow([
+      'תאריך',
+      'לקוח',
+      'סכום',
+      'מטבע',
+      'סטטוס',
+      'סכום ששולם',
+      'יתרה',
+      'אמצעי תשלום',
+      'קטגוריה',
+      'קישור',
+    ]);
+  } else {
+    invoicesSheet.addRow(['תאריך', 'ספק', 'סכום', 'מטבע', 'אמצעי תשלום', 'קטגוריה', 'קישור']);
+  }
   invoicesSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
   invoicesSheet.getRow(1).fill = {
     type: 'pattern',
@@ -166,31 +233,76 @@ export async function generateExcelReport(data: ReportData): Promise<Buffer> {
     fgColor: { argb: 'FF2563EB' },
   };
 
-  // Data rows
-  data.invoices.forEach((inv) => {
-    invoicesSheet.addRow([
-      inv.date,
-      inv.customerName,
-      inv.amount,
-      inv.currency,
-      inv.paymentMethod,
-      inv.category || 'כללי',
-      inv.driveLink,
-    ]);
+  // Data rows - filter out linked receipts
+  const invoicesToShow = data.invoices.filter((inv) => !inv.isLinkedReceipt);
+  invoicesToShow.forEach((inv) => {
+    if (data.reportType === 'revenue') {
+      // Determine status text
+      let statusText = 'ממתין';
+      if (inv.paymentStatus === 'paid') {
+        statusText = 'שולם';
+      } else if (inv.paymentStatus === 'partial') {
+        statusText = 'שולם חלקי';
+      }
+
+      invoicesSheet.addRow([
+        inv.date,
+        inv.customerName,
+        inv.amount,
+        inv.currency,
+        statusText,
+        inv.paidAmount || 0,
+        inv.remainingBalance || 0,
+        inv.paymentMethod,
+        inv.category || 'כללי',
+        inv.driveLink,
+      ]);
+    } else {
+      // Expenses - no status columns
+      invoicesSheet.addRow([
+        inv.date,
+        inv.customerName,
+        inv.amount,
+        inv.currency,
+        inv.paymentMethod,
+        inv.category || 'כללי',
+        inv.driveLink,
+      ]);
+    }
   });
 
-  // Column widths
-  invoicesSheet.getColumn(1).width = 12; // Date
-  invoicesSheet.getColumn(2).width = 30; // Customer
-  invoicesSheet.getColumn(3).width = 12; // Amount
-  invoicesSheet.getColumn(4).width = 8; // Currency
-  invoicesSheet.getColumn(5).width = 15; // Payment method
-  invoicesSheet.getColumn(6).width = 20; // Category
-  invoicesSheet.getColumn(7).width = 40; // Link
+  // Column widths - conditional based on report type
+  if (data.reportType === 'revenue') {
+    invoicesSheet.getColumn(1).width = 12; // Date
+    invoicesSheet.getColumn(2).width = 30; // Customer
+    invoicesSheet.getColumn(3).width = 12; // Amount
+    invoicesSheet.getColumn(4).width = 8; // Currency
+    invoicesSheet.getColumn(5).width = 12; // Status
+    invoicesSheet.getColumn(6).width = 12; // Paid Amount
+    invoicesSheet.getColumn(7).width = 12; // Remaining Balance
+    invoicesSheet.getColumn(8).width = 15; // Payment method
+    invoicesSheet.getColumn(9).width = 20; // Category
+    invoicesSheet.getColumn(10).width = 40; // Link
 
-  // Format amount column as currency
-  for (let i = 2; i <= data.invoices.length + 1; i++) {
-    invoicesSheet.getCell(`C${i}`).numFmt = '₪#,##0.00';
+    // Format amount columns as currency
+    for (let i = 2; i <= invoicesToShow.length + 1; i++) {
+      invoicesSheet.getCell(`C${i}`).numFmt = '₪#,##0.00'; // Amount
+      invoicesSheet.getCell(`F${i}`).numFmt = '₪#,##0.00'; // Paid Amount
+      invoicesSheet.getCell(`G${i}`).numFmt = '₪#,##0.00'; // Remaining Balance
+    }
+  } else {
+    invoicesSheet.getColumn(1).width = 12; // Date
+    invoicesSheet.getColumn(2).width = 30; // Supplier
+    invoicesSheet.getColumn(3).width = 12; // Amount
+    invoicesSheet.getColumn(4).width = 8; // Currency
+    invoicesSheet.getColumn(5).width = 15; // Payment method
+    invoicesSheet.getColumn(6).width = 20; // Category
+    invoicesSheet.getColumn(7).width = 40; // Link
+
+    // Format amount column as currency
+    for (let i = 2; i <= invoicesToShow.length + 1; i++) {
+      invoicesSheet.getCell(`C${i}`).numFmt = '₪#,##0.00'; // Amount
+    }
   }
 
   const buffer = await workbook.xlsx.writeBuffer();
@@ -208,20 +320,64 @@ export async function generateCSVReport(data: ReportData): Promise<Buffer> {
   // eslint-disable-next-line no-restricted-syntax
   const { stringify } = await import('csv-stringify/sync');
 
-  // Create CSV data
+  // Create CSV data - filter out linked receipts
+  const invoicesToShow = data.invoices.filter((inv) => !inv.isLinkedReceipt);
+
+  // Header based on report type
+  const header =
+    data.reportType === 'revenue'
+      ? [
+          'תאריך',
+          'לקוח',
+          'סכום',
+          'מטבע',
+          'סטטוס',
+          'סכום ששולם',
+          'יתרה',
+          'אמצעי תשלום',
+          'קטגוריה',
+          'קישור',
+        ]
+      : ['תאריך', 'ספק', 'סכום', 'מטבע', 'אמצעי תשלום', 'קטגוריה', 'קישור'];
+
   const records = [
-    // Header with BOM for Excel Hebrew support
-    ['תאריך', 'לקוח', 'סכום', 'מטבע', 'אמצעי תשלום', 'קטגוריה', 'קישור'],
+    header,
     // Data rows
-    ...data.invoices.map((inv) => [
-      inv.date,
-      inv.customerName,
-      inv.amount.toString(),
-      inv.currency,
-      inv.paymentMethod,
-      inv.category || 'כללי',
-      inv.driveLink,
-    ]),
+    ...invoicesToShow.map((inv) => {
+      if (data.reportType === 'revenue') {
+        // Determine status text
+        let statusText = 'ממתין';
+        if (inv.paymentStatus === 'paid') {
+          statusText = 'שולם';
+        } else if (inv.paymentStatus === 'partial') {
+          statusText = 'שולם חלקי';
+        }
+
+        return [
+          inv.date,
+          inv.customerName,
+          inv.amount.toString(),
+          inv.currency,
+          statusText,
+          (inv.paidAmount || 0).toString(),
+          (inv.remainingBalance || 0).toString(),
+          inv.paymentMethod,
+          inv.category || 'כללי',
+          inv.driveLink,
+        ];
+      } else {
+        // Expenses - no status columns
+        return [
+          inv.date,
+          inv.customerName,
+          inv.amount.toString(),
+          inv.currency,
+          inv.paymentMethod,
+          inv.category || 'כללי',
+          inv.driveLink,
+        ];
+      }
+    }),
   ];
 
   const csvString = stringify(records, {
