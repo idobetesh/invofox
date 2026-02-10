@@ -25,17 +25,27 @@ const revenueReportData: ReportData = {
   },
   generatedAt: new Date().toISOString(),
   metrics: {
-    totalRevenue: 45650,
-    invoiceCount: 23,
-    avgInvoice: 1984.78,
+    totalInvoiced: 45650,
+    totalReceived: 35200, // ~77% collection rate
+    totalOutstanding: 10450,
+    invoicedCount: 23,
+    receivedCount: 18,
+    outstandingCount: 5,
+    avgInvoiced: 1984.78,
+    avgReceived: 1955.56,
     maxInvoice: 5200,
     minInvoice: 350,
     currencies: [
       {
         currency: 'ILS',
-        totalRevenue: 45650,
-        invoiceCount: 23,
-        avgInvoice: 1984.78,
+        totalInvoiced: 45650,
+        totalReceived: 35200,
+        totalOutstanding: 10450,
+        invoicedCount: 23,
+        receivedCount: 18,
+        outstandingCount: 5,
+        avgInvoiced: 1984.78,
+        avgReceived: 1955.56,
         maxInvoice: 5200,
         minInvoice: 350,
       },
@@ -57,6 +67,9 @@ const revenueReportData: ReportData = {
       paymentMethod: 'העברה בנקאית',
       category: 'שירותי ייעוץ',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-001.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: '2026-002',
@@ -67,6 +80,9 @@ const revenueReportData: ReportData = {
       paymentMethod: 'מזומן',
       category: 'פיתוח תוכנה',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-002.pdf',
+      documentType: 'receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: '2026-003',
@@ -77,6 +93,9 @@ const revenueReportData: ReportData = {
       paymentMethod: 'כרטיס אשראי',
       category: 'תחזוקה שוטפת',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-003.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: '2026-004',
@@ -87,6 +106,9 @@ const revenueReportData: ReportData = {
       paymentMethod: 'מזומן',
       category: 'עיצוב גרפי',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-004.pdf',
+      documentType: 'receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: '2026-005',
@@ -97,6 +119,10 @@ const revenueReportData: ReportData = {
       paymentMethod: 'העברה בנקאית',
       category: 'פיתוח אתר',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-005.pdf',
+      documentType: 'invoice',
+      paymentStatus: 'unpaid',
+      isLinkedReceipt: false,
+      remainingBalance: 4200,
     },
     {
       invoiceNumber: '2026-006',
@@ -107,6 +133,9 @@ const revenueReportData: ReportData = {
       paymentMethod: 'העברה בנקאית',
       category: 'ייעוץ טכני',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-006.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: '2026-007',
@@ -117,6 +146,9 @@ const revenueReportData: ReportData = {
       paymentMethod: 'כרטיס אשראי',
       category: 'אינטגרציה',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-007.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: '2026-008',
@@ -127,6 +159,9 @@ const revenueReportData: ReportData = {
       paymentMethod: 'מזומן',
       category: 'ניהול מערכות',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-008.pdf',
+      documentType: 'receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: '2026-009',
@@ -137,6 +172,9 @@ const revenueReportData: ReportData = {
       paymentMethod: "צ'ק",
       category: 'מערכת הזמנות',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-009.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: '2026-010',
@@ -147,6 +185,9 @@ const revenueReportData: ReportData = {
       paymentMethod: 'העברה בנקאית',
       category: 'אפליקציה ניידת',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-010.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: '2026-011',
@@ -157,6 +198,9 @@ const revenueReportData: ReportData = {
       paymentMethod: 'מזומן',
       category: 'בדיקות איכות',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-011.pdf',
+      documentType: 'receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: '2026-012',
@@ -167,6 +211,11 @@ const revenueReportData: ReportData = {
       paymentMethod: 'העברה בנקאית',
       category: 'אוטומציה',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-012.pdf',
+      documentType: 'invoice',
+      paymentStatus: 'partial',
+      isLinkedReceipt: false,
+      paidAmount: 3250,
+      remainingBalance: 1550,
     },
     {
       invoiceNumber: '2026-013',
@@ -177,6 +226,9 @@ const revenueReportData: ReportData = {
       paymentMethod: 'מזומן',
       category: 'מערכת ניהול',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-013.pdf',
+      documentType: 'receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: '2026-014',
@@ -187,6 +239,9 @@ const revenueReportData: ReportData = {
       paymentMethod: 'כרטיס אשראי',
       category: 'פלטפורמת למידה',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-014.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: '2026-015',
@@ -197,6 +252,9 @@ const revenueReportData: ReportData = {
       paymentMethod: 'העברה בנקאית',
       category: 'מעקב משלוחים',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-015.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: '2026-016',
@@ -207,6 +265,9 @@ const revenueReportData: ReportData = {
       paymentMethod: 'מזומן',
       category: 'אתר הזמנות',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-016.pdf',
+      documentType: 'receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: '2026-017',
@@ -217,6 +278,9 @@ const revenueReportData: ReportData = {
       paymentMethod: 'מזומן',
       category: 'חנות מקוונת',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-017.pdf',
+      documentType: 'receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: '2026-018',
@@ -227,6 +291,9 @@ const revenueReportData: ReportData = {
       paymentMethod: 'העברה בנקאית',
       category: 'מערכת CRM',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-018.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: '2026-019',
@@ -237,6 +304,11 @@ const revenueReportData: ReportData = {
       paymentMethod: 'העברה בנקאית',
       category: 'דוחות פיננסיים',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-019.pdf',
+      documentType: 'invoice',
+      paymentStatus: 'partial',
+      isLinkedReceipt: false,
+      paidAmount: 3100,
+      remainingBalance: 1400,
     },
     {
       invoiceNumber: '2026-020',
@@ -247,6 +319,9 @@ const revenueReportData: ReportData = {
       paymentMethod: 'מזומן',
       category: 'ניהול מדיה',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-020.pdf',
+      documentType: 'receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: '2026-021',
@@ -257,6 +332,9 @@ const revenueReportData: ReportData = {
       paymentMethod: 'מזומן',
       category: 'אפליקציית כושר',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-021.pdf',
+      documentType: 'receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: '2026-022',
@@ -267,6 +345,10 @@ const revenueReportData: ReportData = {
       paymentMethod: 'מזומן',
       category: 'ניטור מערכות',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-022.pdf',
+      documentType: 'invoice',
+      paymentStatus: 'unpaid',
+      isLinkedReceipt: false,
+      remainingBalance: 3300,
     },
     {
       invoiceNumber: '2026-023',
@@ -277,6 +359,9 @@ const revenueReportData: ReportData = {
       paymentMethod: 'מזומן',
       category: 'תיקון באג',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/2026-023.pdf',
+      documentType: 'receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
   ],
 };
@@ -293,33 +378,53 @@ const expensesReportData: ReportData = {
   },
   generatedAt: new Date().toISOString(),
   metrics: {
-    totalRevenue: 22950,
-    invoiceCount: 12,
-    avgInvoice: 1912.5,
+    totalInvoiced: 26600,
+    totalReceived: 26600, // All paid for demo
+    totalOutstanding: 0,
+    invoicedCount: 15,
+    receivedCount: 15,
+    outstandingCount: 0,
+    avgInvoiced: 1773.33,
+    avgReceived: 1773.33,
     maxInvoice: 4500,
     minInvoice: 250,
     currencies: [
       {
         currency: 'ILS',
-        totalRevenue: 22950,
-        invoiceCount: 12,
-        avgInvoice: 1912.5,
+        totalInvoiced: 22950,
+        totalReceived: 22950,
+        totalOutstanding: 0,
+        invoicedCount: 12,
+        receivedCount: 12,
+        outstandingCount: 0,
+        avgInvoiced: 1912.5,
+        avgReceived: 1912.5,
         maxInvoice: 4500,
         minInvoice: 250,
       },
       {
         currency: 'USD',
-        totalRevenue: 2800,
-        invoiceCount: 2,
-        avgInvoice: 1400,
+        totalInvoiced: 2800,
+        totalReceived: 2800,
+        totalOutstanding: 0,
+        invoicedCount: 2,
+        receivedCount: 2,
+        outstandingCount: 0,
+        avgInvoiced: 1400,
+        avgReceived: 1400,
         maxInvoice: 1800,
         minInvoice: 1000,
       },
       {
         currency: 'EUR',
-        totalRevenue: 850,
-        invoiceCount: 1,
-        avgInvoice: 850,
+        totalInvoiced: 850,
+        totalReceived: 850,
+        totalOutstanding: 0,
+        invoicedCount: 1,
+        receivedCount: 1,
+        outstandingCount: 0,
+        avgInvoiced: 850,
+        avgReceived: 850,
         maxInvoice: 850,
         minInvoice: 850,
       },
@@ -340,6 +445,9 @@ const expensesReportData: ReportData = {
       paymentMethod: 'כרטיס אשראי',
       category: 'שירותי ענן',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-001.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: 'EXP-002',
@@ -350,6 +458,9 @@ const expensesReportData: ReportData = {
       paymentMethod: 'העברה בנקאית',
       category: 'שירותים מקצועיים',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-002.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: 'EXP-003',
@@ -360,6 +471,9 @@ const expensesReportData: ReportData = {
       paymentMethod: 'כרטיס אשראי',
       category: 'ציוד משרדי',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-003.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: 'EXP-004',
@@ -370,6 +484,9 @@ const expensesReportData: ReportData = {
       paymentMethod: 'העברה בנקאית',
       category: 'חשבונות',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-004.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: 'EXP-005',
@@ -380,6 +497,9 @@ const expensesReportData: ReportData = {
       paymentMethod: 'כרטיס אשראי',
       category: 'תוכנה',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-005.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: 'EXP-006',
@@ -390,6 +510,9 @@ const expensesReportData: ReportData = {
       paymentMethod: 'העברה בנקאית',
       category: 'שירותים משפטיים',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-006.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: 'EXP-007',
@@ -400,6 +523,9 @@ const expensesReportData: ReportData = {
       paymentMethod: 'כרטיס אשראי',
       category: 'שיווק',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-007.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: 'EXP-008',
@@ -410,6 +536,9 @@ const expensesReportData: ReportData = {
       paymentMethod: 'העברה בנקאית',
       category: 'תקשורת',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-008.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: 'EXP-009',
@@ -420,6 +549,9 @@ const expensesReportData: ReportData = {
       paymentMethod: 'כרטיס אשראי',
       category: 'תוכנה',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-009.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: 'EXP-010',
@@ -430,6 +562,9 @@ const expensesReportData: ReportData = {
       paymentMethod: 'מזומן',
       category: 'אירוח',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-010.pdf',
+      documentType: 'receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: 'EXP-011',
@@ -440,6 +575,9 @@ const expensesReportData: ReportData = {
       paymentMethod: 'כרטיס אשראי',
       category: 'שירותי ענן',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-011.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: 'EXP-012',
@@ -450,6 +588,9 @@ const expensesReportData: ReportData = {
       paymentMethod: 'מזומן',
       category: 'תחבורה',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-012.pdf',
+      documentType: 'receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: 'EXP-013',
@@ -460,6 +601,9 @@ const expensesReportData: ReportData = {
       paymentMethod: 'כרטיס אשראי',
       category: 'תוכנה',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-013.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: 'EXP-014',
@@ -470,6 +614,9 @@ const expensesReportData: ReportData = {
       paymentMethod: 'העברה בנקאית',
       category: 'ביטוח',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-014.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
     {
       invoiceNumber: 'EXP-015',
@@ -480,6 +627,9 @@ const expensesReportData: ReportData = {
       paymentMethod: 'כרטיס אשראי',
       category: 'תחזוקה',
       driveLink: 'https://storage.googleapis.com/demo-bucket-invoices/EXP-015.pdf',
+      documentType: 'invoice_receipt',
+      paymentStatus: 'paid',
+      isLinkedReceipt: false,
     },
   ],
 };
@@ -487,10 +637,10 @@ const expensesReportData: ReportData = {
 /**
  * Generate date range for preset
  */
-function getDateRangeForPreset(preset: 'this_month' | 'last_month' | 'ytd' | 'this_year'): {
+function getDateRangeForPreset(preset: 'this_month' | 'last_month' | 'ytd'): {
   start: string;
   end: string;
-  preset: 'this_month' | 'last_month' | 'ytd' | 'this_year';
+  preset: 'this_month' | 'last_month' | 'ytd';
 } {
   const now = new Date();
   const year = now.getFullYear();
@@ -522,13 +672,6 @@ function getDateRangeForPreset(preset: 'this_month' | 'last_month' | 'ytd' | 'th
         start: formatDate(start),
         end: formatDate(end),
         preset: 'ytd' as const,
-      };
-    }
-    case 'this_year': {
-      return {
-        start: `${year}-01-01`,
-        end: `${year}-12-31`,
-        preset: 'this_year' as const,
       };
     }
   }
@@ -638,11 +781,10 @@ async function generateAllDemos() {
       },
     ];
 
-    const datePresets: Array<'this_month' | 'last_month' | 'ytd' | 'this_year'> = [
+    const datePresets: Array<'this_month' | 'last_month' | 'ytd'> = [
       'this_month',
       'last_month',
       'ytd',
-      'this_year',
     ];
 
     let totalGenerated = 0;
@@ -716,16 +858,12 @@ async function generateAllDemos() {
     console.log('   │   │   └── ...');
     console.log('   │   ├── ytd/');
     console.log('   │   │   └── ...');
-    console.log('   │   └── this_year/');
-    console.log('   │       └── ...');
     console.log('   └── expenses/');
     console.log('       ├── this_month/');
     console.log('       │   └── ...');
     console.log('       ├── last_month/');
     console.log('       │   └── ...');
-    console.log('       ├── ytd/');
-    console.log('       │   └── ...');
-    console.log('       └── this_year/');
+    console.log('       └── ytd/');
     console.log('           └── ...');
     console.log('\n💡 Open the PDF files to view the reports!');
   } catch (error) {

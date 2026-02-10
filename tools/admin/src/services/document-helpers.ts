@@ -56,6 +56,8 @@ export async function getBusinessConfig(
 /**
  * Upload PDF to Cloud Storage and return public URL
  */
+import type { InvoiceDocumentType } from '../../../../shared/invoice.types';
+
 export async function uploadPDFToStorage(
   storage: Storage,
   pdfBuffer: Buffer,
@@ -63,7 +65,7 @@ export async function uploadPDFToStorage(
   metadata: {
     chatId: number;
     documentNumber: string;
-    documentType: 'invoice' | 'receipt' | 'invoice_receipt';
+    documentType: InvoiceDocumentType;
     relatedDocumentNumber?: string;
   }
 ): Promise<string> {

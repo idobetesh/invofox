@@ -212,8 +212,8 @@ export async function handleInvoiceMessage(req: Request, res: Response): Promise
         // Check if amount exceeds remaining balance
         if (amount > remainingBalance) {
           const errorMsg = t('he', 'invoice.amountTooHigh', {
-            amount: String(amount),
-            remainingBalance: String(remainingBalance),
+            amount: amount.toLocaleString(),
+            remainingBalance: remainingBalance.toLocaleString(),
           });
           await telegramService.sendMessage(payload.chatId, errorMsg);
           log.info({ amount, remainingBalance }, 'Amount exceeds remaining balance');
@@ -224,10 +224,10 @@ export async function handleInvoiceMessage(req: Request, res: Response): Promise
         // Provide feedback on partial vs full payment
         const isFullPayment = amount === remainingBalance;
         const feedbackMsg = isFullPayment
-          ? t('he', 'invoice.fullPaymentFeedback', { amount: String(amount) })
+          ? t('he', 'invoice.fullPaymentFeedback', { amount: amount.toLocaleString() })
           : t('he', 'invoice.partialPaymentFeedback', {
-              amount: String(amount),
-              newRemaining: String(remainingBalance - amount),
+              amount: amount.toLocaleString(),
+              newRemaining: (remainingBalance - amount).toLocaleString(),
             });
 
         await telegramService.sendMessage(payload.chatId, feedbackMsg);
@@ -399,10 +399,10 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
         // Send prompt with invoice details and remaining balance
         const promptMsg = t('he', 'invoice.invoiceDetails', {
           customerName: invoice.customerName,
-          amount: String(invoice.amount),
-          paidAmount: String(paidAmount),
-          remainingBalance: String(remainingBalance),
-          exampleAmount: String(Math.floor(remainingBalance / 2)),
+          amount: invoice.amount.toLocaleString(),
+          paidAmount: paidAmount.toLocaleString(),
+          remainingBalance: remainingBalance.toLocaleString(),
+          exampleAmount: Math.floor(remainingBalance / 2).toLocaleString(),
         });
 
         await telegramService.sendMessage(payload.chatId, promptMsg);

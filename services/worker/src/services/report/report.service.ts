@@ -231,6 +231,14 @@ export async function getInvoicesForReport(
           paymentMethod: invoice.paymentMethod || 'Unknown',
           category: invoice.description || undefined,
           driveLink: invoice.storageUrl || '',
+
+          // Payment tracking
+          documentType: 'invoice',
+          paymentStatus: invoice.paymentStatus || 'unpaid',
+          paidAmount: invoice.paidAmount,
+          remainingBalance: invoice.remainingBalance,
+          relatedInvoiceNumber: undefined, // Invoices don't have parent
+          isLinkedReceipt: false,
         });
       }
 
@@ -250,6 +258,14 @@ export async function getInvoicesForReport(
           paymentMethod: receipt.paymentMethod || 'Unknown',
           category: receipt.description || undefined,
           driveLink: receipt.storageUrl || '',
+
+          // Payment tracking
+          documentType: 'receipt',
+          paymentStatus: 'paid',
+          paidAmount: receipt.amount,
+          remainingBalance: 0,
+          relatedInvoiceNumber: receipt.relatedInvoiceNumber,
+          isLinkedReceipt: !!receipt.relatedInvoiceNumber, // TRUE if linked to invoice
         });
       }
 
@@ -273,6 +289,14 @@ export async function getInvoicesForReport(
           paymentMethod: invoiceReceipt.paymentMethod || 'Unknown',
           category: invoiceReceipt.description || undefined,
           driveLink: invoiceReceipt.storageUrl || '',
+
+          // Payment tracking
+          documentType: 'invoice_receipt',
+          paymentStatus: 'paid',
+          paidAmount: invoiceReceipt.amount,
+          remainingBalance: 0,
+          relatedInvoiceNumber: undefined,
+          isLinkedReceipt: false,
         });
       }
 
@@ -308,6 +332,14 @@ export async function getInvoicesForReport(
             paymentMethod: 'Unknown', // Not stored in InvoiceJob currently
             category: job.category || undefined,
             driveLink: job.driveLink || '',
+
+            // Payment tracking (expenses are treated as paid)
+            documentType: 'invoice_receipt', // Expenses are considered paid
+            paymentStatus: 'paid',
+            paidAmount: job.totalAmount,
+            remainingBalance: 0,
+            relatedInvoiceNumber: undefined,
+            isLinkedReceipt: false,
           };
 
           return invoice;
@@ -323,14 +355,20 @@ export async function getInvoicesForReport(
 }
 
 /**
- * Calculate metrics from invoices (multi-currency aware)
+ * Calculate metrics from invoices (multi-currency aware with payment tracking)
+ * CRITICAL: Filters out linked receipts to avoid double-counting
  */
 export function calculateMetrics(invoices: InvoiceForReport[]): ReportMetrics {
   if (invoices.length === 0) {
     return {
-      totalRevenue: 0,
-      invoiceCount: 0,
-      avgInvoice: 0,
+      totalInvoiced: 0,
+      totalReceived: 0,
+      totalOutstanding: 0,
+      invoicedCount: 0,
+      receivedCount: 0,
+      outstandingCount: 0,
+      avgInvoiced: 0,
+      avgReceived: 0,
       maxInvoice: 0,
       minInvoice: 0,
       currencies: [],
@@ -338,9 +376,13 @@ export function calculateMetrics(invoices: InvoiceForReport[]): ReportMetrics {
     };
   }
 
+  // CRITICAL: Filter out linked receipts to avoid double-counting
+  // Receipts linked to invoices are already counted in the parent invoice's paidAmount
+  const documentsToCount = invoices.filter((inv) => !inv.isLinkedReceipt);
+
   // Group invoices by currency
   const byCurrency = new Map<string, InvoiceForReport[]>();
-  invoices.forEach((inv) => {
+  documentsToCount.forEach((inv) => {
     const currency = inv.currency || 'ILS';
     if (!byCurrency.has(currency)) {
       byCurrency.set(currency, []);
@@ -354,42 +396,97 @@ export function calculateMetrics(invoices: InvoiceForReport[]): ReportMetrics {
   // Calculate metrics per currency
   const currencies = Array.from(byCurrency.entries())
     .map(([currency, currencyInvoices]) => {
-      const amounts = currencyInvoices.map((inv) => inv.amount);
-      const totalRevenue = amounts.reduce((sum, amount) => sum + amount, 0);
+      let totalInvoiced = 0;
+      let totalReceived = 0;
+      let totalOutstanding = 0;
+      let invoicedCount = 0;
+      let receivedCount = 0;
+      let outstandingCount = 0;
+      const amounts: number[] = [];
+
+      currencyInvoices.forEach((doc) => {
+        amounts.push(doc.amount);
+
+        if (doc.documentType === 'invoice') {
+          // Invoice: check payment status
+          totalInvoiced += doc.amount;
+          invoicedCount++;
+
+          if (doc.paymentStatus === 'paid') {
+            totalReceived += doc.amount;
+            receivedCount++;
+          } else if (doc.paymentStatus === 'partial') {
+            totalReceived += doc.paidAmount || 0;
+            totalOutstanding += doc.remainingBalance || doc.amount;
+            receivedCount++; // Count as received (partially)
+            outstandingCount++; // Also count as outstanding (partially)
+          } else {
+            // 'unpaid'
+            totalOutstanding += doc.amount;
+            outstandingCount++;
+          }
+        } else if (doc.documentType === 'receipt') {
+          // Standalone receipt (not linked to invoice)
+          // Note: Linked receipts are already filtered out above
+          totalInvoiced += doc.amount;
+          totalReceived += doc.amount;
+          invoicedCount++;
+          receivedCount++;
+        } else if (doc.documentType === 'invoice_receipt') {
+          // Invoice-receipt: paid at time of invoicing
+          totalInvoiced += doc.amount;
+          totalReceived += doc.amount;
+          invoicedCount++;
+          receivedCount++;
+        }
+      });
 
       return {
         currency,
-        totalRevenue,
-        invoiceCount: currencyInvoices.length,
-        avgInvoice: totalRevenue / currencyInvoices.length,
-        maxInvoice: Math.max(...amounts),
-        minInvoice: Math.min(...amounts),
+        totalInvoiced,
+        totalReceived,
+        totalOutstanding,
+        invoicedCount,
+        receivedCount,
+        outstandingCount,
+        avgInvoiced: invoicedCount > 0 ? totalInvoiced / invoicedCount : 0,
+        avgReceived: receivedCount > 0 ? totalReceived / receivedCount : 0,
+        maxInvoice: amounts.length > 0 ? Math.max(...amounts) : 0,
+        minInvoice: amounts.length > 0 ? Math.min(...amounts) : 0,
       };
     })
-    .sort((a, b) => b.totalRevenue - a.totalRevenue); // Sort by revenue descending
+    .sort((a, b) => b.totalInvoiced - a.totalInvoiced); // Sort by invoiced amount descending
 
-  // Use primary currency (highest revenue) for legacy fields
+  // Use primary currency (highest invoiced amount) for top-level fields
   const primaryCurrency = currencies[0];
 
-  // Payment method breakdown (across all currencies)
+  // Payment method breakdown (across all currencies, only for received payments)
   const paymentMethods: Record<string, { count: number; total: number }> = {};
-  invoices.forEach((inv) => {
-    const method = inv.paymentMethod;
-    if (!paymentMethods[method]) {
-      paymentMethods[method] = { count: 0, total: 0 };
+  documentsToCount.forEach((inv) => {
+    // Only count payment methods for documents that have been paid
+    if (inv.paymentStatus === 'paid' || inv.paymentStatus === 'partial') {
+      const method = inv.paymentMethod;
+      if (!paymentMethods[method]) {
+        paymentMethods[method] = { count: 0, total: 0 };
+      }
+      paymentMethods[method].count++;
+      // For partial payments, count only what was actually received
+      const amountReceived = inv.paymentStatus === 'partial' ? inv.paidAmount || 0 : inv.amount;
+      paymentMethods[method].total += amountReceived;
     }
-    paymentMethods[method].count++;
-    paymentMethods[method].total += inv.amount;
   });
 
   return {
-    // Legacy fields use primary currency
-    totalRevenue: primaryCurrency.totalRevenue,
-    invoiceCount: primaryCurrency.invoiceCount,
-    avgInvoice: primaryCurrency.avgInvoice,
+    totalInvoiced: primaryCurrency.totalInvoiced,
+    totalReceived: primaryCurrency.totalReceived,
+    totalOutstanding: primaryCurrency.totalOutstanding,
+    invoicedCount: primaryCurrency.invoicedCount,
+    receivedCount: primaryCurrency.receivedCount,
+    outstandingCount: primaryCurrency.outstandingCount,
+    avgInvoiced: primaryCurrency.avgInvoiced,
+    avgReceived: primaryCurrency.avgReceived,
     maxInvoice: primaryCurrency.maxInvoice,
     minInvoice: primaryCurrency.minInvoice,
-    // Multi-currency data
     currencies,
     paymentMethods,
   };

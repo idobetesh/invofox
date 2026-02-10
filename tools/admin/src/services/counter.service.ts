@@ -8,9 +8,9 @@
  */
 
 import { Firestore, FieldValue } from '@google-cloud/firestore';
-import { formatDocumentNumber, type DocumentType } from '../../../../shared/collections';
+import { formatDocumentNumber, type InvoiceDocumentType } from '../../../../shared/collections';
 
-export type { DocumentType };
+export type { InvoiceDocumentType as DocumentType };
 
 const COLLECTION_NAME = 'invoice_counters';
 
@@ -57,7 +57,7 @@ export class CounterService {
    * Counter resets on January 1st each year
    * Each customer has their own independent counters per document type
    */
-  async getNextDocumentNumber(chatId: number, documentType: DocumentType): Promise<string> {
+  async getNextDocumentNumber(chatId: number, documentType: InvoiceDocumentType): Promise<string> {
     const year = new Date().getFullYear();
     const counterDocId = `chat_${chatId}_${year}`;
     const counterRef = this.firestore.collection(COLLECTION_NAME).doc(counterDocId);
@@ -103,7 +103,7 @@ export class CounterService {
    */
   async getCurrentCounter(
     chatId: number,
-    documentType: DocumentType,
+    documentType: InvoiceDocumentType,
     year?: number
   ): Promise<number> {
     const targetYear = year || new Date().getFullYear();

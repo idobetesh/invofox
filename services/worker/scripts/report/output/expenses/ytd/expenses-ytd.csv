@@ -1,16 +1,16 @@
-﻿תאריך,לקוח,סכום,מטבע,אמצעי תשלום,קטגוריה,קישור
+﻿תאריך,ספק,סכום,מטבע,אמצעי תשלום,קטגוריה,קישור
 2026-01-01,Google Cloud Platform,4500,ILS,כרטיס אשראי,שירותי ענן,https://storage.googleapis.com/demo-bucket-invoices/EXP-001.pdf
-2026-01-02,משרד רואה חשבון,3200,ILS,העברה בנקאית,שירותים מקצועיים,https://storage.googleapis.com/demo-bucket-invoices/EXP-002.pdf
-2026-01-04,Office Depot,850,ILS,כרטיס אשראי,ציוד משרדי,https://storage.googleapis.com/demo-bucket-invoices/EXP-003.pdf
-2026-01-06,חברת חשמל,650,ILS,העברה בנקאית,חשבונות,https://storage.googleapis.com/demo-bucket-invoices/EXP-004.pdf
-2026-01-07,GitHub Enterprise,1800,USD,כרטיס אשראי,תוכנה,https://storage.googleapis.com/demo-bucket-invoices/EXP-005.pdf
-2026-01-09,משרד עורך דין,4200,ILS,העברה בנקאית,שירותים משפטיים,https://storage.googleapis.com/demo-bucket-invoices/EXP-006.pdf
-2026-01-11,LinkedIn Premium,350,ILS,כרטיס אשראי,שיווק,https://storage.googleapis.com/demo-bucket-invoices/EXP-007.pdf
-2026-01-13,בזק בינלאומי,450,ILS,העברה בנקאית,תקשורת,https://storage.googleapis.com/demo-bucket-invoices/EXP-008.pdf
-2026-01-14,Adobe Creative Cloud,1000,USD,כרטיס אשראי,תוכנה,https://storage.googleapis.com/demo-bucket-invoices/EXP-009.pdf
-2026-01-16,משלוח ארוחות,950,ILS,מזומן,אירוח,https://storage.googleapis.com/demo-bucket-invoices/EXP-010.pdf
-2026-01-18,AWS,850,EUR,כרטיס אשראי,שירותי ענן,https://storage.googleapis.com/demo-bucket-invoices/EXP-011.pdf
-2026-01-20,חניון חודשי,700,ILS,מזומן,תחבורה,https://storage.googleapis.com/demo-bucket-invoices/EXP-012.pdf
-2026-01-21,Zoom Pro,550,ILS,כרטיס אשראי,תוכנה,https://storage.googleapis.com/demo-bucket-invoices/EXP-013.pdf
-2026-01-23,ביטוח לאומי,3600,ILS,העברה בנקאית,ביטוח,https://storage.googleapis.com/demo-bucket-invoices/EXP-014.pdf
-2026-01-25,ניקיון משרדים,250,ILS,כרטיס אשראי,תחזוקה,https://storage.googleapis.com/demo-bucket-invoices/EXP-015.pdf
+2026-01-03,משרד רואה חשבון,3200,ILS,העברה בנקאית,שירותים מקצועיים,https://storage.googleapis.com/demo-bucket-invoices/EXP-002.pdf
+2026-01-06,Office Depot,850,ILS,כרטיס אשראי,ציוד משרדי,https://storage.googleapis.com/demo-bucket-invoices/EXP-003.pdf
+2026-01-09,חברת חשמל,650,ILS,העברה בנקאית,חשבונות,https://storage.googleapis.com/demo-bucket-invoices/EXP-004.pdf
+2026-01-11,GitHub Enterprise,1800,USD,כרטיס אשראי,תוכנה,https://storage.googleapis.com/demo-bucket-invoices/EXP-005.pdf
+2026-01-14,משרד עורך דין,4200,ILS,העברה בנקאית,שירותים משפטיים,https://storage.googleapis.com/demo-bucket-invoices/EXP-006.pdf
+2026-01-17,LinkedIn Premium,350,ILS,כרטיס אשראי,שיווק,https://storage.googleapis.com/demo-bucket-invoices/EXP-007.pdf
+2026-01-19,בזק בינלאומי,450,ILS,העברה בנקאית,תקשורת,https://storage.googleapis.com/demo-bucket-invoices/EXP-008.pdf
+2026-01-22,Adobe Creative Cloud,1000,USD,כרטיס אשראי,תוכנה,https://storage.googleapis.com/demo-bucket-invoices/EXP-009.pdf
+2026-01-25,משלוח ארוחות,950,ILS,מזומן,אירוח,https://storage.googleapis.com/demo-bucket-invoices/EXP-010.pdf
+2026-01-27,AWS,850,EUR,כרטיס אשראי,שירותי ענן,https://storage.googleapis.com/demo-bucket-invoices/EXP-011.pdf
+2026-01-30,חניון חודשי,700,ILS,מזומן,תחבורה,https://storage.googleapis.com/demo-bucket-invoices/EXP-012.pdf
+2026-02-02,Zoom Pro,550,ILS,כרטיס אשראי,תוכנה,https://storage.googleapis.com/demo-bucket-invoices/EXP-013.pdf
+2026-02-04,ביטוח לאומי,3600,ILS,העברה בנקאית,ביטוח,https://storage.googleapis.com/demo-bucket-invoices/EXP-014.pdf
+2026-02-07,ניקיון משרדים,250,ILS,כרטיס אשראי,תחזוקה,https://storage.googleapis.com/demo-bucket-invoices/EXP-015.pdf
