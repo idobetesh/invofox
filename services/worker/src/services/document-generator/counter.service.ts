@@ -5,7 +5,7 @@
  */
 
 import { Firestore, FieldValue } from '@google-cloud/firestore';
-import type { InvoiceCounter } from '../../../../../shared/types';
+import type { InvoiceCounter, InvoiceDocumentType } from '../../../../../shared/types';
 import {
   INVOICE_COUNTERS_COLLECTION,
   GENERATED_INVOICES_COLLECTION,
@@ -41,7 +41,7 @@ function getCurrentYear(): string {
  */
 export async function getNextDocumentNumber(
   chatId: number,
-  documentType: 'invoice' | 'receipt' | 'invoice_receipt' = 'invoice'
+  documentType: InvoiceDocumentType = 'invoice'
 ): Promise<string> {
   const db = getFirestore();
   const year = getCurrentYear();
@@ -105,27 +105,6 @@ export async function getNextDocumentNumber(
  */
 export async function getNextInvoiceNumber(chatId: number): Promise<string> {
   return getNextDocumentNumber(chatId, 'invoice');
-}
-
-/**
- * Get current counter value for a customer and year (for display/debugging)
- * @param chatId - Customer's Telegram chat ID
- * @param year - Optional year (defaults to current year)
- */
-export async function getCurrentCounter(chatId: number, year?: string): Promise<number> {
-  const db = getFirestore();
-  const targetYear = year || getCurrentYear();
-  const docId = `chat_${chatId}_${targetYear}`;
-  const docRef = db.collection(INVOICE_COUNTERS_COLLECTION).doc(docId);
-
-  const doc = await docRef.get();
-
-  if (!doc.exists) {
-    return 0;
-  }
-
-  const data = doc.data() as InvoiceCounter;
-  return data.invoice?.counter || 0;
 }
 
 /**
