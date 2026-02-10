@@ -215,5 +215,164 @@ describe('Report Service', () => {
       expect(result.currencies[0].currency).toBe('ILS');
       expect(result.currencies[0].totalInvoiced).toBe(1000);
     });
+
+    it('should handle unpaid invoice - contributes only to outstanding', () => {
+      const invoices: InvoiceForReport[] = [
+        createMockInvoice({
+          invoiceNumber: '001',
+          amount: 5000,
+          documentType: 'invoice',
+          paymentStatus: 'unpaid',
+          remainingBalance: 5000,
+          paymentMethod: 'Transfer',
+        }),
+      ];
+
+      const result = reportService.calculateMetrics(invoices);
+
+      expect(result.totalInvoiced).toBe(5000);
+      expect(result.totalReceived).toBe(0);
+      expect(result.totalOutstanding).toBe(5000);
+      expect(result.invoicedCount).toBe(1);
+      expect(result.receivedCount).toBe(0);
+      expect(result.outstandingCount).toBe(1);
+      expect(result.avgInvoiced).toBe(5000);
+      expect(result.avgReceived).toBe(0);
+
+      // Payment methods should NOT include unpaid invoices (nothing received)
+      expect(result.paymentMethods).toEqual({});
+    });
+
+    it('should handle partial invoice - splits received and outstanding', () => {
+      const invoices: InvoiceForReport[] = [
+        createMockInvoice({
+          invoiceNumber: '001',
+          amount: 10000,
+          documentType: 'invoice',
+          paymentStatus: 'partial',
+          paidAmount: 6000,
+          remainingBalance: 4000,
+          paymentMethod: 'Cash',
+        }),
+      ];
+
+      const result = reportService.calculateMetrics(invoices);
+
+      expect(result.totalInvoiced).toBe(10000);
+      expect(result.totalReceived).toBe(6000);
+      expect(result.totalOutstanding).toBe(4000);
+      expect(result.invoicedCount).toBe(1);
+      expect(result.receivedCount).toBe(1);
+      expect(result.outstandingCount).toBe(1);
+      expect(result.avgInvoiced).toBe(10000);
+      expect(result.avgReceived).toBe(6000);
+
+      // Payment method should track only received amount (6000), not full invoice
+      expect(result.paymentMethods).toEqual({
+        Cash: { count: 1, total: 6000 },
+      });
+    });
+
+    it('should exclude linked receipts from totals to prevent double-counting', () => {
+      const invoices: InvoiceForReport[] = [
+        createMockInvoice({
+          invoiceNumber: 'I-2026-1',
+          amount: 5000,
+          documentType: 'invoice',
+          paymentStatus: 'partial',
+          paidAmount: 3000,
+          remainingBalance: 2000,
+          paymentMethod: 'Transfer',
+        }),
+        createMockInvoice({
+          invoiceNumber: 'R-2026-1',
+          amount: 3000,
+          documentType: 'receipt',
+          paymentStatus: 'paid',
+          relatedInvoiceNumber: 'I-2026-1',
+          isLinkedReceipt: true, // This should be excluded
+          paymentMethod: 'Cash',
+        }),
+      ];
+
+      const result = reportService.calculateMetrics(invoices);
+
+      // Should only count the invoice, not the linked receipt
+      expect(result.totalInvoiced).toBe(5000);
+      expect(result.totalReceived).toBe(3000); // From partial invoice
+      expect(result.totalOutstanding).toBe(2000);
+      expect(result.invoicedCount).toBe(1);
+      expect(result.receivedCount).toBe(1);
+      expect(result.outstandingCount).toBe(1);
+
+      // Payment methods should track only received amount from partial invoice
+      expect(result.paymentMethods).toEqual({
+        Transfer: { count: 1, total: 3000 },
+      });
+      // Linked receipt should NOT be counted
+      expect(result.paymentMethods.Cash).toBeUndefined();
+    });
+
+    it('should handle mix of paid, unpaid, partial, and standalone receipts', () => {
+      const invoices: InvoiceForReport[] = [
+        // Fully paid invoice-receipt
+        createMockInvoice({
+          invoiceNumber: 'IR-2026-1',
+          amount: 1000,
+          documentType: 'invoice_receipt',
+          paymentStatus: 'paid',
+          paymentMethod: 'Cash',
+        }),
+        // Unpaid invoice
+        createMockInvoice({
+          invoiceNumber: 'I-2026-1',
+          amount: 5000,
+          documentType: 'invoice',
+          paymentStatus: 'unpaid',
+          remainingBalance: 5000,
+          paymentMethod: 'Transfer',
+        }),
+        // Partial invoice
+        createMockInvoice({
+          invoiceNumber: 'I-2026-2',
+          amount: 3000,
+          documentType: 'invoice',
+          paymentStatus: 'partial',
+          paidAmount: 1500,
+          remainingBalance: 1500,
+          paymentMethod: 'Card',
+        }),
+        // Standalone receipt (not linked to any invoice)
+        createMockInvoice({
+          invoiceNumber: 'R-2026-1',
+          amount: 800,
+          documentType: 'receipt',
+          paymentStatus: 'paid',
+          isLinkedReceipt: false,
+          paymentMethod: 'Cash',
+        }),
+      ];
+
+      const result = reportService.calculateMetrics(invoices);
+
+      // Total invoiced: 1000 + 5000 + 3000 + 800 = 9800
+      expect(result.totalInvoiced).toBe(9800);
+      // Total received: 1000 (IR) + 0 (unpaid) + 1500 (partial) + 800 (receipt) = 3300
+      expect(result.totalReceived).toBe(3300);
+      // Total outstanding: 0 + 5000 + 1500 + 0 = 6500
+      expect(result.totalOutstanding).toBe(6500);
+      expect(result.invoicedCount).toBe(4);
+      expect(result.receivedCount).toBe(3);
+      expect(result.outstandingCount).toBe(2);
+
+      // Payment methods track only received amounts:
+      // - Cash: IR (1000) + standalone receipt (800) = 1800
+      // - Card: partial invoice paid amount (1500)
+      // - Transfer: unpaid invoice NOT counted (0 received)
+      expect(result.paymentMethods).toEqual({
+        Cash: { count: 2, total: 1800 },
+        Card: { count: 1, total: 1500 },
+      });
+    });
   });
 });
