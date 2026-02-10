@@ -19,15 +19,15 @@
 
 ## Features
 
-- 📸 **Photo Processing** - Send invoice photos to Telegram group
-- 🤖 **AI Vision** - LLM extracts invoice data (Hebrew + English)
-- 🧾 **Invoice Generation** - Create professional PDF invoices via `/invoice`
-- ☁️ **Cloud Storage** - Auto-organized by `YYYY/MM/`
-- 📊 **Sheets Logging** - All extracted data logged automatically
-- 📈 **Monitoring Dashboard** - GCP dashboard with alerts
-- 🔄 **Reliable** - Cloud Tasks with retry & deduplication
-- 👥 **Multi-tenant** - Per-customer branding by chat ID
-- 💰 **Cost-effective** - Scales to zero, mostly free tier
+- **Photo Processing** - Send invoice photos to Telegram, AI extracts data (Hebrew + English)
+- **Duplicate Detection** - Automatic detection and prevention of duplicate invoice submissions
+- **Document Generation** - Create invoices, receipts, and invoice-receipts via `/new` with payment tracking
+- **Report Generation** - Financial reports (PDF/Excel/CSV) with payment status and collection rate via `/report`
+- **Cloud Storage** - Auto-organized by date, logs to Google Sheets
+- **Payment Tracking** - Automatic invoice balance updates and partial payment support
+- **Multi-tenant** - Per-customer branding and configuration
+- **Reliable** - Cloud Tasks with retry and monitoring
+- **Cost-effective** - Serverless, scales to zero
 
 ## Supported File Types
 
@@ -44,6 +44,24 @@
 - **HEIC/HEIF** (.heic, .heif) - iPhone native format
 
 > **Note:** HEIC files are automatically converted to JPEG for processing while the original HEIC is stored in Cloud Storage. Maximum file size: 5 MB.
+
+## Document Types
+
+### Invoice - I-{year}-{counter}
+Standard invoice with payment tracking:
+- Tracks payment status (unpaid → partial → paid)
+- Maintains remaining balance
+- Can receive multiple receipts until fully paid
+
+### Receipt - R-{year}-{counter}
+Payment receipt linked to existing invoice:
+- Select from open invoices (up to 10 most recent)
+- Supports partial or full payment
+- Automatically updates invoice balance and status
+- Smart validation prevents overpayment
+
+### Invoice-Receipt - IR-{year}-{counter}
+Combined document for immediate payment scenarios
 
 ## Architecture
 
@@ -107,9 +125,9 @@ Set these in `terraform.tfvars`:
 
 ## Documentation
 
+- **[Architecture Overview](docs/architecture.md)** - System architecture details including document types and payment tracking
 - **[Multi-Tenant Architecture](docs/MULTI_TENANT_ARCHITECTURE.md)** - Planned improvements for proper customer isolation
 - **[Customer Onboarding](docs/CUSTOMER_ONBOARDING.md)** - How to add new customers
-- **[Architecture Overview](docs/architecture.md)** - System architecture details
 - **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
 
 ---
