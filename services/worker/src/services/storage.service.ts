@@ -9,7 +9,7 @@ import logger from '../logger';
 
 let storageClient: Storage | null = null;
 
-function getStorage(): Storage {
+export function getStorage(): Storage {
   if (!storageClient) {
     storageClient = new Storage();
   }

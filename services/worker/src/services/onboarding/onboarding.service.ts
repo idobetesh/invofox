@@ -3,20 +3,12 @@
  * Manages conversational onboarding flow for new customers
  */
 
-import { Firestore, FieldValue } from '@google-cloud/firestore';
+import { FieldValue } from '@google-cloud/firestore';
 import type { Language } from '../i18n/languages';
 import logger from '../../logger';
+import { getFirestore } from '../firestore.service';
 
 import { ONBOARDING_SESSIONS_COLLECTION } from '../../../../../shared/collections';
-
-let firestore: Firestore | null = null;
-
-function getFirestore(): Firestore {
-  if (!firestore) {
-    firestore = new Firestore();
-  }
-  return firestore;
-}
 
 /**
  * Onboarding steps

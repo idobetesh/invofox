@@ -4,7 +4,7 @@
  * Sessions are stored in Firestore and expire after 1 hour
  */
 
-import { Firestore, FieldValue, Timestamp } from '@google-cloud/firestore';
+import { FieldValue, Timestamp } from '@google-cloud/firestore';
 import type {
   InvoiceSession,
   InvoiceDocumentType,
@@ -12,16 +12,8 @@ import type {
 } from '../../../../../shared/types';
 import { INVOICE_SESSIONS_COLLECTION } from '../../../../../shared/collections';
 import logger from '../../logger';
+import { getFirestore } from '../firestore.service';
 const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
-
-let firestore: Firestore | null = null;
-
-function getFirestore(): Firestore {
-  if (!firestore) {
-    firestore = new Firestore();
-  }
-  return firestore;
-}
 
 /**
  * Generate session document ID from chat and user IDs

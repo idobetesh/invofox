@@ -9,6 +9,7 @@ import { CounterService } from './counter.service';
 import { InvoiceReceiptPDFService } from './invoice-receipt-pdf.service';
 import { getBusinessConfig, uploadPDFToStorage, formatDateDisplay } from './document-helpers';
 import { GENERATED_INVOICE_RECEIPTS_COLLECTION } from '../../../../shared/collections';
+import { getFirestoreClient, getStorageClient } from './gcp-clients.service';
 
 interface GenerateInvoiceReceiptParams {
   chatId: number;
@@ -35,8 +36,8 @@ export class InvoiceReceiptService {
   private pdfService: InvoiceReceiptPDFService;
 
   constructor() {
-    this.firestore = new Firestore();
-    this.storage = new Storage();
+    this.firestore = getFirestoreClient();
+    this.storage = getStorageClient();
     this.counterService = new CounterService(this.firestore);
     this.pdfService = new InvoiceReceiptPDFService();
   }

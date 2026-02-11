@@ -6,19 +6,10 @@
  * Worker records failed attempts, webhook-handler blocks repeat offenders
  */
 
-import { Firestore } from '@google-cloud/firestore';
 import logger from '../logger';
+import { getFirestore } from './firestore.service';
 
 const COLLECTION_NAME = 'rate_limits';
-
-let firestore: Firestore | null = null;
-
-function getFirestore(): Firestore {
-  if (!firestore) {
-    firestore = new Firestore();
-  }
-  return firestore;
-}
 
 interface RateLimitDoc {
   chatId: number;

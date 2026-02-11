@@ -3,21 +3,13 @@
  * Manages conversation state for multi-step report generation flow
  */
 
-import { Firestore, Timestamp } from '@google-cloud/firestore';
+import { Timestamp } from '@google-cloud/firestore';
 import type { DatePreset } from '../../../../../shared/report.types';
 import logger from '../../logger';
+import { getFirestore } from '../firestore.service';
 
 import { REPORT_SESSIONS_COLLECTION } from '../../../../../shared/collections';
 const SESSION_TTL_MINUTES = 30;
-
-let firestore: Firestore | null = null;
-
-function getFirestore(): Firestore {
-  if (!firestore) {
-    firestore = new Firestore();
-  }
-  return firestore;
-}
 
 export type ReportType = 'revenue' | 'expenses';
 export type ReportFormat = 'pdf' | 'excel' | 'csv';

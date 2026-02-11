@@ -13,6 +13,7 @@ import {
   GENERATED_RECEIPTS_COLLECTION,
 } from '../../../../shared/collections';
 import type { PaymentStatus } from '../../../../shared/invoice.types';
+import { getFirestoreClient, getStorageClient } from './gcp-clients.service';
 
 interface InvoiceDocument {
   id: string;
@@ -72,8 +73,8 @@ export class ReceiptService {
   private pdfService: ReceiptPDFService;
 
   constructor() {
-    this.firestore = new Firestore();
-    this.storage = new Storage();
+    this.firestore = getFirestoreClient();
+    this.storage = getStorageClient();
     this.counterService = new CounterService(this.firestore);
     this.pdfService = new ReceiptPDFService();
   }

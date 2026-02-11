@@ -17,7 +17,7 @@ const STALE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
 
 let firestore: Firestore | null = null;
 
-function getFirestore(): Firestore {
+export function getFirestore(): Firestore {
   if (!firestore) {
     firestore = new Firestore();
   }

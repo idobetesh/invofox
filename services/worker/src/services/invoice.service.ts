@@ -10,7 +10,7 @@ import type {
   DuplicateAction,
   InvoiceJob,
 } from '../../../../shared/types';
-import * as storeService from './store.service';
+import * as storeService from './firestore.service';
 import * as telegramService from './telegram.service';
 import * as storageService from './storage.service';
 import * as llmService from './llm.service';

@@ -5,20 +5,12 @@
  * Security: Only approved chats can proceed with onboarding
  */
 
-import { Firestore, Timestamp, FieldValue } from '@google-cloud/firestore';
+import { Timestamp, FieldValue } from '@google-cloud/firestore';
 import logger from '../logger';
 import { ApprovedChat } from '../../../../shared/types';
+import { getFirestore } from './firestore.service';
 
 import { APPROVED_CHATS_COLLECTION } from '../../../../shared/collections';
-
-let firestore: Firestore | null = null;
-
-function getFirestore(): Firestore {
-  if (!firestore) {
-    firestore = new Firestore();
-  }
-  return firestore;
-}
 
 /**
  * Check if a chat is approved

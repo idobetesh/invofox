@@ -5,21 +5,13 @@
  * Security: Admin-initiated onboarding prevents DDoS attacks
  */
 
-import { Firestore, Timestamp, FieldValue } from '@google-cloud/firestore';
+import { Timestamp, FieldValue } from '@google-cloud/firestore';
 import * as crypto from 'crypto';
 import logger from '../logger';
 import { InviteCode, ValidationResult } from '../../../../shared/types';
+import { getFirestore } from './firestore.service';
 
 import { INVITE_CODES_COLLECTION } from '../../../../shared/collections';
-
-let firestore: Firestore | null = null;
-
-function getFirestore(): Firestore {
-  if (!firestore) {
-    firestore = new Firestore();
-  }
-  return firestore;
-}
 
 /**
  * Helper: Convert timestamp to milliseconds

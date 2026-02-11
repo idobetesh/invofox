@@ -5,9 +5,9 @@
 
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
-import { Firestore } from '@google-cloud/firestore';
 import { ReceiptService } from '../services/receipt.service';
 import { GENERATED_INVOICES_COLLECTION } from '../../../../shared/collections';
+import { getFirestoreClient } from '../services/gcp-clients.service';
 
 type ValidationRule = { field: string; message?: string; validate?: (value: unknown) => boolean };
 
@@ -111,7 +111,7 @@ export class ReceiptController {
       const statusFilter = statusParam ? statusParam.split(',') : ['unpaid', 'partial'];
 
       // Query Firestore for invoices
-      const firestore = new Firestore();
+      const firestore = getFirestoreClient();
 
       const query = firestore
         .collection(GENERATED_INVOICES_COLLECTION)

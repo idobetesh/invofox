@@ -3,18 +3,9 @@
  * Queries unpaid/partially paid invoices for receipt creation
  */
 
-import { Firestore } from '@google-cloud/firestore';
 import { GENERATED_INVOICES_COLLECTION } from '../../../../../shared/collections';
 import logger from '../../logger';
-
-let firestore: Firestore | null = null;
-
-function getFirestore(): Firestore {
-  if (!firestore) {
-    firestore = new Firestore();
-  }
-  return firestore;
-}
+import { getFirestore } from '../firestore.service';
 
 export interface OpenInvoice {
   invoiceNumber: string;

@@ -6,7 +6,7 @@ import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { getRetryCount, getMaxRetries } from '../middlewares/cloudTasks';
 import * as invoiceService from '../services/invoice.service';
-import * as storeService from '../services/store.service';
+import * as storeService from '../services/firestore.service';
 import logger from '../logger';
 import type {
   TaskPayload,

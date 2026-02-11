@@ -3,7 +3,7 @@
  * Tests the fix for: https://github.com/idobetesh/papertrail/issues/XXX
  */
 
-import { findDuplicateInvoice } from '../../src/services/store.service';
+import { findDuplicateInvoice } from '../../src/services/firestore.service';
 import type { InvoiceExtraction } from '../../../../shared/types';
 import { Firestore, Timestamp } from '@google-cloud/firestore';
 

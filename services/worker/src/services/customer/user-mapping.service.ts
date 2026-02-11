@@ -4,20 +4,12 @@
  * Used for access control and audit trails
  */
 
-import { Firestore, FieldValue } from '@google-cloud/firestore';
+import { FieldValue } from '@google-cloud/firestore';
 import type { CustomerAccess, UserCustomerMapping } from '../../../../../shared/types';
 import logger from '../../logger';
+import { getFirestore } from '../firestore.service';
 
 import { USER_CUSTOMER_MAPPING_COLLECTION } from '../../../../../shared/collections';
-
-let firestore: Firestore | null = null;
-
-function getFirestore(): Firestore {
-  if (!firestore) {
-    firestore = new Firestore();
-  }
-  return firestore;
-}
 
 /**
  * Add user to customer

@@ -3,17 +3,9 @@
  * Prevents duplicate callback processing using update_id tracking
  */
 
-import { Firestore, FieldValue } from '@google-cloud/firestore';
+import { FieldValue } from '@google-cloud/firestore';
 import logger from '../../logger';
-
-let firestore: Firestore | null = null;
-
-function getFirestore(): Firestore {
-  if (!firestore) {
-    firestore = new Firestore();
-  }
-  return firestore;
-}
+import { getFirestore } from '../firestore.service';
 
 const COLLECTION = 'processed_callbacks';
 const TTL_HOURS = 24; // Keep records for 24 hours
