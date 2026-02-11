@@ -9,7 +9,7 @@ import type { BusinessConfig } from '../../../../../shared/types';
 import logger from '../../logger';
 import { getConfig } from '../../config';
 import { processLogoForCircularDisplay } from './logo-processor.service';
-import { getFirestore } from '../store.service';
+import { getFirestore } from '../firestore.service';
 import { getStorage } from '../storage.service';
 
 import { BUSINESS_CONFIG_COLLECTION } from '../../../../../shared/collections';

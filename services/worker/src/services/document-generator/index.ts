@@ -25,7 +25,7 @@ import { getRelatedInvoice } from './invoice-sheet-helpers';
 import { getDocumentTypeLabel } from './messages.service';
 import logger from '../../logger';
 import { getConfig } from '../../config';
-import { getFirestore } from '../store.service';
+import { getFirestore } from '../firestore.service';
 import { getStorage } from '../storage.service';
 
 /**

@@ -7,7 +7,7 @@
  */
 
 import logger from '../logger';
-import { getFirestore } from './store.service';
+import { getFirestore } from './firestore.service';
 
 const COLLECTION_NAME = 'rate_limits';
 

@@ -6,7 +6,7 @@ import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import type { JobStatus } from '../../../../shared/types';
 import logger from '../logger';
-import { getFirestore } from '../services/store.service';
+import { getFirestore } from '../services/firestore.service';
 
 const VERSION = process.env.APP_VERSION || 'development';
 

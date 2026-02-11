@@ -5,7 +5,7 @@
 
 import { Timestamp } from '@google-cloud/firestore';
 import logger from '../../logger';
-import { getFirestore } from '../store.service';
+import { getFirestore } from '../firestore.service';
 
 import { RATE_LIMITS_COLLECTION } from '../../../../../shared/collections';
 

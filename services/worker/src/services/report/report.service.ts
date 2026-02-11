@@ -18,7 +18,7 @@ import {
 import { parseGeneratedInvoiceDate } from '../../models/generated-invoice.model';
 import { getInvoiceJobsCollection, type InvoiceJob } from '../../models/invoice-job.model';
 import logger from '../../logger';
-import { getFirestore } from '../store.service';
+import { getFirestore } from '../firestore.service';
 
 /**
  * Get date range for preset

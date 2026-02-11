@@ -20,7 +20,7 @@ import express from 'express';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 
-import { getFirestore, getStorage } from './src/services/store.service';
+import { getFirestoreClient, getStorageClient } from './src/services/gcp-clients.service';
 import { FirestoreService } from './src/services/firestore.service';
 import { StorageService } from './src/services/storage.service';
 import { HealthService } from './src/services/health.service';
@@ -52,8 +52,8 @@ const ADMIN_TELEGRAM_USER_ID = process.env.ADMIN_TELEGRAM_USER_ID;
 const ADMIN_TELEGRAM_USERNAME = process.env.ADMIN_TELEGRAM_USERNAME;
 
 // Initialize GCP clients
-const firestore = getFirestore();
-const storage = getStorage();
+const firestore = getFirestoreClient();
+const storage = getStorageClient();
 
 // Get bucket names from environment
 const INVOICES_BUCKET = process.env.STORAGE_BUCKET || 'papertrail-invoice-invoices';

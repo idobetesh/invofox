@@ -10,7 +10,7 @@ import type { TaskPayload, DuplicateAction } from '../../../../shared/types';
 
 // Mock external services
 jest.mock('../../src/services/invoice.service');
-jest.mock('../../src/services/store.service');
+jest.mock('../../src/services/firestore.service');
 jest.mock('../../src/services/telegram.service');
 jest.mock('../../src/middlewares/cloudTasks', () => ({
   validateCloudTasks: jest.fn((req, _res, next) => next()),
@@ -19,7 +19,7 @@ jest.mock('../../src/middlewares/cloudTasks', () => ({
 }));
 
 import * as invoiceService from '../../src/services/invoice.service';
-import * as storeService from '../../src/services/store.service';
+import * as storeService from '../../src/services/firestore.service';
 import * as telegramService from '../../src/services/telegram.service';
 
 describe('Process Controller Integration Tests', () => {

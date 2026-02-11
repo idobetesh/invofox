@@ -12,7 +12,7 @@ import type {
 } from '../../../../../shared/types';
 import { INVOICE_SESSIONS_COLLECTION } from '../../../../../shared/collections';
 import logger from '../../logger';
-import { getFirestore } from '../store.service';
+import { getFirestore } from '../firestore.service';
 const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 /**

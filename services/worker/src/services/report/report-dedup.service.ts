@@ -5,7 +5,7 @@
 
 import { FieldValue } from '@google-cloud/firestore';
 import logger from '../../logger';
-import { getFirestore } from '../store.service';
+import { getFirestore } from '../firestore.service';
 
 const COLLECTION = 'processed_callbacks';
 const TTL_HOURS = 24; // Keep records for 24 hours

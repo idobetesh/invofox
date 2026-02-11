@@ -12,7 +12,7 @@ import {
   formatDocumentNumber,
 } from '../../../../../shared/collections';
 import logger from '../../logger';
-import { getFirestore } from '../store.service';
+import { getFirestore } from '../firestore.service';
 
 /**
  * Get current year as string

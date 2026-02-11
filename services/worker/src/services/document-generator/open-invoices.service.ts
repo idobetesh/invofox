@@ -5,7 +5,7 @@
 
 import { GENERATED_INVOICES_COLLECTION } from '../../../../../shared/collections';
 import logger from '../../logger';
-import { getFirestore } from '../store.service';
+import { getFirestore } from '../firestore.service';
 
 export interface OpenInvoice {
   invoiceNumber: string;

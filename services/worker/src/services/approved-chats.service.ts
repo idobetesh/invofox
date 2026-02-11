@@ -8,7 +8,7 @@
 import { Timestamp, FieldValue } from '@google-cloud/firestore';
 import logger from '../logger';
 import { ApprovedChat } from '../../../../shared/types';
-import { getFirestore } from './store.service';
+import { getFirestore } from './firestore.service';
 
 import { APPROVED_CHATS_COLLECTION } from '../../../../shared/collections';
 

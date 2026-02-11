@@ -7,7 +7,7 @@
 import { FieldValue } from '@google-cloud/firestore';
 import type { CustomerAccess, UserCustomerMapping } from '../../../../../shared/types';
 import logger from '../../logger';
-import { getFirestore } from '../store.service';
+import { getFirestore } from '../firestore.service';
 
 import { USER_CUSTOMER_MAPPING_COLLECTION } from '../../../../../shared/collections';
 

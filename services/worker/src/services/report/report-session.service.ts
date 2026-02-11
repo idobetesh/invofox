@@ -6,7 +6,7 @@
 import { Timestamp } from '@google-cloud/firestore';
 import type { DatePreset } from '../../../../../shared/report.types';
 import logger from '../../logger';
-import { getFirestore } from '../store.service';
+import { getFirestore } from '../firestore.service';
 
 import { REPORT_SESSIONS_COLLECTION } from '../../../../../shared/collections';
 const SESSION_TTL_MINUTES = 30;

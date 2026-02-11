@@ -6,7 +6,7 @@
 import { FieldValue } from '@google-cloud/firestore';
 import type { Language } from '../i18n/languages';
 import logger from '../../logger';
-import { getFirestore } from '../store.service';
+import { getFirestore } from '../firestore.service';
 
 import { ONBOARDING_SESSIONS_COLLECTION } from '../../../../../shared/collections';
 
