@@ -3,6 +3,8 @@
  * Supports English and Hebrew languages
  */
 
+import logger from '../../logger';
+
 export type Language = 'en' | 'he';
 
 export const messages = {
@@ -323,7 +325,7 @@ export function t(language: Language, key: string, params?: Record<string, strin
   for (const k of keys) {
     value = value?.[k];
     if (!value) {
-      console.error(`Translation key not found: ${key} for language ${language}`);
+      logger.error({ key, language }, 'Translation key not found');
       return key;
     }
   }

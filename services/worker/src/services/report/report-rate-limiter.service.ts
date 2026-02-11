@@ -3,8 +3,9 @@
  * Enforces 3 reports per day per user limit
  */
 
-import { Firestore, Timestamp } from '@google-cloud/firestore';
+import { Timestamp } from '@google-cloud/firestore';
 import logger from '../../logger';
+import { getFirestore } from '../store.service';
 
 import { RATE_LIMITS_COLLECTION } from '../../../../../shared/collections';
 
@@ -12,15 +13,6 @@ import { RATE_LIMITS_COLLECTION } from '../../../../../shared/collections';
 const parsedMaxReports = parseInt(process.env.REPORT_MAX_PER_DAY || '3', 10);
 const MAX_REPORTS_PER_DAY =
   Number.isNaN(parsedMaxReports) || parsedMaxReports <= 0 ? 3 : parsedMaxReports;
-
-let firestore: Firestore | null = null;
-
-function getFirestore(): Firestore {
-  if (!firestore) {
-    firestore = new Firestore();
-  }
-  return firestore;
-}
 
 export interface ReportRateLimit {
   chatId: number;

@@ -3,8 +3,7 @@
  * Main orchestrator for invoice generation flow
  */
 
-import { Storage } from '@google-cloud/storage';
-import { Firestore, FieldValue, Timestamp } from '@google-cloud/firestore';
+import { FieldValue, Timestamp } from '@google-cloud/firestore';
 import type {
   InvoiceData,
   BusinessConfig,
@@ -26,23 +25,8 @@ import { getRelatedInvoice } from './invoice-sheet-helpers';
 import { getDocumentTypeLabel } from './messages.service';
 import logger from '../../logger';
 import { getConfig } from '../../config';
-
-let storage: Storage | null = null;
-let firestore: Firestore | null = null;
-
-function getStorage(): Storage {
-  if (!storage) {
-    storage = new Storage();
-  }
-  return storage;
-}
-
-function getFirestore(): Firestore {
-  if (!firestore) {
-    firestore = new Firestore();
-  }
-  return firestore;
-}
+import { getFirestore } from '../store.service';
+import { getStorage } from '../storage.service';
 
 /**
  * Load business configuration from Firestore (by chat ID) or local file

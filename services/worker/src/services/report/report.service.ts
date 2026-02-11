@@ -3,7 +3,7 @@
  * Core business logic for report generation
  */
 
-import { Firestore, Timestamp } from '@google-cloud/firestore';
+import { Timestamp } from '@google-cloud/firestore';
 import type {
   ReportData,
   ReportMetrics,
@@ -18,15 +18,7 @@ import {
 import { parseGeneratedInvoiceDate } from '../../models/generated-invoice.model';
 import { getInvoiceJobsCollection, type InvoiceJob } from '../../models/invoice-job.model';
 import logger from '../../logger';
-
-let firestore: Firestore | null = null;
-
-function getFirestore(): Firestore {
-  if (!firestore) {
-    firestore = new Firestore();
-  }
-  return firestore;
-}
+import { getFirestore } from '../store.service';
 
 /**
  * Get date range for preset
@@ -182,27 +174,24 @@ export async function getInvoicesForReport(
     const endDate = new Date(dateRange.end);
     endDate.setHours(23, 59, 59, 999); // End of day
 
+    const startTimestamp = Timestamp.fromDate(startDate);
+    const endTimestamp = Timestamp.fromDate(endDate);
+
     if (reportType === 'revenue') {
+      // Helper to build query with common where clauses
+      const buildRevenueQuery = (collectionName: string) =>
+        db
+          .collection(collectionName)
+          .where('chatId', '==', chatId)
+          .where('generatedAt', '>=', startTimestamp)
+          .where('generatedAt', '<=', endTimestamp)
+          .get();
+
       // Query all 3 collections for revenue documents after collection split
       const [invoicesSnapshot, receiptsSnapshot, invoiceReceiptsSnapshot] = await Promise.all([
-        db
-          .collection(GENERATED_INVOICES_COLLECTION)
-          .where('chatId', '==', chatId)
-          .where('generatedAt', '>=', Timestamp.fromDate(startDate))
-          .where('generatedAt', '<=', Timestamp.fromDate(endDate))
-          .get(),
-        db
-          .collection(GENERATED_RECEIPTS_COLLECTION)
-          .where('chatId', '==', chatId)
-          .where('generatedAt', '>=', Timestamp.fromDate(startDate))
-          .where('generatedAt', '<=', Timestamp.fromDate(endDate))
-          .get(),
-        db
-          .collection(GENERATED_INVOICE_RECEIPTS_COLLECTION)
-          .where('chatId', '==', chatId)
-          .where('generatedAt', '>=', Timestamp.fromDate(startDate))
-          .where('generatedAt', '<=', Timestamp.fromDate(endDate))
-          .get(),
+        buildRevenueQuery(GENERATED_INVOICES_COLLECTION),
+        buildRevenueQuery(GENERATED_RECEIPTS_COLLECTION),
+        buildRevenueQuery(GENERATED_INVOICE_RECEIPTS_COLLECTION),
       ]);
 
       const totalCount =
@@ -308,8 +297,8 @@ export async function getInvoicesForReport(
       const snapshot = await collection
         .where('telegramChatId', '==', chatId) // ✓ Autocomplete knows this field exists!
         .where('status', '==', 'processed')
-        .where('createdAt', '>=', Timestamp.fromDate(startDate))
-        .where('createdAt', '<=', Timestamp.fromDate(endDate))
+        .where('createdAt', '>=', startTimestamp)
+        .where('createdAt', '<=', endTimestamp)
         .get();
 
       log.info({ count: snapshot.docs.length }, 'Found expense invoices');
@@ -503,6 +492,14 @@ export async function generateReportData(
   logoUrl?: string
 ): Promise<ReportData> {
   const invoices = await getInvoicesForReport(chatId, dateRange, reportType);
+
+  // Sort invoices by date descending (newest first)
+  invoices.sort((a, b) => {
+    const dateA = new Date(a.date).getTime();
+    const dateB = new Date(b.date).getTime();
+    return dateB - dateA;
+  });
+
   const metrics = calculateMetrics(invoices);
 
   return {

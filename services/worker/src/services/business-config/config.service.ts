@@ -4,37 +4,21 @@
  * Supports logo stored in Cloud Storage
  */
 
-import { Firestore, FieldValue, Timestamp } from '@google-cloud/firestore';
-import { Storage } from '@google-cloud/storage';
+import { FieldValue, Timestamp } from '@google-cloud/firestore';
 import type { BusinessConfig } from '../../../../../shared/types';
 import logger from '../../logger';
 import { getConfig } from '../../config';
 import { processLogoForCircularDisplay } from './logo-processor.service';
+import { getFirestore } from '../store.service';
+import { getStorage } from '../storage.service';
 
 import { BUSINESS_CONFIG_COLLECTION } from '../../../../../shared/collections';
 const DEFAULT_DOC_ID = 'default';
 const LOGO_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour cache for logo
 
-let firestore: Firestore | null = null;
-let storage: Storage | null = null;
-
 // Cache per chat ID
 const configCache: Map<string, BusinessConfig> = new Map();
 const logoCache: Map<string, { base64: string; fetchedAt: number }> = new Map();
-
-function getFirestore(): Firestore {
-  if (!firestore) {
-    firestore = new Firestore();
-  }
-  return firestore;
-}
-
-function getStorage(): Storage {
-  if (!storage) {
-    storage = new Storage();
-  }
-  return storage;
-}
 
 /**
  * Firestore document structure for business config

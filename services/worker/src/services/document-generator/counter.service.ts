@@ -4,7 +4,7 @@
  * Uses Firestore transactions for atomic increment
  */
 
-import { Firestore, FieldValue } from '@google-cloud/firestore';
+import { FieldValue } from '@google-cloud/firestore';
 import type { InvoiceCounter, InvoiceDocumentType } from '../../../../../shared/types';
 import {
   INVOICE_COUNTERS_COLLECTION,
@@ -12,15 +12,7 @@ import {
   formatDocumentNumber,
 } from '../../../../../shared/collections';
 import logger from '../../logger';
-
-let firestore: Firestore | null = null;
-
-function getFirestore(): Firestore {
-  if (!firestore) {
-    firestore = new Firestore();
-  }
-  return firestore;
-}
+import { getFirestore } from '../store.service';
 
 /**
  * Get current year as string

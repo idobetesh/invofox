@@ -4,20 +4,11 @@
 
 import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
-import { Firestore } from '@google-cloud/firestore';
 import type { JobStatus } from '../../../../shared/types';
 import logger from '../logger';
+import { getFirestore } from '../services/store.service';
 
 const VERSION = process.env.APP_VERSION || 'development';
-
-let firestore: Firestore | null = null;
-
-function getFirestore(): Firestore {
-  if (!firestore) {
-    firestore = new Firestore();
-  }
-  return firestore;
-}
 
 export function getHealth(_req: Request, res: Response): void {
   res.status(StatusCodes.OK).json({

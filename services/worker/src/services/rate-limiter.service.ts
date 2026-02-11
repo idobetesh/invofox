@@ -3,7 +3,9 @@
  * Records failed onboarding attempts in Firestore for shared state with webhook-handler
  */
 
-import { Firestore, Timestamp } from '@google-cloud/firestore';
+import { Timestamp } from '@google-cloud/firestore';
+import { getFirestore } from './store.service';
+import logger from '../logger';
 
 import { RATE_LIMITS_COLLECTION } from '../../../../shared/collections';
 
@@ -11,15 +13,6 @@ import { RATE_LIMITS_COLLECTION } from '../../../../shared/collections';
 const MAX_ATTEMPTS = parseInt(process.env.ONBOARD_MAX_ATTEMPTS || '3', 10);
 const BLOCK_DURATION_MS =
   parseInt(process.env.ONBOARD_BLOCK_DURATION_MINUTES || '15', 10) * 60 * 1000;
-
-let firestore: Firestore | null = null;
-
-function getFirestore(): Firestore {
-  if (!firestore) {
-    firestore = new Firestore();
-  }
-  return firestore;
-}
 
 export interface RateLimitDoc {
   chatId: number;
@@ -47,7 +40,7 @@ export async function recordFailedOnboardingAttempt(chatId: number): Promise<voi
       firstAttemptAt: now,
       lastAttemptAt: now,
     });
-    console.log(`[RateLimiter] Recorded first failed attempt for chat ${chatId}`);
+    logger.info({ chatId }, 'Recorded first failed onboarding attempt');
     return;
   }
 
@@ -62,7 +55,7 @@ export async function recordFailedOnboardingAttempt(chatId: number): Promise<voi
       firstAttemptAt: now,
       lastAttemptAt: now,
     });
-    console.log(`[RateLimiter] Block expired, reset counter for chat ${chatId}`);
+    logger.info({ chatId }, 'Rate limit block expired, reset counter');
     return;
   }
 
@@ -80,7 +73,10 @@ export async function recordFailedOnboardingAttempt(chatId: number): Promise<voi
   // Block if too many attempts
   if (newAttempts >= MAX_ATTEMPTS) {
     updateData.blockedUntil = Timestamp.fromMillis(now.toMillis() + BLOCK_DURATION_MS);
-    console.log(`[RateLimiter] Chat ${chatId} blocked until ${updateData.blockedUntil.toDate()}`);
+    logger.warn(
+      { chatId, blockedUntil: updateData.blockedUntil.toDate() },
+      'Chat blocked due to too many failed onboarding attempts'
+    );
   }
 
   await docRef.update(updateData);
@@ -94,5 +90,5 @@ export async function clearRateLimit(chatId: number): Promise<void> {
   const docRef = db.collection(RATE_LIMITS_COLLECTION).doc(`onboard_${chatId}`);
 
   await docRef.delete();
-  console.log(`[RateLimiter] Cleared rate limit for chat ${chatId}`);
+  logger.info({ chatId }, 'Cleared rate limit after successful onboarding');
 }
