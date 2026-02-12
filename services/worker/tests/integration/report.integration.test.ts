@@ -275,15 +275,7 @@ describe('Report API Integration Tests', () => {
         );
       });
 
-      it('should reject invalid report type', async () => {
-        (reportSessionService.getReportSession as jest.Mock).mockResolvedValue({
-          ...mockSession,
-          currentStep: 'type',
-        });
-        (reportSessionService.updateReportSession as jest.Mock).mockRejectedValue(
-          new Error('Invalid report type')
-        );
-
+      it('should reject invalid report type (whitelist)', async () => {
         const response = await request(app)
           .post('/report/callback')
           .send({
@@ -303,7 +295,8 @@ describe('Report API Integration Tests', () => {
             },
           });
 
-        expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+        expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+        expect(reportSessionService.updateReportSession).not.toHaveBeenCalled();
       });
     });
 
@@ -398,16 +391,7 @@ describe('Report API Integration Tests', () => {
         });
       });
 
-      it('should reject invalid date preset', async () => {
-        (reportSessionService.getReportSession as jest.Mock).mockResolvedValue({
-          ...mockSession,
-          currentStep: 'date',
-          reportType: 'revenue',
-        });
-        (reportService.getDateRangeForPreset as jest.Mock).mockImplementation(() => {
-          throw new Error('Unknown preset');
-        });
-
+      it('should reject invalid date preset (whitelist)', async () => {
         const response = await request(app)
           .post('/report/callback')
           .send({
@@ -427,7 +411,8 @@ describe('Report API Integration Tests', () => {
             },
           });
 
-        expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+        expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+        expect(reportSessionService.getReportSession).not.toHaveBeenCalled();
       });
     });
 
@@ -634,10 +619,7 @@ describe('Report API Integration Tests', () => {
       });
 
       it('should handle invalid format gracefully', async () => {
-        // Invalid format will default to CSV in the controller
-        const csvBuffer = Buffer.from('fake-csv-content');
-        (reportGeneratorService.generateCSVReport as jest.Mock).mockResolvedValue(csvBuffer);
-
+        // Invalid format is rejected by whitelist validation
         const response = await request(app)
           .post('/report/callback')
           .send({
@@ -657,9 +639,10 @@ describe('Report API Integration Tests', () => {
             },
           });
 
-        // Controller handles invalid format by defaulting to CSV
-        expect(response.status).toBe(StatusCodes.OK);
-        expect(reportGeneratorService.generateCSVReport).toHaveBeenCalled();
+        // Controller rejects invalid format with 400
+        expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+        expect(response.body.error).toBe('Invalid callback data');
+        expect(reportGeneratorService.generateCSVReport).not.toHaveBeenCalled();
       });
     });
 
@@ -763,8 +746,8 @@ describe('Report API Integration Tests', () => {
             },
           });
 
-        expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
-        expect(response.body.error).toBe('Failed to handle callback');
+        expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+        expect(response.body.error).toBe('Invalid callback data');
       });
     });
 
