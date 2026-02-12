@@ -111,44 +111,70 @@ export async function handleReportCommand(req: Request, res: Response): Promise<
   }
 }
 
+/** Allowed abbreviated actions from Telegram callback_data */
+const REPORT_CALLBACK_ACTIONS = ['type', 'date', 'fmt', 'cancel'] as const;
+
+/** Allowed values per action (abbrev -> canonical). Unknown values are rejected. */
+const REPORT_CALLBACK_VALUE_MAP: Record<string, Record<string, string>> = {
+  type: { rev: 'revenue', exp: 'expenses' },
+  date: { tm: 'this_month', lm: 'last_month', ytd: 'ytd' },
+  fmt: { pdf: 'pdf', xls: 'excel', csv: 'csv' },
+  cancel: {},
+};
+
 /**
- * Map abbreviated callback data to full values
+ * Map abbreviated callback data to full values. Returns null if data is invalid (security: strict whitelist).
  * Abbreviated format: {a: action, s: sessionId, v: value}
  */
 function parseCallbackData(rawData: string): {
   action: string;
   sessionId: string;
   value?: string;
-} {
-  const data = JSON.parse(rawData);
+} | null {
+  let data: { a?: string; s?: string; v?: string };
+  try {
+    data = JSON.parse(rawData);
+  } catch {
+    return null;
+  }
 
-  // Action mapping
+  const actionAbbrev = typeof data.a === 'string' ? data.a : undefined;
+  const sessionId = typeof data.s === 'string' ? data.s : undefined;
+  if (
+    !actionAbbrev ||
+    !sessionId ||
+    !REPORT_CALLBACK_ACTIONS.includes(actionAbbrev as (typeof REPORT_CALLBACK_ACTIONS)[number])
+  ) {
+    return null;
+  }
+
   const actionMap: Record<string, string> = {
     type: 'select_type',
     date: 'select_date',
     fmt: 'select_format',
     cancel: 'cancel',
   };
+  const valueMap = REPORT_CALLBACK_VALUE_MAP[actionAbbrev];
+  const valueAbbrev = data.v;
 
-  // Value mapping
-  const valueMap: Record<string, string> = {
-    // Type values
-    rev: 'revenue',
-    exp: 'expenses',
-    // Date presets
-    tm: 'this_month',
-    lm: 'last_month',
-    ytd: 'ytd',
-    // Formats
-    pdf: 'pdf',
-    xls: 'excel',
-    csv: 'csv',
-  };
+  let value: string | undefined;
+  if (actionAbbrev === 'cancel') {
+    value = undefined;
+  } else if (
+    valueAbbrev !== undefined &&
+    valueMap &&
+    typeof valueAbbrev === 'string' &&
+    valueAbbrev in valueMap
+  ) {
+    value = valueMap[valueAbbrev];
+  } else {
+    return null;
+  }
 
   return {
-    action: actionMap[data.a] || data.a,
-    sessionId: data.s,
-    value: data.v ? valueMap[data.v] || data.v : undefined,
+    action: actionMap[actionAbbrev],
+    sessionId,
+    value,
   };
 }
 
@@ -177,6 +203,15 @@ export async function handleReportCallback(req: Request, res: Response): Promise
       res.status(StatusCodes.BAD_REQUEST).json({ error: 'No chatId or messageId in callback' });
       return;
     }
+    if (!data) {
+      log.warn('Invalid report callback data (rejected by whitelist)');
+      await telegramService.answerCallbackQuery(callbackQueryId, {
+        text: '❌ פעולה לא תקינה',
+        showAlert: true,
+      });
+      res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid callback data' });
+      return;
+    }
 
     // Deduplication: Check if this update was already processed
     if (updateId) {
@@ -189,6 +224,29 @@ export async function handleReportCallback(req: Request, res: Response): Promise
 
       // Mark as processed IMMEDIATELY to prevent race condition with Telegram retries
       await reportDedupService.markCallbackProcessed(updateId);
+    }
+
+    // Security: validate session ownership — callback must be from the chat that owns the session
+    const session = await reportSessionService.getReportSession(data.sessionId);
+    if (!session) {
+      await telegramService.answerCallbackQuery(callbackQueryId, {
+        text: '❌ פג תוקף ההפעלה. אנא שלח /report שוב',
+        showAlert: true,
+      });
+      res.status(StatusCodes.OK).json({ ok: true, action: 'session_not_found' });
+      return;
+    }
+    if (session.chatId !== chatId) {
+      log.warn(
+        { sessionChatId: session.chatId, callbackChatId: chatId },
+        'Report callback chatId does not match session'
+      );
+      await telegramService.answerCallbackQuery(callbackQueryId, {
+        text: '❌ הפעלה לא מאושרת',
+        showAlert: true,
+      });
+      res.status(StatusCodes.FORBIDDEN).json({ error: 'Session ownership mismatch' });
+      return;
     }
 
     log.info(

@@ -11,7 +11,7 @@
     "dev:local": "NODE_ENV=development SKIP_CLOUD_TASKS=true node -r dotenv/config -r ts-node/register src/index.ts",
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "jest --config jest.config.js",
-    "test:integration": "jest --config jest.config.integration.js --forceExit",
+    "test:integration": "jest --config jest.config.integration.js --forceExit --runInBand",
     "test:watch": "jest --watch --config jest.config.js",
     "test:changed": "jest --onlyChanged --config jest.config.js",
     "test:fast": "jest --bail --maxWorkers=4 --config jest.config.js",
