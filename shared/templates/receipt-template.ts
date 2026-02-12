@@ -4,7 +4,7 @@
  * For standalone receipts linked to invoices
  */
 
-import { getCurrencySymbol } from './template-utils';
+import { getCurrencySymbol, formatAmount } from './template-utils';
 
 export interface ReceiptTemplateParams {
   receiptNumber: string;
@@ -351,11 +351,11 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
           <td>${paymentMethod}</td>
           <td></td>
           <td>${receiptDate}</td>
-          <td class="amount">${currencySymbol}${amount.toFixed(2)}</td>
+          <td class="amount">${currencySymbol}${formatAmount(amount)}</td>
         </tr>
         <tr class="total-row">
           <td colspan="3" class="total-label">סה״כ שולם</td>
-          <td class="amount">${currencySymbol}${amount.toFixed(2)}</td>
+          <td class="amount">${currencySymbol}${formatAmount(amount)}</td>
         </tr>
       </tbody>
     </table>
@@ -366,7 +366,7 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
       ? `
   <!-- Remaining Balance Info -->
   <div class="remaining-balance-info">
-    <div class="text">יתרה לתשלום: <span class="amount">${currencySymbol}${remainingBalance.toFixed(2)}</span></div>
+    <div class="text">יתרה לתשלום: <span class="amount">${currencySymbol}${formatAmount(remainingBalance)}</span></div>
   </div>
   `
       : `

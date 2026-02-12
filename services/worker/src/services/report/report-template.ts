@@ -3,7 +3,13 @@
  * Template for generating PDF reports with Hebrew RTL support
  */
 
-import type { ReportData, DateRange } from '../../../../../shared/report.types';
+import type {
+  ReportData,
+  DateRange,
+  BalanceInvoiceForReport,
+  ReportType,
+} from '../../../../../shared/report.types';
+import { REPORT_TYPE_NAMES, REPORT_CHART_TITLES } from '../../../../../shared/report.types';
 
 /**
  * Get currency symbol for display
@@ -144,13 +150,27 @@ function generateChartConfig(
   reportType: string,
   currency: string
 ): string {
-  const title = reportType === 'revenue' ? 'מגמת הכנסות' : 'מגמת הוצאות';
+  const title = REPORT_CHART_TITLES[reportType as ReportType] || 'מגמה';
   const currencySymbol = getCurrencySymbol(currency);
   // Use nicer colors with gradients
   const backgroundColor =
-    reportType === 'revenue' ? 'rgba(59, 130, 246, 0.8)' : 'rgba(239, 68, 68, 0.8)';
-  const borderColor = reportType === 'revenue' ? 'rgb(37, 99, 235)' : 'rgb(220, 38, 38)';
-  const hoverColor = reportType === 'revenue' ? 'rgba(37, 99, 235, 0.9)' : 'rgba(220, 38, 38, 0.9)';
+    reportType === 'revenue'
+      ? 'rgba(59, 130, 246, 0.8)'
+      : reportType === 'balance'
+        ? 'rgba(16, 185, 129, 0.8)'
+        : 'rgba(239, 68, 68, 0.8)';
+  const borderColor =
+    reportType === 'revenue'
+      ? 'rgb(37, 99, 235)'
+      : reportType === 'balance'
+        ? 'rgb(5, 150, 105)'
+        : 'rgb(220, 38, 38)';
+  const hoverColor =
+    reportType === 'revenue'
+      ? 'rgba(37, 99, 235, 0.9)'
+      : reportType === 'balance'
+        ? 'rgba(5, 150, 105, 0.9)'
+        : 'rgba(220, 38, 38, 0.9)';
 
   const config = {
     type: 'bar',
@@ -226,7 +246,7 @@ export function generateReportHTML(data: ReportData): string {
   const primarySymbolEsc = escapeHtml(getCurrencySymbol(primaryCurrency));
 
   // Dynamic titles based on report type
-  const reportTitle = reportType === 'revenue' ? 'דוח הכנסות' : 'דוח הוצאות';
+  const reportTitle = `דוח ${REPORT_TYPE_NAMES[reportType]}`;
 
   // Generate chart data
   const chartData = groupInvoicesByPeriod(invoices, dateRange);
@@ -430,12 +450,13 @@ export function generateReportHTML(data: ReportData): string {
   </div>
 
   <div class="table-container">
-    <h2>פירוט ${reportType === 'revenue' ? 'חשבוניות' : 'הוצאות'}</h2>
+    <h2>פירוט ${reportType === 'balance' ? 'מסמכים' : reportType === 'revenue' ? 'חשבוניות' : 'הוצאות'}</h2>
     <table>
       <thead>
         <tr>
+          ${reportType === 'balance' ? '<th>סוג</th>' : ''}
           <th>תאריך</th>
-          <th>${reportType === 'revenue' ? 'לקוח' : 'ספק'}</th>
+          <th>${reportType === 'revenue' ? 'לקוח' : reportType === 'expenses' ? 'ספק' : 'לקוח/ספק'}</th>
           <th>סכום</th>
           ${reportType === 'revenue' ? '<th>סטטוס</th>' : ''}
           <th>קטגוריה</th>
@@ -445,9 +466,23 @@ export function generateReportHTML(data: ReportData): string {
         ${invoices
           .filter((inv) => !inv.isLinkedReceipt) // Filter out linked receipts
           .map((inv) => {
-            // Status badge only for revenue
+            // Determine if this is an expense (for balance reports)
+            const isExpense =
+              reportType === 'balance' &&
+              (inv as BalanceInvoiceForReport).reportSource === 'expenses';
+            const rowStyle = isExpense ? ' style="background-color: #fee2e2;"' : '';
+
+            // Type cell for balance reports
+            let typeCell = '';
+            if (reportType === 'balance') {
+              const typeText = isExpense ? 'הוצאה' : 'הכנסה';
+              const typeColor = isExpense ? '#dc2626' : '#059669';
+              typeCell = `<td style="font-weight: 600; color: ${typeColor};">${typeText}</td>`;
+            }
+
+            // Status badge only for revenue (and revenue items in balance)
             let statusCell = '';
-            if (reportType === 'revenue') {
+            if (reportType === 'revenue' || (reportType === 'balance' && !isExpense)) {
               let statusText = 'ממתין';
               let statusClass = 'status-unpaid';
 
@@ -462,15 +497,21 @@ export function generateReportHTML(data: ReportData): string {
               statusCell = `<td><span class="status-badge ${statusClass}">${escapeHtml(statusText)}</span></td>`;
             }
 
+            // Amount display (negative for expenses in balance reports)
+            const amountDisplay = isExpense
+              ? `-${escapeHtml(getCurrencySymbol(inv.currency))}${inv.amount.toLocaleString()}`
+              : `${escapeHtml(getCurrencySymbol(inv.currency))}${inv.amount.toLocaleString()}`;
+
             return `
-          <tr>
+          <tr${rowStyle}>
+            ${typeCell}
             <td>${formatInvoiceDate(inv.date)}</td>
             <td>${
               inv.driveLink
-                ? `<a href="${escapeHtml(inv.driveLink)}" target="_blank" title="לחץ לפתיחת ה${reportType === 'revenue' ? 'חשבונית' : 'קבלה'}">${escapeHtml(inv.customerName)}</a>`
+                ? `<a href="${escapeHtml(inv.driveLink)}" target="_blank" title="לחץ לפתיחת ה${isExpense ? 'קבלה' : 'חשבונית'}">${escapeHtml(inv.customerName)}</a>`
                 : escapeHtml(inv.customerName)
             }</td>
-            <td>${escapeHtml(getCurrencySymbol(inv.currency))}${inv.amount.toLocaleString()}</td>
+            <td>${amountDisplay}</td>
             ${statusCell}
             <td>${escapeHtml(inv.category || 'כללי')}</td>
           </tr>
@@ -482,11 +523,83 @@ export function generateReportHTML(data: ReportData): string {
   </div>
 
   <div class="summary">
-    <h2>סיכום ${reportType === 'revenue' ? 'הכנסות' : 'הוצאות'}</h2>
+    <h2>סיכום ${reportType === 'balance' ? 'מאזן' : reportType === 'revenue' ? 'הכנסות' : 'הוצאות'}</h2>
 
     ${
-      metrics.currencies.length > 1
+      reportType === 'balance'
         ? `
+    <!-- Balance Report: Three-Part Summary -->
+    <!-- Part 1: Revenue Metrics -->
+    <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 6px; border-right: 4px solid #059669;">
+      <div style="font-size: 16px; font-weight: bold; color: #059669; margin-bottom: 15px;">הכנסות</div>
+      <div class="summary-grid">
+        <div class="metric">
+          <div class="label">הונפקו</div>
+          <div class="value">${primarySymbolEsc}${(metrics.revenueMetrics?.totalInvoiced || 0).toLocaleString()}</div>
+          <div style="font-size: 11px; color: #999; margin-top: 5px;">${metrics.revenueMetrics?.invoicedCount || 0} מסמכים</div>
+        </div>
+        <div class="metric highlight">
+          <div class="label">התקבלו</div>
+          <div class="value">${primarySymbolEsc}${(metrics.revenueMetrics?.totalReceived || 0).toLocaleString()}</div>
+          <div style="font-size: 11px; color: #999; margin-top: 5px;">${metrics.revenueMetrics?.receivedCount || 0} תשלומים</div>
+        </div>
+        <div class="metric warning">
+          <div class="label">ממתינות</div>
+          <div class="value">${primarySymbolEsc}${(metrics.revenueMetrics?.totalOutstanding || 0).toLocaleString()}</div>
+          <div style="font-size: 11px; color: #999; margin-top: 5px;">${metrics.revenueMetrics?.outstandingCount || 0} חשבוניות</div>
+        </div>
+        <div class="metric">
+          <div class="label">ממוצע</div>
+          <div class="value">${primarySymbolEsc}${Math.round(metrics.revenueMetrics?.avgInvoiced || 0).toLocaleString()}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Part 2: Expense Metrics -->
+    <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 6px; border-right: 4px solid #dc2626;">
+      <div style="font-size: 16px; font-weight: bold; color: #dc2626; margin-bottom: 15px;">הוצאות</div>
+      <div class="summary-grid">
+        <div class="metric">
+          <div class="label">סה"כ הוצאות</div>
+          <div class="value">${primarySymbolEsc}${(metrics.expenseMetrics?.totalExpenses || 0).toLocaleString()}</div>
+          <div style="font-size: 11px; color: #999; margin-top: 5px;">${metrics.expenseMetrics?.expenseCount || 0} הוצאות</div>
+        </div>
+        <div class="metric">
+          <div class="label">ממוצע להוצאה</div>
+          <div class="value">${primarySymbolEsc}${Math.round(metrics.expenseMetrics?.avgExpense || 0).toLocaleString()}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Part 3: Net Balance -->
+    <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 6px; border-right: 4px solid #8b5cf6;">
+      <div style="font-size: 16px; font-weight: bold; color: #8b5cf6; margin-bottom: 15px;">מאזן נקי</div>
+      <div class="summary-grid">
+        <div class="metric">
+          <div class="label">רווח נקי</div>
+          <div class="value" style="color: ${(metrics.profit || 0) >= 0 ? '#059669' : '#dc2626'};">
+            ${primarySymbolEsc}${(metrics.profit || 0).toLocaleString()}
+          </div>
+        </div>
+        <div class="metric">
+          <div class="label">שולי רווח</div>
+          <div class="value" style="color: ${(metrics.profitMargin || 0) >= 0 ? '#059669' : '#dc2626'};">
+            ${(metrics.profitMargin || 0).toFixed(1)}%
+          </div>
+        </div>
+        <div class="metric">
+          <div class="label">תזרים מזומנים</div>
+          <div class="value">${primarySymbolEsc}${(metrics.netCashFlow || 0).toLocaleString()}</div>
+        </div>
+        <div class="metric">
+          <div class="label">נטו הונפק</div>
+          <div class="value">${primarySymbolEsc}${(metrics.netInvoiced || 0).toLocaleString()}</div>
+        </div>
+      </div>
+    </div>
+    `
+        : metrics.currencies.length > 1
+          ? `
     <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 6px; border-right: 4px solid #2563eb;">
       <div style="font-size: 14px; font-weight: bold; color: #2563eb; margin-bottom: 10px;">סה"כ לפי מטבע</div>
       ${metrics.currencies
@@ -522,9 +635,12 @@ export function generateReportHTML(data: ReportData): string {
         .join('')}
     </div>
     `
-        : ''
+          : ''
     }
 
+    ${
+      reportType !== 'balance'
+        ? `
     <div class="summary-grid">
       ${
         reportType === 'revenue'
@@ -581,10 +697,13 @@ export function generateReportHTML(data: ReportData): string {
     `
         : ''
     }
+    `
+        : ''
+    }
   </div>
 
-  <div class="chart-container">
-    <h2>מגמת ${reportType === 'revenue' ? 'הכנסות' : 'הוצאות'} לאורך זמן</h2>
+  <div class="chart-container" ${reportType === 'balance' ? 'style="page-break-before: always;"' : ''}>
+    <h2>מגמת ${reportType === 'balance' ? 'רווח' : reportType === 'revenue' ? 'הכנסות' : 'הוצאות'} לאורך זמן</h2>
     <div class="chart-wrapper">
       <canvas id="revenueChart"></canvas>
     </div>

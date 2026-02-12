@@ -9,16 +9,16 @@ import type { ReportCommandPayload } from '../../../../shared/task.types';
 
 // Mock all dependencies
 jest.mock('../../src/services/customer/user-mapping.service');
-jest.mock('../../src/services/report/report.service');
-jest.mock('../../src/services/report/report-generator.service');
+jest.mock('../../src/services/report/core');
+jest.mock('../../src/services/report/generators');
 jest.mock('../../src/services/report/report-rate-limiter.service');
 jest.mock('../../src/services/report/report-session.service');
 jest.mock('../../src/services/telegram.service');
 jest.mock('../../src/services/business-config/config.service');
 
 import * as userMappingService from '../../src/services/customer/user-mapping.service';
-import * as reportService from '../../src/services/report/report.service';
-import * as reportGeneratorService from '../../src/services/report/report-generator.service';
+import * as reportService from '../../src/services/report/core';
+import * as reportGeneratorService from '../../src/services/report/generators';
 import * as rateLimiterService from '../../src/services/report/report-rate-limiter.service';
 import * as reportSessionService from '../../src/services/report/report-session.service';
 import * as businessConfigService from '../../src/services/business-config/config.service';

@@ -4,8 +4,9 @@
  */
 
 import type { ReportType, ReportFormat, DatePreset } from '../../../../../shared/report.types';
-import * as reportService from './report.service';
-import * as reportGeneratorService from './report-generator.service';
+import { REPORT_TYPE_NAMES } from '../../../../../shared/report.types';
+import * as reportService from './core';
+import * as reportGeneratorService from './generators';
 import * as reportSessionService from './report-session.service';
 import * as reportMessageService from './report-message.service';
 import * as businessConfigService from '../business-config/config.service';
@@ -38,12 +39,12 @@ export async function handleTypeSelection(
 
     // Update session with report type
     await reportSessionService.updateReportSession(sessionId, {
-      reportType,
+      reportType: reportType,
       currentStep: 'date',
-    });
+    } as any);
 
     // Answer callback query with popup feedback
-    const typeName = reportType === 'revenue' ? 'הכנסות' : 'הוצאות';
+    const typeName = REPORT_TYPE_NAMES[reportType];
     await telegramService.answerCallbackQuery(callbackQueryId, {
       text: `✅ ${typeName}`,
     });
@@ -205,7 +206,7 @@ export async function handleFormatSelection(
     }
 
     // Build summary message with context
-    const reportTypeName = session.reportType === 'revenue' ? 'הכנסות' : 'הוצאות';
+    const reportTypeName = REPORT_TYPE_NAMES[session.reportType];
     const dateLabel = reportMessageService.getDateLabel(session.datePreset);
     const summaryText = `⏳ מייצר דוח ${reportTypeName} עבור ${dateLabel} (${formatName})...`;
 

@@ -4,6 +4,7 @@
  */
 
 import type { DatePreset, ReportMetrics } from '../../../../../shared/report.types';
+import { REPORT_TYPE_NAMES } from '../../../../../shared/report.types';
 import * as telegramService from '../telegram.service';
 import logger from '../../logger';
 
@@ -30,6 +31,16 @@ export async function sendTypeSelectionMessage(chatId: number, sessionId: string
             a: 'type',
             s: sessionId,
             v: 'exp',
+          }),
+        },
+      ],
+      [
+        {
+          text: '⚖️ מאזן',
+          callback_data: JSON.stringify({
+            a: 'type',
+            s: sessionId,
+            v: 'bal',
           }),
         },
       ],
@@ -181,13 +192,13 @@ export async function sendReportGeneratedMessage(
   chatId: number,
   fileBuffer: Buffer,
   filename: string,
-  reportType: 'revenue' | 'expenses',
+  reportType: 'revenue' | 'expenses' | 'balance',
   datePreset: DatePreset,
   dateRange: { start: string; end: string },
   metrics: ReportMetrics,
   generatingMessageId?: number
 ): Promise<void> {
-  const reportTypeName = reportType === 'revenue' ? 'הכנסות' : 'הוצאות';
+  const reportTypeName = REPORT_TYPE_NAMES[reportType];
   const dateLabel = getDateLabel(datePreset);
 
   // Build caption with payment tracking for revenue
@@ -203,11 +214,18 @@ export async function sendReportGeneratedMessage(
       `\u200F⏳ ממתינות: ₪${metrics.totalOutstanding.toLocaleString('he-IL')}\n` +
       `\u200F📄 מסמכים: ${metrics.invoicedCount}\n` +
       `\u200F📈 ממוצע: ₪${Math.round(metrics.avgInvoiced).toLocaleString('he-IL')}\n\n`;
-  } else {
+  } else if (reportType === 'expenses') {
     caption +=
       `\u200F💰 סה"כ: ₪${metrics.totalInvoiced.toLocaleString('he-IL')}\n` +
       `\u200F📄 הוצאות: ${metrics.invoicedCount}\n` +
       `\u200F📈 ממוצע: ₪${Math.round(metrics.avgInvoiced).toLocaleString('he-IL')}\n\n`;
+  } else if (reportType === 'balance') {
+    caption +=
+      `\u200F💰 הכנסות: ₪${metrics.revenueMetrics?.totalReceived.toLocaleString('he-IL')}\n` +
+      `\u200F💸 הוצאות: ₪${metrics.expenseMetrics?.totalExpenses.toLocaleString('he-IL')}\n` +
+      `\u200F📊 רווח נקי: ₪${(metrics.profit || 0).toLocaleString('he-IL')}\n` +
+      `\u200F📈 שולי רווח: ${(metrics.profitMargin || 0).toFixed(1)}%\n` +
+      `\u200F📄 מסמכים: ${metrics.invoicedCount}\n\n`;
   }
 
   // Delete generating message first (for clean UI)

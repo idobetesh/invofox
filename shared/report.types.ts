@@ -5,9 +5,27 @@
 
 import type { InvoiceDocumentType } from './invoice.types';
 
-export type ReportType = 'revenue' | 'expenses';
+export type ReportType = 'revenue' | 'expenses' | 'balance';
 export type ReportFormat = 'pdf' | 'excel' | 'csv';
 export type DatePreset = 'this_month' | 'last_month' | 'ytd';
+
+/**
+ * Hebrew display names for report types
+ */
+export const REPORT_TYPE_NAMES: Record<ReportType, string> = {
+  revenue: 'הכנסות',
+  expenses: 'הוצאות',
+  balance: 'מאזן',
+} as const;
+
+/**
+ * Hebrew chart titles for report types
+ */
+export const REPORT_CHART_TITLES: Record<ReportType, string> = {
+  revenue: 'מגמת הכנסות',
+  expenses: 'מגמת הוצאות',
+  balance: 'מגמת רווח',
+} as const;
 
 export interface DateRange {
   start: string; // YYYY-MM-DD
@@ -99,6 +117,36 @@ export interface ReportMetrics {
   // Growth comparison
   previousPeriodRevenue?: number;
   growthPercentage?: number;
+
+  // === Balance Report Specific Metrics ===
+  revenueMetrics?: {
+    totalInvoiced: number;
+    totalReceived: number;
+    totalOutstanding: number;
+    invoicedCount: number;
+    receivedCount: number;
+    outstandingCount: number;
+    avgInvoiced: number;
+    currencies: CurrencyMetrics[];
+  };
+
+  expenseMetrics?: {
+    totalExpenses: number;
+    expenseCount: number;
+    avgExpense: number;
+    currencies: Array<{
+      currency: string;
+      totalExpenses: number;
+      expenseCount: number;
+      avgExpense: number;
+    }>;
+  };
+
+  // Net calculations
+  netInvoiced?: number; // revenue.totalInvoiced - expenses.totalExpenses
+  netCashFlow?: number; // revenue.totalReceived - expenses.totalExpenses
+  profit?: number; // revenue.totalReceived - expenses.totalExpenses
+  profitMargin?: number; // (profit / revenue.totalReceived) * 100
 }
 
 export interface InvoiceForReport {
@@ -124,12 +172,35 @@ export interface InvoiceForReport {
   isLinkedReceipt?: boolean; // True if this is a receipt linked to an invoice (skip in calculations)
 }
 
-export interface ReportData {
+/**
+ * Extended invoice type for balance reports
+ * Includes required reportSource to distinguish revenue from expenses
+ */
+export interface BalanceInvoiceForReport extends InvoiceForReport {
+  reportSource: 'revenue' | 'expenses';
+}
+
+/**
+ * Base report data structure with generic invoice type
+ */
+interface BaseReportData<TInvoice> {
   businessName: string;
   logoUrl?: string;
-  reportType: ReportType;
   dateRange: DateRange;
   generatedAt: string;
   metrics: ReportMetrics;
-  invoices: InvoiceForReport[];
+  invoices: TInvoice[];
 }
+
+/**
+ * Report data with discriminated union based on report type
+ * - Revenue/Expenses reports use InvoiceForReport[]
+ * - Balance reports use BalanceInvoiceForReport[] (with required reportSource)
+ */
+export type ReportData =
+  | (BaseReportData<InvoiceForReport> & {
+      reportType: 'revenue' | 'expenses';
+    })
+  | (BaseReportData<BalanceInvoiceForReport> & {
+      reportType: 'balance';
+    });
