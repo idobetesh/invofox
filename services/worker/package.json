@@ -10,7 +10,7 @@
     "dev": "NODE_ENV=development node -r dotenv/config -r ts-node/register src/index.ts",
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "jest --config jest.config.js",
-    "test:integration": "jest --config jest.config.integration.js --forceExit",
+    "test:integration": "jest --config jest.config.integration.js --forceExit --runInBand",
     "test:watch": "jest --watch --config jest.config.js",
     "test:coverage": "jest --coverage --config jest.config.js && jest --coverage --config jest.config.integration.js",
     "test:changed": "jest --onlyChanged --config jest.config.js",
