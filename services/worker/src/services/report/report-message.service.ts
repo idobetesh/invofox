@@ -6,6 +6,7 @@
 import type { DatePreset, ReportMetrics } from '../../../../../shared/report.types';
 import { REPORT_TYPE_NAMES } from '../../../../../shared/report.types';
 import * as telegramService from '../telegram.service';
+import { getCurrencySymbol } from './generators/utils';
 import logger from '../../logger';
 
 /**
@@ -201,6 +202,20 @@ export async function sendReportGeneratedMessage(
   const reportTypeName = REPORT_TYPE_NAMES[reportType];
   const dateLabel = getDateLabel(datePreset);
 
+  // Get currency symbols based on primary currencies
+  const primaryCurrency = metrics.currencies[0]?.currency || 'ILS';
+  const primarySymbol = getCurrencySymbol(primaryCurrency);
+
+  // For balance reports, get symbols for each section
+  const revenueSymbol =
+    reportType === 'balance'
+      ? getCurrencySymbol(metrics.revenueMetrics?.currencies[0]?.currency || 'ILS')
+      : primarySymbol;
+  const expenseSymbol =
+    reportType === 'balance'
+      ? getCurrencySymbol(metrics.expenseMetrics?.currencies[0]?.currency || 'ILS')
+      : primarySymbol;
+
   // Build caption with payment tracking for revenue
   let caption =
     `\u200F✅ דוח ${reportTypeName} נוצר!\n\n` +
@@ -209,22 +224,22 @@ export async function sendReportGeneratedMessage(
 
   if (reportType === 'revenue') {
     caption +=
-      `\u200F💰 הונפקו: ₪${metrics.totalInvoiced.toLocaleString('he-IL')}\n` +
-      `\u200F✅ התקבלו: ₪${metrics.totalReceived.toLocaleString('he-IL')}\n` +
-      `\u200F⏳ ממתינות: ₪${metrics.totalOutstanding.toLocaleString('he-IL')}\n` +
+      `\u200F💰 הונפקו: ${primarySymbol}${metrics.totalInvoiced.toLocaleString('he-IL')}\n` +
+      `\u200F✅ התקבלו: ${primarySymbol}${metrics.totalReceived.toLocaleString('he-IL')}\n` +
+      `\u200F⏳ ממתינות: ${primarySymbol}${metrics.totalOutstanding.toLocaleString('he-IL')}\n` +
       `\u200F📄 מסמכים: ${metrics.invoicedCount}\n` +
-      `\u200F📈 ממוצע: ₪${Math.round(metrics.avgInvoiced).toLocaleString('he-IL')}\n\n`;
+      `\u200F📈 ממוצע: ${primarySymbol}${Math.round(metrics.avgInvoiced).toLocaleString('he-IL')}\n\n`;
   } else if (reportType === 'expenses') {
     caption +=
-      `\u200F💰 סה"כ: ₪${metrics.totalInvoiced.toLocaleString('he-IL')}\n` +
+      `\u200F💰 סה"כ: ${primarySymbol}${metrics.totalInvoiced.toLocaleString('he-IL')}\n` +
       `\u200F📄 הוצאות: ${metrics.invoicedCount}\n` +
-      `\u200F📈 ממוצע: ₪${Math.round(metrics.avgInvoiced).toLocaleString('he-IL')}\n\n`;
+      `\u200F📈 ממוצע: ${primarySymbol}${Math.round(metrics.avgInvoiced).toLocaleString('he-IL')}\n\n`;
   } else if (reportType === 'balance') {
     caption +=
-      `\u200F💰 הכנסות: ₪${metrics.revenueMetrics?.totalReceived.toLocaleString('he-IL')}\n` +
-      `\u200F💸 הוצאות: ₪${metrics.expenseMetrics?.totalExpenses.toLocaleString('he-IL')}\n` +
-      `\u200F📊 רווח נקי: ₪${(metrics.profit || 0).toLocaleString('he-IL')}\n` +
-      `\u200F📈 שולי רווח: ${(metrics.profitMargin || 0).toFixed(1)}%\n` +
+      `\u200F💰 הכנסות: ${revenueSymbol}${(metrics.revenueMetrics?.totalReceived ?? 0).toLocaleString('he-IL')}\n` +
+      `\u200F💸 הוצאות: ${expenseSymbol}${(metrics.expenseMetrics?.totalExpenses ?? 0).toLocaleString('he-IL')}\n` +
+      `\u200F📊 רווח נקי: ${primarySymbol}${(metrics.profit ?? 0).toLocaleString('he-IL')}\n` +
+      `\u200F📈 שולי רווח: ${(metrics.profitMargin ?? 0).toFixed(1)}%\n` +
       `\u200F📄 מסמכים: ${metrics.invoicedCount}\n\n`;
   }
 

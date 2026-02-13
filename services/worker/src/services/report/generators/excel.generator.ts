@@ -316,9 +316,9 @@ export async function generateExcelReport(data: ReportData): Promise<Buffer> {
     invoicesSheet.getColumn(7).width = 20; // Category
     invoicesSheet.getColumn(8).width = 40; // Link
 
-    // Format amount column as currency
+    // Format amount column (neutral format since currency is in separate column)
     for (let i = 2; i <= invoicesToShow.length + 1; i++) {
-      invoicesSheet.getCell(`D${i}`).numFmt = '₪#,##0.00'; // Amount
+      invoicesSheet.getCell(`D${i}`).numFmt = '#,##0.00;[Red]-#,##0.00'; // Amount
     }
   } else if (data.reportType === 'revenue') {
     invoicesSheet.getColumn(1).width = 12; // Date
@@ -332,11 +332,11 @@ export async function generateExcelReport(data: ReportData): Promise<Buffer> {
     invoicesSheet.getColumn(9).width = 20; // Category
     invoicesSheet.getColumn(10).width = 40; // Link
 
-    // Format amount columns as currency
+    // Format amount columns (neutral format since currency is in separate column)
     for (let i = 2; i <= invoicesToShow.length + 1; i++) {
-      invoicesSheet.getCell(`C${i}`).numFmt = '₪#,##0.00'; // Amount
-      invoicesSheet.getCell(`F${i}`).numFmt = '₪#,##0.00'; // Paid Amount
-      invoicesSheet.getCell(`G${i}`).numFmt = '₪#,##0.00'; // Remaining Balance
+      invoicesSheet.getCell(`C${i}`).numFmt = '#,##0.00'; // Amount
+      invoicesSheet.getCell(`F${i}`).numFmt = '#,##0.00'; // Paid Amount
+      invoicesSheet.getCell(`G${i}`).numFmt = '#,##0.00'; // Remaining Balance
     }
   } else {
     invoicesSheet.getColumn(1).width = 12; // Date
@@ -347,9 +347,9 @@ export async function generateExcelReport(data: ReportData): Promise<Buffer> {
     invoicesSheet.getColumn(6).width = 20; // Category
     invoicesSheet.getColumn(7).width = 40; // Link
 
-    // Format amount column as currency
+    // Format amount column (neutral format since currency is in separate column)
     for (let i = 2; i <= invoicesToShow.length + 1; i++) {
-      invoicesSheet.getCell(`C${i}`).numFmt = '₪#,##0.00'; // Amount
+      invoicesSheet.getCell(`C${i}`).numFmt = '#,##0.00'; // Amount
     }
   }
 

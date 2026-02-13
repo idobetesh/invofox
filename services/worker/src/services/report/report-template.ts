@@ -67,10 +67,12 @@ function formatInvoiceDate(dateStr: string): string {
 
 /**
  * Group invoices by time period (day or month)
+ * For balance reports, expenses are subtracted to show net profit trend
  */
 function groupInvoicesByPeriod(
   invoices: ReportData['invoices'],
-  dateRange: DateRange
+  dateRange: DateRange,
+  reportType: ReportType
 ): { labels: string[]; data: number[] } {
   const preset = dateRange.preset;
   const groupByMonth = preset === 'ytd';
@@ -92,7 +94,10 @@ function groupInvoicesByPeriod(
     }
 
     const current = periodMap.get(key) || 0;
-    periodMap.set(key, current + inv.amount);
+    // For balance reports, subtract expenses to show net profit
+    const amount =
+      reportType === 'balance' && inv.reportSource === 'expenses' ? -inv.amount : inv.amount;
+    periodMap.set(key, current + amount);
   });
 
   // Fill in missing periods with zeros
@@ -245,11 +250,17 @@ export function generateReportHTML(data: ReportData): string {
   const primaryCurrency = metrics.currencies[0]?.currency || 'ILS';
   const primarySymbolEsc = escapeHtml(getCurrencySymbol(primaryCurrency));
 
+  // For balance reports, get currency symbols for each section
+  const revenuePrimaryCurrency = metrics.revenueMetrics?.currencies[0]?.currency || primaryCurrency;
+  const revenueSymbolEsc = escapeHtml(getCurrencySymbol(revenuePrimaryCurrency));
+  const expensePrimaryCurrency = metrics.expenseMetrics?.currencies[0]?.currency || primaryCurrency;
+  const expenseSymbolEsc = escapeHtml(getCurrencySymbol(expensePrimaryCurrency));
+
   // Dynamic titles based on report type
   const reportTitle = `דוח ${REPORT_TYPE_NAMES[reportType]}`;
 
   // Generate chart data
-  const chartData = groupInvoicesByPeriod(invoices, dateRange);
+  const chartData = groupInvoicesByPeriod(invoices, dateRange, reportType);
   const chartConfig = generateChartConfig(
     chartData.labels,
     chartData.data,
@@ -535,22 +546,22 @@ export function generateReportHTML(data: ReportData): string {
       <div class="summary-grid">
         <div class="metric">
           <div class="label">הונפקו</div>
-          <div class="value">${primarySymbolEsc}${(metrics.revenueMetrics?.totalInvoiced || 0).toLocaleString()}</div>
+          <div class="value">${revenueSymbolEsc}${(metrics.revenueMetrics?.totalInvoiced || 0).toLocaleString()}</div>
           <div style="font-size: 11px; color: #999; margin-top: 5px;">${metrics.revenueMetrics?.invoicedCount || 0} מסמכים</div>
         </div>
         <div class="metric highlight">
           <div class="label">התקבלו</div>
-          <div class="value">${primarySymbolEsc}${(metrics.revenueMetrics?.totalReceived || 0).toLocaleString()}</div>
+          <div class="value">${revenueSymbolEsc}${(metrics.revenueMetrics?.totalReceived || 0).toLocaleString()}</div>
           <div style="font-size: 11px; color: #999; margin-top: 5px;">${metrics.revenueMetrics?.receivedCount || 0} תשלומים</div>
         </div>
         <div class="metric warning">
           <div class="label">ממתינות</div>
-          <div class="value">${primarySymbolEsc}${(metrics.revenueMetrics?.totalOutstanding || 0).toLocaleString()}</div>
+          <div class="value">${revenueSymbolEsc}${(metrics.revenueMetrics?.totalOutstanding || 0).toLocaleString()}</div>
           <div style="font-size: 11px; color: #999; margin-top: 5px;">${metrics.revenueMetrics?.outstandingCount || 0} חשבוניות</div>
         </div>
         <div class="metric">
           <div class="label">ממוצע</div>
-          <div class="value">${primarySymbolEsc}${Math.round(metrics.revenueMetrics?.avgInvoiced || 0).toLocaleString()}</div>
+          <div class="value">${revenueSymbolEsc}${Math.round(metrics.revenueMetrics?.avgInvoiced || 0).toLocaleString()}</div>
         </div>
       </div>
     </div>
@@ -561,12 +572,12 @@ export function generateReportHTML(data: ReportData): string {
       <div class="summary-grid">
         <div class="metric">
           <div class="label">סה"כ הוצאות</div>
-          <div class="value">${primarySymbolEsc}${(metrics.expenseMetrics?.totalExpenses || 0).toLocaleString()}</div>
+          <div class="value">${expenseSymbolEsc}${(metrics.expenseMetrics?.totalExpenses || 0).toLocaleString()}</div>
           <div style="font-size: 11px; color: #999; margin-top: 5px;">${metrics.expenseMetrics?.expenseCount || 0} הוצאות</div>
         </div>
         <div class="metric">
           <div class="label">ממוצע להוצאה</div>
-          <div class="value">${primarySymbolEsc}${Math.round(metrics.expenseMetrics?.avgExpense || 0).toLocaleString()}</div>
+          <div class="value">${expenseSymbolEsc}${Math.round(metrics.expenseMetrics?.avgExpense || 0).toLocaleString()}</div>
         </div>
       </div>
     </div>

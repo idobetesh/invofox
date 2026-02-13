@@ -170,6 +170,9 @@ export interface InvoiceForReport {
   // Receipt linking (to avoid double-counting)
   relatedInvoiceNumber?: string; // For receipts: parent invoice number
   isLinkedReceipt?: boolean; // True if this is a receipt linked to an invoice (skip in calculations)
+
+  // Balance report tracking (only present in balance reports)
+  reportSource?: 'revenue' | 'expenses'; // Whether this document is from revenue or expenses
 }
 
 /**

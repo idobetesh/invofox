@@ -68,7 +68,7 @@ export function calculateMetrics(invoices: InvoiceForReport[]): ReportMetrics {
             receivedCount++;
           } else if (doc.paymentStatus === 'partial') {
             totalReceived += doc.paidAmount || 0;
-            totalOutstanding += doc.remainingBalance || doc.amount;
+            totalOutstanding += doc.remainingBalance ?? doc.amount;
             receivedCount++; // Count as received (partially)
             outstandingCount++; // Also count as outstanding (partially)
           } else {
@@ -159,13 +159,6 @@ export function calculateBalanceMetrics(
   const totalExpenses = expenseMetrics.totalInvoiced;
   const expenseCount = expenseMetrics.invoicedCount;
 
-  // Calculate net positions
-  const netInvoiced = revenueMetrics.totalInvoiced - totalExpenses;
-  const netCashFlow = revenueMetrics.totalReceived - totalExpenses;
-  const profit = netCashFlow; // Profit = what we received minus what we spent
-  const profitMargin =
-    revenueMetrics.totalReceived > 0 ? (profit / revenueMetrics.totalReceived) * 100 : 0;
-
   // Calculate per-currency net positions
   const currencyMap = new Map<
     string,
@@ -231,10 +224,22 @@ export function calculateBalanceMetrics(
   // Use primary currency (highest absolute net position) for top-level fields
   const primaryCurrency = currencies[0];
 
+  // Get primary currency data for profit margin calculation
+  const primaryCurrencyData = primaryCurrency ? currencyMap.get(primaryCurrency.currency) : null;
+
+  // Calculate profit and margin from primary currency only (not cross-currency)
+  const netInvoiced = primaryCurrency?.totalInvoiced || 0;
+  const netCashFlow = primaryCurrency?.totalReceived || 0;
+  const profit = netCashFlow; // Net cash flow in primary currency
+  const profitMargin =
+    primaryCurrencyData && primaryCurrencyData.revenueReceived > 0
+      ? (profit / primaryCurrencyData.revenueReceived) * 100
+      : 0;
+
   return {
-    // Top-level metrics show net positions
-    totalInvoiced: primaryCurrency?.totalInvoiced || netInvoiced,
-    totalReceived: primaryCurrency?.totalReceived || netCashFlow,
+    // Top-level metrics show net positions (from primary currency)
+    totalInvoiced: netInvoiced,
+    totalReceived: netCashFlow,
     totalOutstanding: revenueMetrics.totalOutstanding,
     invoicedCount: revenueMetrics.invoicedCount + expenseCount,
     receivedCount: revenueMetrics.receivedCount + expenseCount, // Expenses are treated as paid
@@ -250,13 +255,16 @@ export function calculateBalanceMetrics(
           (revenueMetrics.receivedCount + expenseCount)
         : 0,
     maxInvoice: Math.max(revenueMetrics.maxInvoice, expenseMetrics.maxInvoice),
-    minInvoice:
-      Math.min(
-        revenueMetrics.minInvoice > 0 ? revenueMetrics.minInvoice : Infinity,
-        expenseMetrics.minInvoice > 0 ? expenseMetrics.minInvoice : Infinity
-      ) === Infinity
-        ? 0
-        : Math.min(revenueMetrics.minInvoice, expenseMetrics.minInvoice),
+    minInvoice: (() => {
+      const candidates: number[] = [];
+      if (revenueMetrics.minInvoice > 0) {
+        candidates.push(revenueMetrics.minInvoice);
+      }
+      if (expenseMetrics.minInvoice > 0) {
+        candidates.push(expenseMetrics.minInvoice);
+      }
+      return candidates.length > 0 ? Math.min(...candidates) : 0;
+    })(),
     currencies,
     paymentMethods: revenueMetrics.paymentMethods,
 
