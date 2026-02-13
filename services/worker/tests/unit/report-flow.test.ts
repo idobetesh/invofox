@@ -4,11 +4,11 @@
  */
 
 import * as businessConfigService from '../../src/services/business-config/config.service';
-import * as reportService from '../../src/services/report/report.service';
+import * as reportService from '../../src/services/report/core';
 
 // Mock dependencies
 jest.mock('../../src/services/business-config/config.service');
-jest.mock('../../src/services/report/report.service');
+jest.mock('../../src/services/report/core');
 
 describe('Report Flow - Logo Handling', () => {
   beforeEach(() => {

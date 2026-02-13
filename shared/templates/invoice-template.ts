@@ -3,7 +3,7 @@
  * Used by both admin tool and worker service
  */
 
-import { getCurrencySymbol, escapeHtml } from './template-utils';
+import { getCurrencySymbol, escapeHtml, formatAmount } from './template-utils';
 
 export { escapeHtml };
 
@@ -297,12 +297,12 @@ export function buildInvoiceHTML(params: InvoiceTemplateParams): string {
       <tr>
         <td>${description}</td>
         <td>1</td>
-        <td class="amount">${currencySymbol}${amount.toFixed(2)}</td>
-        <td class="amount">${currencySymbol}${amount.toFixed(2)}</td>
+        <td class="amount">${currencySymbol}${formatAmount(amount)}</td>
+        <td class="amount">${currencySymbol}${formatAmount(amount)}</td>
       </tr>
       <tr class="total-row">
         <td colspan="3" class="total-label">סה״כ לתשלום</td>
-        <td class="amount">${currencySymbol}${amount.toFixed(2)}</td>
+        <td class="amount">${currencySymbol}${formatAmount(amount)}</td>
       </tr>
     </tbody>
   </table>

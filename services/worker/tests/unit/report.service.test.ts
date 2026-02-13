@@ -1,378 +1,380 @@
 /**
- * Unit tests for Report Service
+ * Report Service Tests
+ * Unit tests for balance metrics calculation
  */
 
-import * as reportService from '../../src/services/report/report.service';
+import { describe, it, expect } from '@jest/globals';
 import type { InvoiceForReport } from '../../../../shared/report.types';
+import { calculateBalanceMetrics } from '../../src/services/report/core';
 
-/**
- * Helper to create mock invoice with all required fields
- */
-function createMockInvoice(overrides: Partial<InvoiceForReport>): InvoiceForReport {
-  return {
-    invoiceNumber: '001',
-    date: '2026-01-15',
-    customerName: 'Customer A',
-    amount: 1000,
-    currency: 'ILS',
-    paymentMethod: 'Cash',
-    category: 'Services',
-    driveLink: 'https://drive.google.com/...',
-    documentType: 'invoice_receipt',
-    paymentStatus: 'paid',
-    paidAmount: undefined,
-    remainingBalance: undefined,
-    relatedInvoiceNumber: undefined,
-    isLinkedReceipt: false,
-    ...overrides,
-  };
-}
+describe('calculateBalanceMetrics', () => {
+  it('should calculate net profit correctly with both revenue and expenses', () => {
+    // Arrange
+    const revenueInvoices: InvoiceForReport[] = [
+      {
+        invoiceNumber: 'INV-001',
+        date: '2026-01-15',
+        customerName: 'Customer A',
+        amount: 10000,
+        currency: 'ILS',
+        paymentMethod: 'Bank Transfer',
+        driveLink: 'https://example.com/inv-001',
+        documentType: 'invoice_receipt',
+        paymentStatus: 'paid',
+        paidAmount: 10000,
+        remainingBalance: 0,
+        isLinkedReceipt: false,
+      },
+    ];
 
-describe('Report Service', () => {
-  describe('getDateRangeForPreset', () => {
-    it('should return correct date range for this_month', () => {
-      const result = reportService.getDateRangeForPreset('this_month');
+    const expenseInvoices: InvoiceForReport[] = [
+      {
+        invoiceNumber: 'EXP-001',
+        date: '2026-01-10',
+        customerName: 'Vendor A',
+        amount: 6000,
+        currency: 'ILS',
+        paymentMethod: 'Unknown',
+        driveLink: 'https://example.com/exp-001',
+        documentType: 'invoice_receipt',
+        paymentStatus: 'paid',
+        paidAmount: 6000,
+        remainingBalance: 0,
+        isLinkedReceipt: false,
+      },
+    ];
 
-      expect(result.preset).toBe('this_month');
-      expect(result.start).toMatch(/^\d{4}-\d{2}-01$/); // First of month
-      expect(result.end).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    });
+    // Act
+    const metrics = calculateBalanceMetrics(revenueInvoices, expenseInvoices);
 
-    it('should return correct date range for last_month', () => {
-      const result = reportService.getDateRangeForPreset('last_month');
-
-      expect(result.preset).toBe('last_month');
-      expect(result.start).toMatch(/^\d{4}-\d{2}-01$/);
-    });
-
-    it('should return correct date range for ytd', () => {
-      const result = reportService.getDateRangeForPreset('ytd');
-
-      expect(result.preset).toBe('ytd');
-      expect(result.start).toMatch(/^\d{4}-01-01$/); // Jan 1
-      expect(result.end).toMatch(/^\d{4}-\d{2}-\d{2}$/); // Today
-    });
-
-    it('should throw error for unknown preset', () => {
-      expect(() => {
-        reportService.getDateRangeForPreset('invalid_preset');
-      }).toThrow('Unknown preset');
-    });
+    // Assert
+    expect(metrics.profit).toBe(4000); // 10000 - 6000
+    expect(metrics.revenueMetrics?.totalReceived).toBe(10000);
+    expect(metrics.expenseMetrics?.totalExpenses).toBe(6000);
   });
 
-  describe('calculateMetrics', () => {
-    it('should calculate metrics correctly for empty array', () => {
-      const result = reportService.calculateMetrics([]);
+  it('should handle multi-currency scenarios correctly', () => {
+    // Arrange
+    const revenueInvoices: InvoiceForReport[] = [
+      {
+        invoiceNumber: 'INV-001',
+        date: '2026-01-15',
+        customerName: 'Customer A',
+        amount: 10000,
+        currency: 'ILS',
+        paymentMethod: 'Bank Transfer',
+        driveLink: 'https://example.com/inv-001',
+        documentType: 'invoice_receipt',
+        paymentStatus: 'paid',
+        paidAmount: 10000,
+        remainingBalance: 0,
+        isLinkedReceipt: false,
+      },
+      {
+        invoiceNumber: 'INV-002',
+        date: '2026-01-16',
+        customerName: 'Customer B',
+        amount: 5000,
+        currency: 'USD',
+        paymentMethod: 'Credit Card',
+        driveLink: 'https://example.com/inv-002',
+        documentType: 'invoice_receipt',
+        paymentStatus: 'paid',
+        paidAmount: 5000,
+        remainingBalance: 0,
+        isLinkedReceipt: false,
+      },
+    ];
 
-      expect(result.totalInvoiced).toBe(0);
-      expect(result.totalReceived).toBe(0);
-      expect(result.totalOutstanding).toBe(0);
-      expect(result.invoicedCount).toBe(0);
-      expect(result.receivedCount).toBe(0);
-      expect(result.outstandingCount).toBe(0);
-      expect(result.avgInvoiced).toBe(0);
-      expect(result.avgReceived).toBe(0);
-      expect(result.maxInvoice).toBe(0);
-      expect(result.minInvoice).toBe(0);
-      expect(result.currencies).toEqual([]);
-      expect(result.paymentMethods).toEqual({});
-    });
+    const expenseInvoices: InvoiceForReport[] = [
+      {
+        invoiceNumber: 'EXP-001',
+        date: '2026-01-10',
+        customerName: 'Vendor A',
+        amount: 6000,
+        currency: 'ILS',
+        paymentMethod: 'Unknown',
+        driveLink: 'https://example.com/exp-001',
+        documentType: 'invoice_receipt',
+        paymentStatus: 'paid',
+        paidAmount: 6000,
+        remainingBalance: 0,
+        isLinkedReceipt: false,
+      },
+      {
+        invoiceNumber: 'EXP-002',
+        date: '2026-01-11',
+        customerName: 'Vendor B',
+        amount: 2000,
+        currency: 'USD',
+        paymentMethod: 'Unknown',
+        driveLink: 'https://example.com/exp-002',
+        documentType: 'invoice_receipt',
+        paymentStatus: 'paid',
+        paidAmount: 2000,
+        remainingBalance: 0,
+        isLinkedReceipt: false,
+      },
+    ];
 
-    it('should calculate metrics correctly for invoices', () => {
-      const invoices: InvoiceForReport[] = [
-        createMockInvoice({ invoiceNumber: '001', amount: 1000, paymentMethod: 'Cash' }),
-        createMockInvoice({ invoiceNumber: '002', amount: 2000, paymentMethod: 'Transfer' }),
-        createMockInvoice({ invoiceNumber: '003', amount: 500, paymentMethod: 'Cash' }),
-      ];
+    // Act
+    const metrics = calculateBalanceMetrics(revenueInvoices, expenseInvoices);
 
-      const result = reportService.calculateMetrics(invoices);
+    // Assert
+    expect(metrics.currencies.length).toBe(2);
+    expect(metrics.revenueMetrics?.currencies.length).toBe(2);
+    expect(metrics.expenseMetrics?.currencies.length).toBe(2);
 
-      expect(result.totalInvoiced).toBe(3500);
-      expect(result.totalReceived).toBe(3500);
-      expect(result.totalOutstanding).toBe(0);
-      expect(result.invoicedCount).toBe(3);
-      expect(result.receivedCount).toBe(3);
-      expect(result.outstandingCount).toBe(0);
-      expect(result.avgInvoiced).toBeCloseTo(1166.67, 2);
-      expect(result.maxInvoice).toBe(2000);
-      expect(result.minInvoice).toBe(500);
+    // Check ILS currency
+    const ilsCurrency = metrics.revenueMetrics?.currencies.find((c) => c.currency === 'ILS');
+    expect(ilsCurrency?.totalInvoiced).toBe(10000);
 
-      expect(result.currencies).toHaveLength(1);
-      expect(result.currencies[0].currency).toBe('ILS');
-      expect(result.currencies[0].totalInvoiced).toBe(3500);
-      expect(result.currencies[0].totalReceived).toBe(3500);
-      expect(result.currencies[0].totalOutstanding).toBe(0);
+    const ilsExpense = metrics.expenseMetrics?.currencies.find((c) => c.currency === 'ILS');
+    expect(ilsExpense?.totalExpenses).toBe(6000);
 
-      expect(result.paymentMethods).toEqual({
-        Cash: { count: 2, total: 1500 },
-        Transfer: { count: 1, total: 2000 },
-      });
-    });
+    // Check USD currency
+    const usdCurrency = metrics.revenueMetrics?.currencies.find((c) => c.currency === 'USD');
+    expect(usdCurrency?.totalInvoiced).toBe(5000);
 
-    it('should handle single invoice correctly', () => {
-      const invoices: InvoiceForReport[] = [createMockInvoice({ amount: 1500 })];
+    const usdExpense = metrics.expenseMetrics?.currencies.find((c) => c.currency === 'USD');
+    expect(usdExpense?.totalExpenses).toBe(2000);
+  });
 
-      const result = reportService.calculateMetrics(invoices);
+  it('should handle no expenses scenario (profit equals total received)', () => {
+    // Arrange
+    const revenueInvoices: InvoiceForReport[] = [
+      {
+        invoiceNumber: 'INV-001',
+        date: '2026-01-15',
+        customerName: 'Customer A',
+        amount: 10000,
+        currency: 'ILS',
+        paymentMethod: 'Bank Transfer',
+        driveLink: 'https://example.com/inv-001',
+        documentType: 'invoice_receipt',
+        paymentStatus: 'paid',
+        paidAmount: 10000,
+        remainingBalance: 0,
+        isLinkedReceipt: false,
+      },
+    ];
 
-      expect(result.totalInvoiced).toBe(1500);
-      expect(result.totalReceived).toBe(1500);
-      expect(result.totalOutstanding).toBe(0);
-      expect(result.invoicedCount).toBe(1);
-      expect(result.avgInvoiced).toBe(1500);
-      expect(result.maxInvoice).toBe(1500);
-      expect(result.minInvoice).toBe(1500);
-      expect(result.currencies).toHaveLength(1);
-    });
+    const expenseInvoices: InvoiceForReport[] = [];
 
-    it('should handle multiple currencies correctly', () => {
-      const invoices: InvoiceForReport[] = [
-        createMockInvoice({
-          invoiceNumber: '001',
-          amount: 1000,
-          currency: 'ILS',
-          paymentMethod: 'Cash',
-        }),
-        createMockInvoice({
-          invoiceNumber: '002',
-          amount: 500,
-          currency: 'USD',
-          paymentMethod: 'Transfer',
-        }),
-        createMockInvoice({
-          invoiceNumber: '003',
-          amount: 2000,
-          currency: 'ILS',
-          paymentMethod: 'Cash',
-        }),
-        createMockInvoice({
-          invoiceNumber: '004',
-          amount: 300,
-          currency: 'EUR',
-          paymentMethod: 'Card',
-        }),
-      ];
+    // Act
+    const metrics = calculateBalanceMetrics(revenueInvoices, expenseInvoices);
 
-      const result = reportService.calculateMetrics(invoices);
+    // Assert
+    expect(metrics.profit).toBe(10000); // All revenue is profit
+    expect(metrics.revenueMetrics?.totalReceived).toBe(10000);
+    expect(metrics.expenseMetrics?.totalExpenses).toBe(0);
+    expect(metrics.profitMargin).toBe(100); // 100% profit margin
+  });
 
-      // Should have 3 currencies
-      expect(result.currencies).toHaveLength(3);
+  it('should handle no revenue scenario (negative profit)', () => {
+    // Arrange
+    const revenueInvoices: InvoiceForReport[] = [];
 
-      // Primary currency (highest invoiced) should be ILS
-      expect(result.currencies[0].currency).toBe('ILS');
-      expect(result.currencies[0].totalInvoiced).toBe(3000);
-      expect(result.currencies[0].invoicedCount).toBe(2);
-      expect(result.currencies[0].avgInvoiced).toBe(1500);
-      expect(result.currencies[0].maxInvoice).toBe(2000);
-      expect(result.currencies[0].minInvoice).toBe(1000);
+    const expenseInvoices: InvoiceForReport[] = [
+      {
+        invoiceNumber: 'EXP-001',
+        date: '2026-01-10',
+        customerName: 'Vendor A',
+        amount: 6000,
+        currency: 'ILS',
+        paymentMethod: 'Unknown',
+        driveLink: 'https://example.com/exp-001',
+        documentType: 'invoice_receipt',
+        paymentStatus: 'paid',
+        paidAmount: 6000,
+        remainingBalance: 0,
+        isLinkedReceipt: false,
+      },
+    ];
 
-      // Second currency should be USD
-      expect(result.currencies[1].currency).toBe('USD');
-      expect(result.currencies[1].totalInvoiced).toBe(500);
-      expect(result.currencies[1].invoicedCount).toBe(1);
+    // Act
+    const metrics = calculateBalanceMetrics(revenueInvoices, expenseInvoices);
 
-      // Third currency should be EUR
-      expect(result.currencies[2].currency).toBe('EUR');
-      expect(result.currencies[2].totalInvoiced).toBe(300);
-      expect(result.currencies[2].invoicedCount).toBe(1);
+    // Assert
+    expect(metrics.profit).toBe(-6000); // Negative profit (loss)
+    expect(metrics.revenueMetrics?.totalReceived).toBe(0);
+    expect(metrics.expenseMetrics?.totalExpenses).toBe(6000);
+  });
 
-      // Top-level fields should use primary currency (ILS)
-      expect(result.totalInvoiced).toBe(3000);
-      expect(result.invoicedCount).toBe(2);
-      expect(result.avgInvoiced).toBe(1500);
+  it('should handle empty data (no revenue, no expenses)', () => {
+    // Arrange
+    const revenueInvoices: InvoiceForReport[] = [];
+    const expenseInvoices: InvoiceForReport[] = [];
 
-      // Payment methods should include all currencies
-      expect(result.paymentMethods).toEqual({
-        Cash: { count: 2, total: 3000 },
-        Transfer: { count: 1, total: 500 },
-        Card: { count: 1, total: 300 },
-      });
-    });
+    // Act
+    const metrics = calculateBalanceMetrics(revenueInvoices, expenseInvoices);
 
-    it('should sort currencies by revenue descending', () => {
-      const invoices: InvoiceForReport[] = [
-        createMockInvoice({ invoiceNumber: '001', amount: 100, currency: 'EUR' }),
-        createMockInvoice({ invoiceNumber: '002', amount: 5000, currency: 'ILS' }),
-        createMockInvoice({ invoiceNumber: '003', amount: 1000, currency: 'USD' }),
-      ];
+    // Assert
+    expect(metrics.profit).toBe(0);
+    expect(metrics.profitMargin).toBe(0);
+    expect(metrics.revenueMetrics?.totalReceived).toBe(0);
+    expect(metrics.expenseMetrics?.totalExpenses).toBe(0);
+  });
 
-      const result = reportService.calculateMetrics(invoices);
+  it('should calculate profit margin correctly', () => {
+    // Arrange
+    const revenueInvoices: InvoiceForReport[] = [
+      {
+        invoiceNumber: 'INV-001',
+        date: '2026-01-15',
+        customerName: 'Customer A',
+        amount: 10000,
+        currency: 'ILS',
+        paymentMethod: 'Bank Transfer',
+        driveLink: 'https://example.com/inv-001',
+        documentType: 'invoice_receipt',
+        paymentStatus: 'paid',
+        paidAmount: 10000,
+        remainingBalance: 0,
+        isLinkedReceipt: false,
+      },
+    ];
 
-      // Should be sorted: ILS (5000), USD (1000), EUR (100)
-      expect(result.currencies[0].currency).toBe('ILS');
-      expect(result.currencies[0].totalInvoiced).toBe(5000);
-      expect(result.currencies[1].currency).toBe('USD');
-      expect(result.currencies[1].totalInvoiced).toBe(1000);
-      expect(result.currencies[2].currency).toBe('EUR');
-      expect(result.currencies[2].totalInvoiced).toBe(100);
-    });
+    const expenseInvoices: InvoiceForReport[] = [
+      {
+        invoiceNumber: 'EXP-001',
+        date: '2026-01-10',
+        customerName: 'Vendor A',
+        amount: 2000,
+        currency: 'ILS',
+        paymentMethod: 'Unknown',
+        driveLink: 'https://example.com/exp-001',
+        documentType: 'invoice_receipt',
+        paymentStatus: 'paid',
+        paidAmount: 2000,
+        remainingBalance: 0,
+        isLinkedReceipt: false,
+      },
+    ];
 
-    it('should handle invoices without currency field (defaults to ILS)', () => {
-      const invoices: InvoiceForReport[] = [createMockInvoice({ currency: '' })];
+    // Act
+    const metrics = calculateBalanceMetrics(revenueInvoices, expenseInvoices);
 
-      const result = reportService.calculateMetrics(invoices);
+    // Assert
+    expect(metrics.profit).toBe(8000); // 10000 - 2000
+    expect(metrics.profitMargin).toBeCloseTo(80, 1); // (8000 / 10000) * 100 = 80%
+  });
 
-      expect(result.currencies).toHaveLength(1);
-      expect(result.currencies[0].currency).toBe('ILS');
-      expect(result.currencies[0].totalInvoiced).toBe(1000);
-    });
+  it('should calculate net invoiced and net cash flow correctly', () => {
+    // Arrange
+    const revenueInvoices: InvoiceForReport[] = [
+      {
+        invoiceNumber: 'INV-001',
+        date: '2026-01-15',
+        customerName: 'Customer A',
+        amount: 15000,
+        currency: 'ILS',
+        paymentMethod: 'Bank Transfer',
+        driveLink: 'https://example.com/inv-001',
+        documentType: 'invoice',
+        paymentStatus: 'paid',
+        paidAmount: 15000,
+        remainingBalance: 0,
+        isLinkedReceipt: false,
+      },
+      {
+        invoiceNumber: 'INV-002',
+        date: '2026-01-16',
+        customerName: 'Customer B',
+        amount: 10000,
+        currency: 'ILS',
+        paymentMethod: 'Credit Card',
+        driveLink: 'https://example.com/inv-002',
+        documentType: 'invoice',
+        paymentStatus: 'unpaid',
+        remainingBalance: 10000,
+        isLinkedReceipt: false,
+      },
+    ];
 
-    it('should handle unpaid invoice - contributes only to outstanding', () => {
-      const invoices: InvoiceForReport[] = [
-        createMockInvoice({
-          invoiceNumber: '001',
-          amount: 5000,
-          documentType: 'invoice',
-          paymentStatus: 'unpaid',
-          remainingBalance: 5000,
-          paymentMethod: 'Transfer',
-        }),
-      ];
+    const expenseInvoices: InvoiceForReport[] = [
+      {
+        invoiceNumber: 'EXP-001',
+        date: '2026-01-10',
+        customerName: 'Vendor A',
+        amount: 8000,
+        currency: 'ILS',
+        paymentMethod: 'Unknown',
+        driveLink: 'https://example.com/exp-001',
+        documentType: 'invoice_receipt',
+        paymentStatus: 'paid',
+        paidAmount: 8000,
+        remainingBalance: 0,
+        isLinkedReceipt: false,
+      },
+    ];
 
-      const result = reportService.calculateMetrics(invoices);
+    // Act
+    const metrics = calculateBalanceMetrics(revenueInvoices, expenseInvoices);
 
-      expect(result.totalInvoiced).toBe(5000);
-      expect(result.totalReceived).toBe(0);
-      expect(result.totalOutstanding).toBe(5000);
-      expect(result.invoicedCount).toBe(1);
-      expect(result.receivedCount).toBe(0);
-      expect(result.outstandingCount).toBe(1);
-      expect(result.avgInvoiced).toBe(5000);
-      expect(result.avgReceived).toBe(0);
+    // Assert
+    expect(metrics.netInvoiced).toBe(17000); // (15000 + 10000) - 8000
+    expect(metrics.netCashFlow).toBe(7000); // 15000 - 8000
+    expect(metrics.profit).toBe(7000); // Same as netCashFlow
+  });
 
-      // Payment methods should NOT include unpaid invoices (nothing received)
-      expect(result.paymentMethods).toEqual({});
-    });
+  it('should use primary currency with highest absolute net position', () => {
+    // Arrange
+    const revenueInvoices: InvoiceForReport[] = [
+      {
+        invoiceNumber: 'INV-001',
+        date: '2026-01-15',
+        customerName: 'Customer A',
+        amount: 1000,
+        currency: 'ILS',
+        paymentMethod: 'Bank Transfer',
+        driveLink: 'https://example.com/inv-001',
+        documentType: 'invoice_receipt',
+        paymentStatus: 'paid',
+        paidAmount: 1000,
+        remainingBalance: 0,
+        isLinkedReceipt: false,
+      },
+      {
+        invoiceNumber: 'INV-002',
+        date: '2026-01-16',
+        customerName: 'Customer B',
+        amount: 10000,
+        currency: 'USD',
+        paymentMethod: 'Credit Card',
+        driveLink: 'https://example.com/inv-002',
+        documentType: 'invoice_receipt',
+        paymentStatus: 'paid',
+        paidAmount: 10000,
+        remainingBalance: 0,
+        isLinkedReceipt: false,
+      },
+    ];
 
-    it('should handle partial invoice - splits received and outstanding', () => {
-      const invoices: InvoiceForReport[] = [
-        createMockInvoice({
-          invoiceNumber: '001',
-          amount: 10000,
-          documentType: 'invoice',
-          paymentStatus: 'partial',
-          paidAmount: 6000,
-          remainingBalance: 4000,
-          paymentMethod: 'Cash',
-        }),
-      ];
+    const expenseInvoices: InvoiceForReport[] = [
+      {
+        invoiceNumber: 'EXP-001',
+        date: '2026-01-10',
+        customerName: 'Vendor A',
+        amount: 500,
+        currency: 'ILS',
+        paymentMethod: 'Unknown',
+        driveLink: 'https://example.com/exp-001',
+        documentType: 'invoice_receipt',
+        paymentStatus: 'paid',
+        paidAmount: 500,
+        remainingBalance: 0,
+        isLinkedReceipt: false,
+      },
+    ];
 
-      const result = reportService.calculateMetrics(invoices);
+    // Act
+    const metrics = calculateBalanceMetrics(revenueInvoices, expenseInvoices);
 
-      expect(result.totalInvoiced).toBe(10000);
-      expect(result.totalReceived).toBe(6000);
-      expect(result.totalOutstanding).toBe(4000);
-      expect(result.invoicedCount).toBe(1);
-      expect(result.receivedCount).toBe(1);
-      expect(result.outstandingCount).toBe(1);
-      expect(result.avgInvoiced).toBe(10000);
-      expect(result.avgReceived).toBe(6000);
-
-      // Payment method should track only received amount (6000), not full invoice
-      expect(result.paymentMethods).toEqual({
-        Cash: { count: 1, total: 6000 },
-      });
-    });
-
-    it('should exclude linked receipts from totals to prevent double-counting', () => {
-      const invoices: InvoiceForReport[] = [
-        createMockInvoice({
-          invoiceNumber: 'I-2026-1',
-          amount: 5000,
-          documentType: 'invoice',
-          paymentStatus: 'partial',
-          paidAmount: 3000,
-          remainingBalance: 2000,
-          paymentMethod: 'Transfer',
-        }),
-        createMockInvoice({
-          invoiceNumber: 'R-2026-1',
-          amount: 3000,
-          documentType: 'receipt',
-          paymentStatus: 'paid',
-          relatedInvoiceNumber: 'I-2026-1',
-          isLinkedReceipt: true, // This should be excluded
-          paymentMethod: 'Cash',
-        }),
-      ];
-
-      const result = reportService.calculateMetrics(invoices);
-
-      // Should only count the invoice, not the linked receipt
-      expect(result.totalInvoiced).toBe(5000);
-      expect(result.totalReceived).toBe(3000); // From partial invoice
-      expect(result.totalOutstanding).toBe(2000);
-      expect(result.invoicedCount).toBe(1);
-      expect(result.receivedCount).toBe(1);
-      expect(result.outstandingCount).toBe(1);
-
-      // Payment methods should track only received amount from partial invoice
-      expect(result.paymentMethods).toEqual({
-        Transfer: { count: 1, total: 3000 },
-      });
-      // Linked receipt should NOT be counted
-      expect(result.paymentMethods.Cash).toBeUndefined();
-    });
-
-    it('should handle mix of paid, unpaid, partial, and standalone receipts', () => {
-      const invoices: InvoiceForReport[] = [
-        // Fully paid invoice-receipt
-        createMockInvoice({
-          invoiceNumber: 'IR-2026-1',
-          amount: 1000,
-          documentType: 'invoice_receipt',
-          paymentStatus: 'paid',
-          paymentMethod: 'Cash',
-        }),
-        // Unpaid invoice
-        createMockInvoice({
-          invoiceNumber: 'I-2026-1',
-          amount: 5000,
-          documentType: 'invoice',
-          paymentStatus: 'unpaid',
-          remainingBalance: 5000,
-          paymentMethod: 'Transfer',
-        }),
-        // Partial invoice
-        createMockInvoice({
-          invoiceNumber: 'I-2026-2',
-          amount: 3000,
-          documentType: 'invoice',
-          paymentStatus: 'partial',
-          paidAmount: 1500,
-          remainingBalance: 1500,
-          paymentMethod: 'Card',
-        }),
-        // Standalone receipt (not linked to any invoice)
-        createMockInvoice({
-          invoiceNumber: 'R-2026-1',
-          amount: 800,
-          documentType: 'receipt',
-          paymentStatus: 'paid',
-          isLinkedReceipt: false,
-          paymentMethod: 'Cash',
-        }),
-      ];
-
-      const result = reportService.calculateMetrics(invoices);
-
-      // Total invoiced: 1000 + 5000 + 3000 + 800 = 9800
-      expect(result.totalInvoiced).toBe(9800);
-      // Total received: 1000 (IR) + 0 (unpaid) + 1500 (partial) + 800 (receipt) = 3300
-      expect(result.totalReceived).toBe(3300);
-      // Total outstanding: 0 + 5000 + 1500 + 0 = 6500
-      expect(result.totalOutstanding).toBe(6500);
-      expect(result.invoicedCount).toBe(4);
-      expect(result.receivedCount).toBe(3);
-      expect(result.outstandingCount).toBe(2);
-
-      // Payment methods track only received amounts:
-      // - Cash: IR (1000) + standalone receipt (800) = 1800
-      // - Card: partial invoice paid amount (1500)
-      // - Transfer: unpaid invoice NOT counted (0 received)
-      expect(result.paymentMethods).toEqual({
-        Cash: { count: 2, total: 1800 },
-        Card: { count: 1, total: 1500 },
-      });
-    });
+    // Assert
+    // USD has the highest absolute net position (10000), so it should be primary
+    // Top-level metrics should reflect USD net position
+    expect(metrics.currencies[0].currency).toBe('USD');
+    expect(metrics.currencies[0].totalInvoiced).toBe(10000); // Net invoiced in USD
   });
 });

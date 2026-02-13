@@ -4,7 +4,7 @@
  * For documents that combine invoice + immediate payment
  */
 
-import { getCurrencySymbol } from './template-utils';
+import { getCurrencySymbol, formatAmount } from './template-utils';
 
 export interface InvoiceReceiptTemplateParams {
   invoiceReceiptNumber: string;
@@ -309,12 +309,12 @@ export function buildInvoiceReceiptHTML(params: InvoiceReceiptTemplateParams): s
       <tr>
         <td>${description}</td>
         <td>1</td>
-        <td class="amount">${currencySymbol}${amount.toFixed(2)}</td>
-        <td class="amount">${currencySymbol}${amount.toFixed(2)}</td>
+        <td class="amount">${currencySymbol}${formatAmount(amount)}</td>
+        <td class="amount">${currencySymbol}${formatAmount(amount)}</td>
       </tr>
       <tr class="total-row">
         <td colspan="3" class="total-label">סה״כ שולם</td>
-        <td class="amount">${currencySymbol}${amount.toFixed(2)}</td>
+        <td class="amount">${currencySymbol}${formatAmount(amount)}</td>
       </tr>
     </tbody>
   </table>

@@ -116,7 +116,7 @@ const REPORT_CALLBACK_ACTIONS = ['type', 'date', 'fmt', 'cancel'] as const;
 
 /** Allowed values per action (abbrev -> canonical). Unknown values are rejected. */
 const REPORT_CALLBACK_VALUE_MAP: Record<string, Record<string, string>> = {
-  type: { rev: 'revenue', exp: 'expenses' },
+  type: { rev: 'revenue', exp: 'expenses', bal: 'balance' },
   date: { tm: 'this_month', lm: 'last_month', ytd: 'ytd' },
   fmt: { pdf: 'pdf', xls: 'excel', csv: 'csv' },
   cancel: {},

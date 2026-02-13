@@ -30,3 +30,14 @@ export function escapeHtml(text: string): string {
   };
   return text.replace(/[&<>"']/g, (m) => map[m]);
 }
+
+/**
+ * Format number with commas and decimal places
+ * Examples: 1234 => "1,234.00", 1234.5 => "1,234.50"
+ */
+export function formatAmount(amount: number, decimals: number = 2): string {
+  return amount.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}

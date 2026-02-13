@@ -17,7 +17,7 @@ VERSION ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "latest")
         set-webhook get-webhook-info dev-webhook dev-worker test-worker \
         logs-webhook logs-worker clean lint lint-fix test test-unit \
         version revisions rollback-webhook rollback-worker \
-        sample-invoice admin-dev merge-dependabot offboard-business offboard-user migrate
+        sample-invoice demo-report demo-doc admin-dev merge-dependabot offboard-business offboard-user migrate
 
 # =============================================================================
 # Help
@@ -83,8 +83,9 @@ help:
 	@echo "  make rollback-webhook Rollback webhook to previous revision"
 	@echo "  make rollback-worker  Rollback worker to previous revision"
 	@echo ""
-	@echo "INVOICE GENERATION"
-	@echo "  make sample-invoice       Generate sample invoice PDF"
+	@echo "DEMO GENERATION"
+	@echo "  make demo-report          Generate all report demos (PDF, Excel, CSV)"
+	@echo "  make demo-doc             Generate all document demos (invoice, receipt, invoice-receipt)"
 	@echo ""
 	@echo "DEPENDENCIES"
 	@echo "  make list-dependabot  List all Dependabot PRs and their status (no gh CLI needed)"
@@ -343,14 +344,24 @@ rollback-worker:
 	gcloud run services update-traffic worker --to-revisions=$$PREV_REV=100 --region=$(REGION)
 
 # =============================================================================
-# Invoice Generation
+# Demo Generation
 # =============================================================================
 
-sample-invoice:
-	@echo "Generating sample invoice PDF..."
-	cd services/worker && npx ts-node scripts/invoice/generate-sample-invoice.ts
+demo-report:
+	@echo "Generating all report demos (PDF, Excel, CSV)..."
 	@echo ""
-	@echo "Open the PDF: open services/worker/scripts/output/sample-invoice.pdf"
+	cd services/worker && npx tsx demos/report/generate-all-report-demos.ts
+	@echo ""
+	@echo "✅ Demo reports generated!"
+	@echo "📁 Open folder: services/worker/demos/report/output/"
+
+demo-doc:
+	@echo "Generating all document demos (invoice, receipt, invoice-receipt)..."
+	@echo ""
+	cd services/worker && npx tsx demos/documents/generate-all-document-demos.ts
+	@echo ""
+	@echo "✅ Demo documents generated!"
+	@echo "📁 Open folder: services/worker/demos/documents/output/"
 
 # =============================================================================
 # Admin Tool
