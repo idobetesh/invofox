@@ -13,7 +13,7 @@ import {
   generatePDFReport,
   generateExcelReport,
   generateCSVReport,
-} from '../../src/services/report/generators';
+} from '../../src/services/report/generators/index.js';
 import { processLogoForCircularDisplay } from '../../src/services/business-config/logo-processor.service';
 // IMPORTANT: Import the SAME template function that production uses
 import { generateReportHTML } from '../../src/services/report/report-template';

@@ -7,33 +7,33 @@
 הכנסה,2026-01-06,לקוח ו' - סטארטאפ,3200,ILS,העברה בנקאית,ייעוץ טכני,https://storage.googleapis.com/demo-bucket-invoices/2026-006.pdf
 הכנסה,2026-01-07,חברה ז' למסחר,1550,ILS,כרטיס אשראי,אינטגרציה,https://storage.googleapis.com/demo-bucket-invoices/2026-007.pdf
 הכנסה,2026-01-08,לקוח ח' - משרד עורכי דין,2800,ILS,מזומן,ניהול מערכות,https://storage.googleapis.com/demo-bucket-invoices/2026-008.pdf
-הכנסה,2026-01-09,עסק ט' - מסעדה,1200,ILS,צ'ק,מערכת הזמנות,https://storage.googleapis.com/demo-bucket-invoices/2026-009.pdf
-הכנסה,2026-01-10,"לקוח י' בע""מ",3500,ILS,העברה בנקאית,אפליקציה ניידת,https://storage.googleapis.com/demo-bucket-invoices/2026-010.pdf
+הכנסה,2026-01-10,עסק ט' - מסעדה,1200,ILS,צ'ק,מערכת הזמנות,https://storage.googleapis.com/demo-bucket-invoices/2026-009.pdf
+הכנסה,2026-01-11,"לקוח י' בע""מ",3500,ILS,העברה בנקאית,אפליקציה ניידת,https://storage.googleapis.com/demo-bucket-invoices/2026-010.pdf
 הכנסה,2026-01-12,חברה יא' - קמעונאות,2100,ILS,מזומן,בדיקות איכות,https://storage.googleapis.com/demo-bucket-invoices/2026-011.pdf
 הכנסה,2026-01-13,לקוח יב' - תעשייה,4800,ILS,העברה בנקאית,אוטומציה,https://storage.googleapis.com/demo-bucket-invoices/2026-012.pdf
 הכנסה,2026-01-14,עסק יג' - בריאות,2600,ILS,מזומן,מערכת ניהול,https://storage.googleapis.com/demo-bucket-invoices/2026-013.pdf
 הכנסה,2026-01-15,לקוח יד' - חינוך,1800,ILS,כרטיס אשראי,פלטפורמת למידה,https://storage.googleapis.com/demo-bucket-invoices/2026-014.pdf
 הכנסה,2026-01-16,חברה טו' - לוגיסטיקה,3800,ILS,העברה בנקאית,מעקב משלוחים,https://storage.googleapis.com/demo-bucket-invoices/2026-015.pdf
 הכנסה,2026-01-17,לקוח טז' - תיירות,1450,ILS,מזומן,אתר הזמנות,https://storage.googleapis.com/demo-bucket-invoices/2026-016.pdf
-הכנסה,2026-01-18,עסק יז' - אופנה,2200,ILS,מזומן,חנות מקוונת,https://storage.googleapis.com/demo-bucket-invoices/2026-017.pdf
-הכנסה,2026-01-19,"לקוח יח' - נדל""ן",3600,ILS,העברה בנקאית,מערכת CRM,https://storage.googleapis.com/demo-bucket-invoices/2026-018.pdf
-הכנסה,2026-01-20,חברה יט' - פיננסים,4500,ILS,העברה בנקאית,דוחות פיננסיים,https://storage.googleapis.com/demo-bucket-invoices/2026-019.pdf
+הכנסה,2026-01-19,עסק יז' - אופנה,2200,ILS,מזומן,חנות מקוונת,https://storage.googleapis.com/demo-bucket-invoices/2026-017.pdf
+הכנסה,2026-01-20,"לקוח יח' - נדל""ן",3600,ILS,העברה בנקאית,מערכת CRM,https://storage.googleapis.com/demo-bucket-invoices/2026-018.pdf
+הכנסה,2026-01-21,חברה יט' - פיננסים,4500,ILS,העברה בנקאית,דוחות פיננסיים,https://storage.googleapis.com/demo-bucket-invoices/2026-019.pdf
 הכנסה,2026-01-22,לקוח כ' - תקשורת,2900,ILS,מזומן,ניהול מדיה,https://storage.googleapis.com/demo-bucket-invoices/2026-020.pdf
 הכנסה,2026-01-23,עסק כא' - ספורט,1750,ILS,מזומן,אפליקציית כושר,https://storage.googleapis.com/demo-bucket-invoices/2026-021.pdf
 הכנסה,2026-01-24,לקוח כב' - אנרגיה,3300,ILS,מזומן,ניטור מערכות,https://storage.googleapis.com/demo-bucket-invoices/2026-022.pdf
 הכנסה,2026-01-25,חברה כג' - רכב,350,ILS,מזומן,תיקון באג,https://storage.googleapis.com/demo-bucket-invoices/2026-023.pdf
-הוצאה,2026-01-26,Google Cloud Platform,-4500,ILS,כרטיס אשראי,שירותי ענן,https://storage.googleapis.com/demo-bucket-invoices/EXP-001.pdf
-הוצאה,2026-01-27,משרד רואה חשבון,-3200,ILS,העברה בנקאית,שירותים מקצועיים,https://storage.googleapis.com/demo-bucket-invoices/EXP-002.pdf
-הוצאה,2026-01-28,Office Depot,-850,ILS,כרטיס אשראי,ציוד משרדי,https://storage.googleapis.com/demo-bucket-invoices/EXP-003.pdf
-הוצאה,2026-01-29,חברת חשמל,-650,ILS,העברה בנקאית,חשבונות,https://storage.googleapis.com/demo-bucket-invoices/EXP-004.pdf
-הוצאה,2026-01-30,GitHub Enterprise,-1800,USD,כרטיס אשראי,תוכנה,https://storage.googleapis.com/demo-bucket-invoices/EXP-005.pdf
-הוצאה,2026-01-31,משרד עורך דין,-4200,ILS,העברה בנקאית,שירותים משפטיים,https://storage.googleapis.com/demo-bucket-invoices/EXP-006.pdf
+הוצאה,2026-01-27,Google Cloud Platform,-4500,ILS,כרטיס אשראי,שירותי ענן,https://storage.googleapis.com/demo-bucket-invoices/EXP-001.pdf
+הוצאה,2026-01-28,משרד רואה חשבון,-3200,ILS,העברה בנקאית,שירותים מקצועיים,https://storage.googleapis.com/demo-bucket-invoices/EXP-002.pdf
+הוצאה,2026-01-29,Office Depot,-850,ILS,כרטיס אשראי,ציוד משרדי,https://storage.googleapis.com/demo-bucket-invoices/EXP-003.pdf
+הוצאה,2026-01-30,חברת חשמל,-650,ILS,העברה בנקאית,חשבונות,https://storage.googleapis.com/demo-bucket-invoices/EXP-004.pdf
+הוצאה,2026-01-31,GitHub Enterprise,-1800,USD,כרטיס אשראי,תוכנה,https://storage.googleapis.com/demo-bucket-invoices/EXP-005.pdf
+הוצאה,2026-02-01,משרד עורך דין,-4200,ILS,העברה בנקאית,שירותים משפטיים,https://storage.googleapis.com/demo-bucket-invoices/EXP-006.pdf
 הוצאה,2026-02-02,LinkedIn Premium,-350,ILS,כרטיס אשראי,שיווק,https://storage.googleapis.com/demo-bucket-invoices/EXP-007.pdf
 הוצאה,2026-02-03,בזק בינלאומי,-450,ILS,העברה בנקאית,תקשורת,https://storage.googleapis.com/demo-bucket-invoices/EXP-008.pdf
-הוצאה,2026-02-04,Adobe Creative Cloud,-1000,USD,כרטיס אשראי,תוכנה,https://storage.googleapis.com/demo-bucket-invoices/EXP-009.pdf
-הוצאה,2026-02-05,משלוח ארוחות,-950,ILS,מזומן,אירוח,https://storage.googleapis.com/demo-bucket-invoices/EXP-010.pdf
-הוצאה,2026-02-06,AWS,-850,EUR,כרטיס אשראי,שירותי ענן,https://storage.googleapis.com/demo-bucket-invoices/EXP-011.pdf
-הוצאה,2026-02-07,חניון חודשי,-700,ILS,מזומן,תחבורה,https://storage.googleapis.com/demo-bucket-invoices/EXP-012.pdf
-הוצאה,2026-02-08,Zoom Pro,-550,ILS,כרטיס אשראי,תוכנה,https://storage.googleapis.com/demo-bucket-invoices/EXP-013.pdf
-הוצאה,2026-02-09,ביטוח לאומי,-3600,ILS,העברה בנקאית,ביטוח,https://storage.googleapis.com/demo-bucket-invoices/EXP-014.pdf
-הוצאה,2026-02-10,ניקיון משרדים,-250,ILS,כרטיס אשראי,תחזוקה,https://storage.googleapis.com/demo-bucket-invoices/EXP-015.pdf
+הוצאה,2026-02-05,Adobe Creative Cloud,-1000,USD,כרטיס אשראי,תוכנה,https://storage.googleapis.com/demo-bucket-invoices/EXP-009.pdf
+הוצאה,2026-02-06,משלוח ארוחות,-950,ILS,מזומן,אירוח,https://storage.googleapis.com/demo-bucket-invoices/EXP-010.pdf
+הוצאה,2026-02-07,AWS,-850,EUR,כרטיס אשראי,שירותי ענן,https://storage.googleapis.com/demo-bucket-invoices/EXP-011.pdf
+הוצאה,2026-02-08,חניון חודשי,-700,ILS,מזומן,תחבורה,https://storage.googleapis.com/demo-bucket-invoices/EXP-012.pdf
+הוצאה,2026-02-09,Zoom Pro,-550,ILS,כרטיס אשראי,תוכנה,https://storage.googleapis.com/demo-bucket-invoices/EXP-013.pdf
+הוצאה,2026-02-10,ביטוח לאומי,-3600,ILS,העברה בנקאית,ביטוח,https://storage.googleapis.com/demo-bucket-invoices/EXP-014.pdf
+הוצאה,2026-02-11,ניקיון משרדים,-250,ILS,כרטיס אשראי,תחזוקה,https://storage.googleapis.com/demo-bucket-invoices/EXP-015.pdf
