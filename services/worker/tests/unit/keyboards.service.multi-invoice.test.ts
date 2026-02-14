@@ -189,7 +189,7 @@ describe('Keyboards Service - Multi-Invoice', () => {
       expect(callbackData.action).toBe('confirm_selection');
     });
 
-    it('should not show continue button when less than 2 invoices selected', () => {
+    it('should show continue button with single-invoice text when 1 invoice selected', () => {
       const selected = ['I-2026-100'];
       const keyboard = buildInvoiceSelectionKeyboard(
         mockOpenInvoices,
@@ -202,7 +202,8 @@ describe('Keyboards Service - Multi-Invoice', () => {
       const buttons = keyboard.inline_keyboard.flat();
       const continueButton = buttons.find((btn) => btn.text.includes('המשך'));
 
-      expect(continueButton).toBeUndefined();
+      expect(continueButton).toBeDefined();
+      expect(continueButton?.text).toBe('▶️ המשך עם חשבונית זו');
     });
 
     it('should show helper text when no invoices selected', () => {
@@ -212,7 +213,7 @@ describe('Keyboards Service - Multi-Invoice', () => {
       const helperButton = buttons.find((btn) => btn.text.includes('💡'));
 
       expect(helperButton).toBeDefined();
-      expect(helperButton?.text).toContain('בחר לפחות 2 חשבוניות');
+      expect(helperButton?.text).toContain('בחר חשבונית אחת או יותר');
     });
 
     it('should calculate correct total for multiple invoices with different amounts', () => {
