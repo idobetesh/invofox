@@ -264,9 +264,6 @@ export function buildInvoiceHTML(params: InvoiceTemplateParams): string {
   <!-- Meta Section -->
   <div class="meta-section">
     <div class="meta-item">
-      <span class="meta-label">עבור:</span>
-    </div>
-    <div class="meta-item">
       <span class="meta-label">מקור</span>
     </div>
     <div class="meta-item">

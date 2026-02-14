@@ -167,6 +167,7 @@ describe('open-invoices.service', () => {
         paidAmount: 0,
         remainingBalance: 1000,
         date: '05/02/2026',
+        currency: 'ILS',
       };
 
       const result = formatInvoiceForButton(invoice);
@@ -182,6 +183,7 @@ describe('open-invoices.service', () => {
         paidAmount: 200,
         remainingBalance: 300,
         date: '04/02/2026',
+        currency: 'ILS',
       };
 
       const result = formatInvoiceForButton(invoice);

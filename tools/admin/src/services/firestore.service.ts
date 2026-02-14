@@ -25,12 +25,16 @@ export class FirestoreService {
       'approved_chats',
       'business_config',
       'generated_invoices',
+      'generated_invoice_receipts',
+      'generated_receipts',
       'invite_codes',
       'invoice_counters',
       'invoice_jobs',
       'invoice_sessions',
       'onboarding_sessions',
       'rate_limits',
+      'report_sessions',
+      'user_customer_mapping',
     ];
   }
 

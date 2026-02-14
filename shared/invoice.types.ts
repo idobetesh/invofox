@@ -38,7 +38,16 @@ export type PaymentStatus = 'unpaid' | 'partial' | 'paid';
 export interface InvoiceSession {
   status: InvoiceSessionStatus;
   documentType?: InvoiceDocumentType;
-  relatedInvoiceNumber?: string; // For receipt type: link to existing invoice
+  relatedInvoiceNumber?: string; // For receipt type: link to existing invoice (single-invoice, backward compat)
+  selectedInvoiceNumbers?: string[]; // For multi-invoice receipts: array of invoice numbers
+  selectedInvoiceData?: {
+    // Cached data for UI display
+    invoiceNumber: string;
+    customerName: string;
+    remainingBalance: number;
+    date: string;
+    currency: string;
+  }[];
   customerName?: string;
   customerTaxId?: string;
   description?: string;
@@ -85,6 +94,11 @@ export interface GeneratedInvoice {
   relatedInvoiceId?: string; // Invoice doc ID this receipt is for
   relatedInvoiceNumber?: string; // Invoice number (e.g., "20262")
   isPartialPayment?: boolean; // Is this a partial payment
+
+  // Multi-invoice receipt fields
+  relatedInvoiceIds?: string[]; // Array of invoice doc IDs (for multi-invoice receipts)
+  relatedInvoiceNumbers?: string[]; // Array of invoice numbers (for multi-invoice receipts)
+  isMultiInvoiceReceipt?: boolean; // Flag indicating this receipt pays multiple invoices
 }
 
 /**
@@ -157,6 +171,8 @@ export interface GeneratedInvoiceSheetRow {
 export type InvoiceCallbackAction =
   | { action: 'select_type'; documentType: InvoiceDocumentType }
   | { action: 'select_invoice'; invoiceNumber: string }
+  | { action: 'toggle_invoice'; invoiceNumber: string } // Toggle invoice in multi-select
+  | { action: 'confirm_selection' } // Confirm multi-invoice selection
   | { action: 'select_payment'; paymentMethod: PaymentMethod }
   | { action: 'show_more'; offset: number }
   | { action: 'confirm' }

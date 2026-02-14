@@ -25,6 +25,10 @@ export interface ReceiptTemplateParams {
   businessAddress: string;
   businessPhone: string;
   logoUrl?: string;
+  // Multi-invoice receipt fields
+  isMultiInvoiceReceipt?: boolean;
+  relatedInvoiceNumbers?: string[];
+  relatedInvoiceDates?: string[];
 }
 
 /**
@@ -284,6 +288,21 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
       font-weight: 600;
       color: #333;
     }
+
+    .invoice-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px 4px;
+      margin-top: 6px;
+      font-size: 10px;
+      line-height: 1.2;
+    }
+
+    .invoice-item {
+      color: #333;
+      padding: 0;
+      background: none;
+    }
   </style>
 </head>
 <body>
@@ -309,9 +328,6 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
   <!-- Meta Section -->
   <div class="meta-section">
     <div class="meta-item">
-      <span class="meta-label">עבור:</span>
-    </div>
-    <div class="meta-item">
       <span class="meta-label">מקור</span>
     </div>
     <div class="meta-item">
@@ -321,10 +337,34 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
   </div>
 
   <!-- Related Invoice Section -->
+  ${
+    params.isMultiInvoiceReceipt && params.relatedInvoiceNumbers && params.relatedInvoiceDates
+      ? `
+  <div class="related-invoice-info">
+    <div class="section-title">מסמך זה מקושר לחשבוניות הבאות:</div>
+    <div class="invoice-grid">
+      ${params.relatedInvoiceNumbers
+        .map((num, idx) => {
+          // Shorten the date format: DD/MM/YYYY -> DD/MM/YY
+          const fullDate = params.relatedInvoiceDates?.[idx] || '';
+          const dateParts = fullDate.split('/');
+          const shortDate =
+            dateParts.length === 3
+              ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2].slice(-2)}`
+              : fullDate || 'N/A';
+          return `<div class="invoice-item">${num}${shortDate ? ` (${shortDate})` : ''}</div>`;
+        })
+        .join('')}
+    </div>
+  </div>
+  `
+      : `
   <div class="related-invoice-info">
     <div class="text">מסמך זה מקושר לחשבונית</div>
     <div class="text" style="font-size: 13px; color: #666; margin-top: 4px;">מספר חשבונית: ${invoiceNumber} | תאריך: ${invoiceDate}</div>
   </div>
+  `
+  }
 
   <!-- Customer Section -->
   <div class="customer-section">

@@ -259,6 +259,184 @@ export async function getConfirmedSession(
 }
 
 /**
+ * Toggle invoice selection for multi-invoice receipts
+ * Adds invoice to selection if not selected, removes if already selected
+ * Uses Firestore transaction for atomicity
+ */
+export async function toggleInvoiceSelection(
+  chatId: number,
+  userId: number,
+  invoiceNumber: string,
+  invoiceData: {
+    customerName: string;
+    remainingBalance: number;
+    date: string;
+    currency: string;
+  }
+): Promise<InvoiceSession> {
+  const db = getFirestore();
+  const sessionId = getSessionId(chatId, userId);
+  const docRef = db.collection(INVOICE_SESSIONS_COLLECTION).doc(sessionId);
+  const log = logger.child({ sessionId, invoiceNumber });
+
+  const session = await db.runTransaction(async (transaction) => {
+    const doc = await transaction.get(docRef);
+
+    if (!doc.exists) {
+      throw new Error('Session not found');
+    }
+
+    const currentSession = doc.data() as InvoiceSession;
+    const selectedNumbers = currentSession.selectedInvoiceNumbers || [];
+    const selectedData = currentSession.selectedInvoiceData || [];
+
+    // Check if already selected
+    const index = selectedNumbers.indexOf(invoiceNumber);
+
+    let updatedNumbers: string[];
+    let updatedData: typeof selectedData;
+
+    if (index >= 0) {
+      // Remove from selection
+      updatedNumbers = selectedNumbers.filter((num) => num !== invoiceNumber);
+      updatedData = selectedData.filter((data) => data.invoiceNumber !== invoiceNumber);
+      log.debug('Removed invoice from selection');
+    } else {
+      // Add to selection
+      updatedNumbers = [...selectedNumbers, invoiceNumber];
+      updatedData = [
+        ...selectedData,
+        {
+          invoiceNumber,
+          customerName: invoiceData.customerName,
+          remainingBalance: invoiceData.remainingBalance,
+          date: invoiceData.date,
+          currency: invoiceData.currency,
+        },
+      ];
+      log.debug('Added invoice to selection');
+    }
+
+    const updates = {
+      selectedInvoiceNumbers: updatedNumbers,
+      selectedInvoiceData: updatedData,
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    transaction.update(docRef, updates);
+
+    // Return updated session
+    return {
+      ...currentSession,
+      ...updates,
+      updatedAt: Timestamp.now(),
+    } as InvoiceSession;
+  });
+
+  log.info(
+    { selectedCount: session.selectedInvoiceNumbers?.length || 0 },
+    'Invoice selection toggled'
+  );
+  return session;
+}
+
+/**
+ * Validate and confirm multi-invoice selection
+ * Validates selection count, customer consistency, and calculates total
+ * Moves session to 'awaiting_payment' status
+ */
+export async function validateAndConfirmSelection(
+  chatId: number,
+  userId: number
+): Promise<{ success: true; session: InvoiceSession } | { success: false; error: string }> {
+  const session = await getSession(chatId, userId);
+
+  if (!session) {
+    return { success: false, error: 'Session not found or expired' };
+  }
+
+  const selectedNumbers = session.selectedInvoiceNumbers || [];
+  const selectedData = session.selectedInvoiceData || [];
+
+  // Validate minimum selection
+  if (selectedNumbers.length < 2) {
+    return { success: false, error: 'בחר לפחות 2 חשבוניות' };
+  }
+
+  // Validate maximum selection
+  if (selectedNumbers.length > 10) {
+    return { success: false, error: 'לא ניתן לבחור יותר מ-10 חשבוניות' };
+  }
+
+  // Validate customer consistency
+  if (selectedData.length > 0) {
+    const firstCustomer = selectedData[0].customerName;
+    const allSameCustomer = selectedData.every((data) => data.customerName === firstCustomer);
+
+    if (!allSameCustomer) {
+      return { success: false, error: 'כל החשבוניות חייבות להיות לאותו לקוח' };
+    }
+
+    // Validate currency consistency
+    const firstCurrency = selectedData[0].currency;
+    const allSameCurrency = selectedData.every((data) => data.currency === firstCurrency);
+
+    if (!allSameCurrency) {
+      return { success: false, error: 'כל החשבוניות חייבות להיות באותו מטבע' };
+    }
+
+    // Calculate total amount
+    const totalAmount = selectedData.reduce((sum, data) => sum + data.remainingBalance, 0);
+
+    // Generate description
+    const description = `קבלה עבור חשבוניות: ${selectedNumbers.join(', ')}`;
+
+    // Update session with validated data
+    const updatedSession = await updateSession(chatId, userId, {
+      status: 'awaiting_payment',
+      customerName: firstCustomer,
+      amount: totalAmount,
+      currency: firstCurrency,
+      description,
+    });
+
+    logger.info(
+      {
+        chatId,
+        userId,
+        selectedCount: selectedNumbers.length,
+        totalAmount,
+        customerName: firstCustomer,
+      },
+      'Multi-invoice selection confirmed'
+    );
+
+    return { success: true, session: updatedSession };
+  }
+
+  return { success: false, error: 'No invoices selected' };
+}
+
+/**
+ * Clear invoice selection for multi-invoice receipts
+ * Removes all selected invoices from session
+ */
+export async function clearInvoiceSelection(
+  chatId: number,
+  userId: number
+): Promise<InvoiceSession> {
+  const log = logger.child({ chatId, userId });
+
+  const session = await updateSession(chatId, userId, {
+    selectedInvoiceNumbers: [],
+    selectedInvoiceData: [],
+  });
+
+  log.info('Invoice selection cleared');
+  return session;
+}
+
+/**
  * Cleanup stale sessions older than TTL
  * Should be called periodically (e.g., via Cloud Scheduler)
  */

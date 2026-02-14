@@ -94,18 +94,83 @@ export async function generateInvoice(
 
   // Step 2: For receipts, validate and fetch parent invoice data
   let parentInvoice: GeneratedInvoice | null = null;
+  let parentInvoices: GeneratedInvoice[] = [];
+  const isMultiInvoice =
+    session.selectedInvoiceNumbers && session.selectedInvoiceNumbers.length > 1;
+
   if (session.documentType === 'receipt') {
-    if (!session.relatedInvoiceNumber) {
-      throw new Error('Receipt must have related invoice number');
+    if (isMultiInvoice) {
+      // Multi-invoice receipt: fetch all parent invoices
+      const invoiceNumbers = session.selectedInvoiceNumbers || [];
+
+      if (invoiceNumbers.length < 2 || invoiceNumbers.length > 10) {
+        throw new Error(
+          `Invalid number of invoices selected: ${invoiceNumbers.length}. Must be between 2 and 10.`
+        );
+      }
+
+      // Fetch all parent invoices in parallel
+      parentInvoices = await Promise.all(
+        invoiceNumbers.map((num) => getGeneratedInvoice(chatId, num))
+      ).then((invoices) => invoices.filter((inv): inv is GeneratedInvoice => inv !== null));
+
+      if (parentInvoices.length !== invoiceNumbers.length) {
+        throw new Error('One or more parent invoices not found');
+      }
+
+      // Validate customer consistency
+      const firstCustomer = parentInvoices[0].customerName;
+      const allSameCustomer = parentInvoices.every((inv) => inv.customerName === firstCustomer);
+      if (!allSameCustomer) {
+        throw new Error('All invoices must belong to the same customer');
+      }
+
+      // Validate all have remaining balance > 0
+      const invalidInvoices = parentInvoices.filter((inv) => (inv.remainingBalance || 0) <= 0);
+      if (invalidInvoices.length > 0) {
+        throw new Error(
+          `Invoices already paid: ${invalidInvoices.map((i) => i.invoiceNumber).join(', ')}`
+        );
+      }
+
+      // Validate total amount matches sum of remaining balances
+      const expectedTotal = parentInvoices.reduce(
+        (sum, inv) => sum + (inv.remainingBalance || inv.amount),
+        0
+      );
+      if (Math.abs(session.amount - expectedTotal) > 0.01) {
+        // Allow small floating point differences
+        throw new Error(
+          `Payment amount mismatch. Expected: ${expectedTotal}, Got: ${session.amount}`
+        );
+      }
+
+      // Set parentInvoice to first invoice for backward compatibility
+      parentInvoice = parentInvoices[0];
+
+      log.debug(
+        {
+          invoiceCount: parentInvoices.length,
+          invoiceNumbers: invoiceNumbers,
+          totalAmount: expectedTotal,
+        },
+        'Fetched parent invoices for multi-invoice receipt'
+      );
+    } else {
+      // Single-invoice receipt (legacy flow)
+      if (!session.relatedInvoiceNumber) {
+        throw new Error('Receipt must have related invoice number');
+      }
+      parentInvoice = await getGeneratedInvoice(chatId, session.relatedInvoiceNumber);
+      if (!parentInvoice) {
+        throw new Error(`Parent invoice ${session.relatedInvoiceNumber} not found`);
+      }
+      parentInvoices = [parentInvoice];
+      log.debug(
+        { parentInvoice: session.relatedInvoiceNumber },
+        'Fetched parent invoice for receipt'
+      );
     }
-    parentInvoice = await getGeneratedInvoice(chatId, session.relatedInvoiceNumber);
-    if (!parentInvoice) {
-      throw new Error(`Parent invoice ${session.relatedInvoiceNumber} not found`);
-    }
-    log.debug(
-      { parentInvoice: session.relatedInvoiceNumber },
-      'Fetched parent invoice for receipt'
-    );
   }
 
   // Step 3: Load config first (needed for logoUrl)
@@ -146,7 +211,8 @@ export async function generateInvoice(
     config,
     logoBase64,
     session,
-    parentInvoice
+    parentInvoice,
+    parentInvoices.length > 0 ? parentInvoices : undefined
   );
   log.info({ pdfSize: pdfBuffer.length }, 'PDF generated');
 
@@ -155,21 +221,35 @@ export async function generateInvoice(
   log.info({ pdfUrl }, 'PDF uploaded to storage');
 
   // Save to Firestore audit log
-  await saveInvoiceRecord(invoiceNumber, invoiceData, userId, username, chatId, pdfUrl);
+  await saveInvoiceRecord(invoiceNumber, invoiceData, userId, username, chatId, pdfUrl, session);
   log.info('Invoice record saved to Firestore');
 
   // If this is a receipt, update the parent invoice's payment tracking
-  if (session.documentType === 'receipt' && session.relatedInvoiceNumber) {
-    await updateParentInvoicePayment(
-      chatId,
-      session.relatedInvoiceNumber,
-      invoiceNumber,
-      session.amount
-    );
-    log.info(
-      { parentInvoice: session.relatedInvoiceNumber, receiptAmount: session.amount },
-      'Updated parent invoice payment tracking'
-    );
+  if (session.documentType === 'receipt') {
+    if (isMultiInvoice && parentInvoices.length > 0) {
+      // Multi-invoice receipt: update all parent invoices atomically
+      await updateMultipleInvoicesPayment(chatId, parentInvoices, invoiceNumber);
+      log.info(
+        {
+          parentInvoiceCount: parentInvoices.length,
+          parentInvoiceNumbers: parentInvoices.map((inv) => inv.invoiceNumber),
+          receiptAmount: session.amount,
+        },
+        'Updated multiple parent invoices payment tracking'
+      );
+    } else if (session.relatedInvoiceNumber) {
+      // Single-invoice receipt (legacy flow)
+      await updateParentInvoicePayment(
+        chatId,
+        session.relatedInvoiceNumber,
+        invoiceNumber,
+        session.amount
+      );
+      log.info(
+        { parentInvoice: session.relatedInvoiceNumber, receiptAmount: session.amount },
+        'Updated parent invoice payment tracking'
+      );
+    }
   }
 
   // Log to Google Sheets (pass sheetId from already-loaded config to avoid duplicate Firestore read)
@@ -244,12 +324,19 @@ async function saveInvoiceRecord(
   userId: number,
   username: string,
   chatId: number,
-  storageUrl: string
+  storageUrl: string,
+  session?: InvoiceSession
 ): Promise<void> {
   const db = getFirestore();
   const docId = `chat_${chatId}_${invoiceNumber}`;
   const collectionName = getCollectionForDocumentType(data.documentType);
   const docRef = db.collection(collectionName).doc(docId);
+
+  // Detect multi-invoice receipt
+  const isMultiInvoiceReceipt =
+    data.documentType === 'receipt' &&
+    session?.selectedInvoiceNumbers &&
+    session.selectedInvoiceNumbers.length > 1;
 
   const record: GeneratedInvoice = {
     chatId,
@@ -283,6 +370,22 @@ async function saveInvoiceRecord(
       paidAmount: data.amount,
       remainingBalance: 0,
     }),
+    // Multi-invoice receipt fields
+    ...(isMultiInvoiceReceipt && {
+      isMultiInvoiceReceipt: true,
+      relatedInvoiceNumbers: session.selectedInvoiceNumbers,
+      relatedInvoiceIds: session.selectedInvoiceNumbers?.map((num) => `chat_${chatId}_${num}`),
+      // Set single fields for backward compatibility (use first invoice)
+      relatedInvoiceId: `chat_${chatId}_${session.selectedInvoiceNumbers![0]}`,
+      relatedInvoiceNumber: session.selectedInvoiceNumbers![0],
+    }),
+    // Single-invoice receipt fields (legacy)
+    ...(!isMultiInvoiceReceipt &&
+      data.documentType === 'receipt' &&
+      session?.relatedInvoiceNumber && {
+        relatedInvoiceId: `chat_${chatId}_${session.relatedInvoiceNumber}`,
+        relatedInvoiceNumber: session.relatedInvoiceNumber,
+      }),
   };
 
   await docRef.set(record);
@@ -384,6 +487,97 @@ async function updateParentInvoicePayment(
       'Invoice payment tracking updated'
     );
   });
+}
+
+/**
+ * Update multiple parent invoices atomically for multi-invoice receipts
+ * Pays each invoice's full remaining balance
+ * @param chatId - Customer's Telegram chat ID
+ * @param parentInvoices - Array of parent invoices to update
+ * @param receiptNumber - Receipt number to add to relatedReceiptIds
+ */
+async function updateMultipleInvoicesPayment(
+  chatId: number,
+  parentInvoices: GeneratedInvoice[],
+  receiptNumber: string
+): Promise<void> {
+  const db = getFirestore();
+  const log = logger.child({
+    chatId,
+    receiptNumber,
+    parentInvoiceCount: parentInvoices.length,
+    parentInvoiceNumbers: parentInvoices.map((inv) => inv.invoiceNumber),
+  });
+
+  // Use transaction to ensure atomic update of ALL invoices
+  await db.runTransaction(async (transaction) => {
+    // Re-read all invoices within transaction to detect race conditions
+    const docRefs = parentInvoices.map((inv) => {
+      const docId = `chat_${chatId}_${inv.invoiceNumber}`;
+      return db.collection(GENERATED_INVOICES_COLLECTION).doc(docId);
+    });
+
+    const docs = await Promise.all(docRefs.map((ref) => transaction.get(ref)));
+
+    // Validate all invoices exist and are not fully paid (race condition check)
+    for (let i = 0; i < docs.length; i++) {
+      const doc = docs[i];
+      const invoice = parentInvoices[i];
+
+      if (!doc.exists) {
+        log.error(
+          { invoiceNumber: invoice.invoiceNumber },
+          'Parent invoice not found in transaction'
+        );
+        throw new Error(`Parent invoice ${invoice.invoiceNumber} not found`);
+      }
+
+      const currentInvoice = doc.data() as GeneratedInvoice;
+      const currentRemaining = currentInvoice.remainingBalance || currentInvoice.amount;
+
+      if (currentRemaining <= 0) {
+        log.error(
+          { invoiceNumber: invoice.invoiceNumber, remainingBalance: currentRemaining },
+          'Invoice already paid (race condition detected)'
+        );
+        throw new Error(`Invoice ${invoice.invoiceNumber} is already paid. Please try again.`);
+      }
+    }
+
+    // Update all invoices to fully paid
+    for (let i = 0; i < docs.length; i++) {
+      const docRef = docRefs[i];
+      const doc = docs[i];
+      const invoice = doc.data() as GeneratedInvoice;
+
+      const currentPaid = invoice.paidAmount || 0;
+      const currentRemaining = invoice.remainingBalance || invoice.amount;
+
+      const paymentAmount = currentRemaining; // Pay full remaining balance
+      const newPaidAmount = currentPaid + paymentAmount;
+
+      transaction.update(docRef, {
+        paidAmount: newPaidAmount,
+        remainingBalance: 0,
+        paymentStatus: 'paid' as const,
+        relatedReceiptIds: FieldValue.arrayUnion(receiptNumber),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      log.debug(
+        {
+          invoiceNumber: invoice.invoiceNumber,
+          oldPaid: currentPaid,
+          newPaid: newPaidAmount,
+          oldRemaining: currentRemaining,
+          paymentAmount,
+        },
+        'Invoice payment tracking updated in multi-invoice transaction'
+      );
+    }
+  });
+
+  log.info('All parent invoices updated atomically');
 }
 
 // Re-export sub-services

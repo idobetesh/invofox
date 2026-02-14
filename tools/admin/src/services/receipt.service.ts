@@ -45,6 +45,13 @@ interface GenerateReceiptParams {
   chatId?: number; // Optional: for validation
 }
 
+interface GenerateMultiInvoiceReceiptParams {
+  invoiceNumbers: string[];
+  paymentMethod: string;
+  date: string; // YYYY-MM-DD format
+  chatId?: number; // Optional: for validation
+}
+
 interface GenerateReceiptResult {
   success: true;
   receiptNumber: string;
@@ -55,6 +62,20 @@ interface GenerateReceiptResult {
     newRemainingBalance: number;
     newPaymentStatus: PaymentStatus;
   };
+}
+
+interface GenerateMultiInvoiceReceiptResult {
+  success: true;
+  receiptNumber: string;
+  receiptId: string;
+  pdfUrl: string;
+  totalAmount: number;
+  invoicesUpdated: {
+    invoiceNumber: string;
+    newPaidAmount: number;
+    newRemainingBalance: number;
+    newPaymentStatus: PaymentStatus;
+  }[];
 }
 
 interface ValidationResult {
@@ -279,6 +300,313 @@ export class ReceiptService {
         newRemainingBalance: result.validation.newRemainingBalance,
         newPaymentStatus: result.validation.newPaymentStatus,
       },
+    };
+  }
+
+  /**
+   * Generate a single receipt for multiple invoices
+   * Pays each invoice's full remaining balance atomically
+   */
+  async generateMultiInvoiceReceipt(
+    params: GenerateMultiInvoiceReceiptParams
+  ): Promise<GenerateMultiInvoiceReceiptResult> {
+    // ============================================================================
+    // PHASE 1: VALIDATION (Read-only, can fail safely)
+    // ============================================================================
+
+    // Step 1: Validate input
+    if (!params.invoiceNumbers || params.invoiceNumbers.length < 2) {
+      throw new Error('Must select at least 2 invoices');
+    }
+
+    if (params.invoiceNumbers.length > 10) {
+      throw new Error('Cannot select more than 10 invoices');
+    }
+
+    // Step 2: Fetch all invoices in a single query (optimized with 'in' operator)
+    const invoiceSnapshot = await this.firestore
+      .collection(GENERATED_INVOICES_COLLECTION)
+      .where('invoiceNumber', 'in', params.invoiceNumbers)
+      .where('documentType', '==', 'invoice')
+      .get();
+
+    // Build a map of invoices by invoice number
+    const invoiceMap = new Map<string, InvoiceDocument>();
+    for (const doc of invoiceSnapshot.docs) {
+      const invoice = doc.data();
+      const invoiceId = doc.id;
+
+      // Validate chatId if provided
+      if (params.chatId !== undefined && invoice.chatId !== params.chatId) {
+        throw new Error(
+          `Invoice ${invoice.invoiceNumber} does not belong to chatId ${params.chatId}`
+        );
+      }
+
+      invoiceMap.set(invoice.invoiceNumber, {
+        id: invoiceId,
+        invoiceNumber: invoice.invoiceNumber,
+        chatId: invoice.chatId,
+        documentType: invoice.documentType,
+        customerName: invoice.customerName,
+        customerTaxId: invoice.customerTaxId,
+        description: invoice.description,
+        amount: invoice.amount,
+        currency: invoice.currency || 'ILS',
+        date: invoice.date,
+        paymentMethod: invoice.paymentMethod,
+        paymentStatus: invoice.paymentStatus || 'unpaid',
+        paidAmount: invoice.paidAmount || 0,
+        remainingBalance: invoice.remainingBalance || invoice.amount,
+        relatedReceiptIds: invoice.relatedReceiptIds || [],
+        generatedAt: invoice.generatedAt,
+        generatedBy: invoice.generatedBy,
+        storagePath: invoice.storagePath,
+        storageUrl: invoice.storageUrl,
+      });
+    }
+
+    // Ensure all requested invoices were found and maintain order
+    const invoices: InvoiceDocument[] = [];
+    for (const invoiceNumber of params.invoiceNumbers) {
+      const invoice = invoiceMap.get(invoiceNumber);
+      if (!invoice) {
+        throw new Error(`Invoice ${invoiceNumber} not found`);
+      }
+      invoices.push(invoice);
+    }
+
+    // Step 3: Validate customer consistency
+    const firstCustomer = invoices[0].customerName;
+    const allSameCustomer = invoices.every((inv) => inv.customerName === firstCustomer);
+    if (!allSameCustomer) {
+      throw new Error('All invoices must belong to the same customer');
+    }
+
+    // Step 4: Validate all have remaining balance > 0
+    const invalidInvoices = invoices.filter((inv) => inv.remainingBalance <= 0);
+    if (invalidInvoices.length > 0) {
+      throw new Error(
+        `Invoices already paid: ${invalidInvoices.map((i) => i.invoiceNumber).join(', ')}`
+      );
+    }
+
+    // ============================================================================
+    // PHASE 2: GENERATION (Side effects, but safe to retry)
+    // ============================================================================
+
+    // Step 6: Get next receipt number for this customer
+    const chatId = invoices[0].chatId;
+    const receiptNumber = await this.getNextReceiptNumber(chatId);
+
+    // Step 7: Generate receipt document ID
+    const receiptId = `chat_${chatId}_${receiptNumber}`;
+
+    // ============================================================================
+    // PHASE 3: ATOMIC TRANSACTION (All or nothing)
+    // ============================================================================
+
+    const result = await this.firestore.runTransaction(async (transaction: Transaction) => {
+      // Re-read all invoices in transaction to ensure we have latest data
+      const invoiceRefs = invoices.map((inv) =>
+        this.firestore.collection(GENERATED_INVOICES_COLLECTION).doc(inv.id)
+      );
+
+      const latestInvoiceDocs = await Promise.all(invoiceRefs.map((ref) => transaction.get(ref)));
+
+      // Validate all invoices still exist and are not fully paid (race condition check)
+      const latestInvoices: InvoiceDocument[] = [];
+      for (let i = 0; i < latestInvoiceDocs.length; i++) {
+        const doc = latestInvoiceDocs[i];
+        if (!doc.exists) {
+          throw new Error(`Invoice ${invoices[i].invoiceNumber} was deleted during transaction`);
+        }
+
+        const data = doc.data();
+        if (!data) {
+          throw new Error(`Invoice ${invoices[i].invoiceNumber} data is invalid`);
+        }
+
+        const currentRemaining = data.remainingBalance || data.amount;
+        if (currentRemaining <= 0) {
+          throw new Error(
+            `Invoice ${invoices[i].invoiceNumber} is already paid (race condition detected)`
+          );
+        }
+
+        latestInvoices.push({
+          id: doc.id,
+          invoiceNumber: data.invoiceNumber,
+          chatId: data.chatId,
+          documentType: data.documentType,
+          customerName: data.customerName,
+          customerTaxId: data.customerTaxId,
+          description: data.description,
+          amount: data.amount,
+          currency: data.currency || 'ILS',
+          date: data.date,
+          paymentMethod: data.paymentMethod,
+          paymentStatus: data.paymentStatus || 'unpaid',
+          paidAmount: data.paidAmount || 0,
+          remainingBalance: currentRemaining,
+          relatedReceiptIds: data.relatedReceiptIds || [],
+          generatedAt: data.generatedAt,
+          generatedBy: data.generatedBy,
+          storagePath: data.storagePath,
+          storageUrl: data.storageUrl,
+        });
+      }
+
+      // Recalculate total with latest data
+      const latestTotalAmount = latestInvoices.reduce((sum, inv) => sum + inv.remainingBalance, 0);
+
+      // Create receipt document
+      const receiptRef = this.firestore.collection(GENERATED_RECEIPTS_COLLECTION).doc(receiptId);
+
+      const receiptData = {
+        chatId,
+        invoiceNumber: receiptNumber,
+        documentType: 'receipt',
+        customerName: firstCustomer,
+        customerTaxId: latestInvoices[0].customerTaxId,
+        description: `קבלה עבור חשבוניות: ${params.invoiceNumbers.join(', ')}`,
+        amount: latestTotalAmount,
+        currency: latestInvoices[0].currency,
+        date: formatDateDisplay(params.date),
+        paymentMethod: params.paymentMethod,
+        // Multi-invoice receipt fields
+        isMultiInvoiceReceipt: true,
+        relatedInvoiceNumbers: params.invoiceNumbers,
+        relatedInvoiceIds: latestInvoices.map((inv) => inv.id),
+        // Single fields for backward compatibility (use first invoice)
+        relatedInvoiceId: latestInvoices[0].id,
+        relatedInvoiceNumber: params.invoiceNumbers[0],
+        isPartialPayment: false, // Multi-invoice receipts always pay in full
+        remainingBalance: 0,
+        generatedAt: FieldValue.serverTimestamp(),
+        generatedBy: {
+          telegramUserId: 0, // Admin generated
+          username: 'admin-panel',
+          chatId,
+        },
+        storagePath: `${chatId}/${new Date().getFullYear()}/${receiptNumber}.pdf`,
+        storageUrl: '', // Will be updated after PDF generation
+      };
+
+      transaction.set(receiptRef, receiptData);
+
+      // Update all invoice documents to fully paid
+      const invoiceUpdates: Array<{
+        invoiceNumber: string;
+        newPaidAmount: number;
+        newRemainingBalance: number;
+        newPaymentStatus: PaymentStatus;
+      }> = [];
+
+      for (let i = 0; i < latestInvoices.length; i++) {
+        const invoice = latestInvoices[i];
+        const invoiceRef = invoiceRefs[i];
+
+        const paymentAmount = invoice.remainingBalance;
+        const newPaidAmount = invoice.paidAmount + paymentAmount;
+
+        const currentReceiptIds = invoice.relatedReceiptIds || [];
+        transaction.update(invoiceRef, {
+          paidAmount: newPaidAmount,
+          remainingBalance: 0,
+          paymentStatus: 'paid' as const,
+          relatedReceiptIds: [...currentReceiptIds, receiptId],
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+
+        invoiceUpdates.push({
+          invoiceNumber: invoice.invoiceNumber,
+          newPaidAmount,
+          newRemainingBalance: 0,
+          newPaymentStatus: 'paid',
+        });
+      }
+
+      return {
+        receiptNumber,
+        receiptId,
+        chatId,
+        totalAmount: latestTotalAmount,
+        receiptData,
+        invoiceUpdates,
+        latestInvoices,
+      };
+    });
+
+    // ============================================================================
+    // PHASE 4: POST-TRANSACTION (PDF generation and storage)
+    // ============================================================================
+
+    // Get business config for PDF generation
+    const businessConfig = await getBusinessConfig(this.firestore, result.chatId);
+
+    // Validate array lengths match (defensive check)
+    if (params.invoiceNumbers.length !== result.latestInvoices.length) {
+      throw new Error(
+        `Array length mismatch: ${params.invoiceNumbers.length} invoice numbers but ${result.latestInvoices.length} invoices loaded`
+      );
+    }
+
+    // Generate PDF with multi-invoice support
+    console.log('Generating multi-invoice PDF for receipt:', result.receiptNumber);
+    const pdfBuffer = await this.pdfService.generateReceiptPDF({
+      receiptNumber: result.receiptNumber,
+      invoiceNumber: result.latestInvoices[0].invoiceNumber, // For backward compatibility
+      invoiceDate: result.latestInvoices[0].date, // For backward compatibility
+      customerName: firstCustomer,
+      customerTaxId: result.latestInvoices[0].customerTaxId,
+      amount: result.totalAmount,
+      currency: result.latestInvoices[0].currency,
+      paymentMethod: params.paymentMethod,
+      receiptDate: formatDateDisplay(params.date),
+      isPartialPayment: false,
+      remainingBalance: 0,
+      businessName: businessConfig.name,
+      businessTaxId: businessConfig.taxId,
+      businessTaxStatus: businessConfig.taxStatus,
+      businessEmail: businessConfig.email,
+      businessAddress: businessConfig.address,
+      businessPhone: businessConfig.phone,
+      logoUrl: businessConfig.logoUrl,
+      // Multi-invoice specific fields
+      isMultiInvoiceReceipt: true,
+      relatedInvoiceNumbers: params.invoiceNumbers,
+      relatedInvoiceDates: result.latestInvoices.map((inv) => inv.date),
+    });
+
+    // Upload PDF to Cloud Storage
+    const pdfUrl = await uploadPDFToStorage(
+      this.storage,
+      pdfBuffer,
+      result.receiptData.storagePath,
+      {
+        chatId: result.chatId,
+        documentNumber: result.receiptNumber,
+        documentType: 'receipt',
+        relatedDocumentNumber: params.invoiceNumbers.join(','),
+      }
+    );
+
+    // Update receipt with PDF URL
+    await this.firestore
+      .collection(GENERATED_RECEIPTS_COLLECTION)
+      .doc(result.receiptId)
+      .update({ storageUrl: pdfUrl });
+
+    console.log('Multi-invoice receipt PDF generated successfully:', pdfUrl);
+
+    return {
+      success: true,
+      receiptNumber: result.receiptNumber,
+      receiptId: result.receiptId,
+      pdfUrl,
+      totalAmount: result.totalAmount,
+      invoicesUpdated: result.invoiceUpdates,
     };
   }
 
