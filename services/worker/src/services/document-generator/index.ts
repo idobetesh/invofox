@@ -96,16 +96,17 @@ export async function generateInvoice(
   let parentInvoice: GeneratedInvoice | null = null;
   let parentInvoices: GeneratedInvoice[] = [];
   const isMultiInvoice =
-    session.selectedInvoiceNumbers && session.selectedInvoiceNumbers.length > 1;
+    session.selectedInvoiceNumbers && session.selectedInvoiceNumbers.length >= 2;
 
   if (session.documentType === 'receipt') {
-    if (isMultiInvoice) {
-      // Multi-invoice receipt: fetch all parent invoices
-      const invoiceNumbers = session.selectedInvoiceNumbers || [];
+    // NEW: Unified path for both single and multi-invoice receipts (using selectedInvoiceNumbers)
+    if (session.selectedInvoiceNumbers && session.selectedInvoiceNumbers.length >= 1) {
+      // Fetch all parent invoices (works for both single and multi)
+      const invoiceNumbers = session.selectedInvoiceNumbers;
 
-      if (invoiceNumbers.length < 2 || invoiceNumbers.length > 10) {
+      if (invoiceNumbers.length < 1 || invoiceNumbers.length > 10) {
         throw new Error(
-          `Invalid number of invoices selected: ${invoiceNumbers.length}. Must be between 2 and 10.`
+          `Invalid number of invoices selected: ${invoiceNumbers.length}. Must be between 1 and 10.`
         );
       }
 
@@ -118,11 +119,13 @@ export async function generateInvoice(
         throw new Error('One or more parent invoices not found');
       }
 
-      // Validate customer consistency
-      const firstCustomer = parentInvoices[0].customerName;
-      const allSameCustomer = parentInvoices.every((inv) => inv.customerName === firstCustomer);
-      if (!allSameCustomer) {
-        throw new Error('All invoices must belong to the same customer');
+      // Validate customer consistency (only for multi-invoice)
+      if (invoiceNumbers.length >= 2) {
+        const firstCustomer = parentInvoices[0].customerName;
+        const allSameCustomer = parentInvoices.every((inv) => inv.customerName === firstCustomer);
+        if (!allSameCustomer) {
+          throw new Error('All invoices must belong to the same customer');
+        }
       }
 
       // Validate all have remaining balance > 0
@@ -154,13 +157,12 @@ export async function generateInvoice(
           invoiceNumbers: invoiceNumbers,
           totalAmount: expectedTotal,
         },
-        'Fetched parent invoices for multi-invoice receipt'
+        invoiceNumbers.length === 1
+          ? 'Fetched parent invoice for single-invoice receipt'
+          : 'Fetched parent invoices for multi-invoice receipt'
       );
-    } else {
-      // Single-invoice receipt (legacy flow)
-      if (!session.relatedInvoiceNumber) {
-        throw new Error('Receipt must have related invoice number');
-      }
+    } else if (session.relatedInvoiceNumber) {
+      // LEGACY: Old receipts created before multi-select (for backward compatibility)
       parentInvoice = await getGeneratedInvoice(chatId, session.relatedInvoiceNumber);
       if (!parentInvoice) {
         throw new Error(`Parent invoice ${session.relatedInvoiceNumber} not found`);
@@ -168,8 +170,10 @@ export async function generateInvoice(
       parentInvoices = [parentInvoice];
       log.debug(
         { parentInvoice: session.relatedInvoiceNumber },
-        'Fetched parent invoice for receipt'
+        'Fetched parent invoice for legacy receipt'
       );
+    } else {
+      throw new Error('Receipt must have related invoice number(s)');
     }
   }
 
