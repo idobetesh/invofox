@@ -95,8 +95,6 @@ export async function generateInvoice(
   // Step 2: For receipts, validate and fetch parent invoice data
   let parentInvoice: GeneratedInvoice | null = null;
   let parentInvoices: GeneratedInvoice[] = [];
-  const isMultiInvoice =
-    session.selectedInvoiceNumbers && session.selectedInvoiceNumbers.length >= 2;
 
   if (session.documentType === 'receipt') {
     // NEW: Unified path for both single and multi-invoice receipts (using selectedInvoiceNumbers)
@@ -230,8 +228,8 @@ export async function generateInvoice(
 
   // If this is a receipt, update the parent invoice's payment tracking
   if (session.documentType === 'receipt') {
-    if (isMultiInvoice && parentInvoices.length > 0) {
-      // Multi-invoice receipt: update all parent invoices atomically
+    if (parentInvoices.length > 0) {
+      // NEW: Update all parent invoices (works for 1-10 invoices via selectedInvoiceNumbers)
       await updateMultipleInvoicesPayment(chatId, parentInvoices, invoiceNumber);
       log.info(
         {
@@ -239,10 +237,12 @@ export async function generateInvoice(
           parentInvoiceNumbers: parentInvoices.map((inv) => inv.invoiceNumber),
           receiptAmount: session.amount,
         },
-        'Updated multiple parent invoices payment tracking'
+        parentInvoices.length === 1
+          ? 'Updated parent invoice payment tracking'
+          : 'Updated multiple parent invoices payment tracking'
       );
     } else if (session.relatedInvoiceNumber) {
-      // Single-invoice receipt (legacy flow)
+      // LEGACY: Old receipts with relatedInvoiceNumber (backward compatibility only)
       await updateParentInvoicePayment(
         chatId,
         session.relatedInvoiceNumber,
@@ -336,11 +336,17 @@ async function saveInvoiceRecord(
   const collectionName = getCollectionForDocumentType(data.documentType);
   const docRef = db.collection(collectionName).doc(docId);
 
-  // Detect multi-invoice receipt
+  // Detect multi-invoice receipt (2+ invoices)
   const isMultiInvoiceReceipt =
     data.documentType === 'receipt' &&
     session?.selectedInvoiceNumbers &&
-    session.selectedInvoiceNumbers.length > 1;
+    session.selectedInvoiceNumbers.length >= 2;
+
+  // Detect single-invoice receipt using new flow (1 invoice in selectedInvoiceNumbers)
+  const isSingleInvoiceNew =
+    data.documentType === 'receipt' &&
+    session?.selectedInvoiceNumbers &&
+    session.selectedInvoiceNumbers.length === 1;
 
   const record: GeneratedInvoice = {
     chatId,
@@ -374,17 +380,30 @@ async function saveInvoiceRecord(
       paidAmount: data.amount,
       remainingBalance: 0,
     }),
-    // Multi-invoice receipt fields
-    ...(isMultiInvoiceReceipt && {
-      isMultiInvoiceReceipt: true,
-      relatedInvoiceNumbers: session.selectedInvoiceNumbers,
-      relatedInvoiceIds: session.selectedInvoiceNumbers?.map((num) => `chat_${chatId}_${num}`),
-      // Set single fields for backward compatibility (use first invoice)
-      relatedInvoiceId: `chat_${chatId}_${session.selectedInvoiceNumbers![0]}`,
-      relatedInvoiceNumber: session.selectedInvoiceNumbers![0],
-    }),
-    // Single-invoice receipt fields (legacy)
+    // Multi-invoice receipt fields (2+ invoices)
+    ...(isMultiInvoiceReceipt &&
+      session.selectedInvoiceNumbers &&
+      session.selectedInvoiceNumbers.length > 0 && {
+        isMultiInvoiceReceipt: true,
+        relatedInvoiceNumbers: session.selectedInvoiceNumbers,
+        relatedInvoiceIds: session.selectedInvoiceNumbers.map((num) => `chat_${chatId}_${num}`),
+        // Set single fields for backward compatibility (use first invoice)
+        relatedInvoiceId: `chat_${chatId}_${session.selectedInvoiceNumbers[0]}`,
+        relatedInvoiceNumber: session.selectedInvoiceNumbers[0],
+      }),
+    // Single-invoice receipt using NEW flow (1 invoice in selectedInvoiceNumbers)
+    ...(isSingleInvoiceNew &&
+      session.selectedInvoiceNumbers &&
+      session.selectedInvoiceNumbers.length > 0 && {
+        relatedInvoiceId: `chat_${chatId}_${session.selectedInvoiceNumbers[0]}`,
+        relatedInvoiceNumber: session.selectedInvoiceNumbers[0],
+        // Store selectedInvoiceNumbers for consistency
+        relatedInvoiceNumbers: session.selectedInvoiceNumbers,
+        relatedInvoiceIds: [`chat_${chatId}_${session.selectedInvoiceNumbers[0]}`],
+      }),
+    // Single-invoice receipt using LEGACY flow (relatedInvoiceNumber field)
     ...(!isMultiInvoiceReceipt &&
+      !isSingleInvoiceNew &&
       data.documentType === 'receipt' &&
       session?.relatedInvoiceNumber && {
         relatedInvoiceId: `chat_${chatId}_${session.relatedInvoiceNumber}`,
