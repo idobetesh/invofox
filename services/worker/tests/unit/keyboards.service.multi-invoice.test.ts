@@ -64,21 +64,21 @@ describe('Keyboards Service - Multi-Invoice', () => {
   };
 
   describe('buildInvoiceSelectionKeyboard', () => {
-    it('should show unchecked boxes for all invoices when nothing selected', () => {
+    it('should show no prefix for unselected invoices', () => {
       const keyboard = buildInvoiceSelectionKeyboard(mockOpenInvoices, [], [], 0, 4);
 
       expect(keyboard.inline_keyboard).toBeDefined();
       const buttons = keyboard.inline_keyboard.flat();
 
-      // All invoice buttons should have unchecked prefix
+      // Unselected invoice buttons should have NO prefix (clean look)
       const invoiceButtons = buttons.filter((btn) => btn.text.includes('I-2026-'));
       invoiceButtons.forEach((btn) => {
-        expect(btn.text).toContain('☐');
-        expect(btn.text).not.toContain('☑');
+        expect(btn.text).not.toContain('✓');
+        expect(btn.text).not.toContain('⛔');
       });
     });
 
-    it('should show checked box for selected invoice', () => {
+    it('should show checkmark for selected invoice', () => {
       const selected = ['I-2026-100'];
       const keyboard = buildInvoiceSelectionKeyboard(
         mockOpenInvoices,
@@ -92,11 +92,11 @@ describe('Keyboards Service - Multi-Invoice', () => {
       const selectedButton = buttons.find((btn) => btn.text.includes('I-2026-100'));
       const unselectedButton = buttons.find((btn) => btn.text.includes('I-2026-101'));
 
-      expect(selectedButton?.text).toContain('☑');
-      expect(unselectedButton?.text).toContain('☐');
+      expect(selectedButton?.text).toContain('✓');
+      expect(unselectedButton?.text).not.toContain('✓');
     });
 
-    it('should show multiple checked boxes for multiple selected invoices', () => {
+    it('should show checkmarks for multiple selected invoices', () => {
       const selected = ['I-2026-100', 'I-2026-101', 'I-2026-103'];
       const keyboard = buildInvoiceSelectionKeyboard(
         mockOpenInvoices,
@@ -113,10 +113,10 @@ describe('Keyboards Service - Multi-Invoice', () => {
       const button102 = buttons.find((btn) => btn.text.includes('I-2026-102'));
       const button103 = buttons.find((btn) => btn.text.includes('I-2026-103'));
 
-      expect(button100?.text).toContain('☑');
-      expect(button101?.text).toContain('☑');
-      expect(button102?.text).toContain('☐');
-      expect(button103?.text).toContain('☑');
+      expect(button100?.text).toContain('✓');
+      expect(button101?.text).toContain('✓');
+      expect(button102?.text).not.toContain('✓'); // Unselected - no prefix
+      expect(button103?.text).toContain('✓');
     });
 
     it('should use toggle_invoice callback action', () => {
@@ -286,14 +286,14 @@ describe('Keyboards Service - Multi-Invoice', () => {
 
       const buttons = keyboard.inline_keyboard.flat();
 
-      // First 10 should be checked
-      const checkedButtons = buttons.filter((btn) => btn.text.includes('☑'));
+      // First 10 should have checkmarks
+      const checkedButtons = buttons.filter((btn) => btn.text.includes('✓'));
       expect(checkedButtons).toHaveLength(10);
 
       // Remaining invoices should have 'noop' callback_data (disabled)
       const disabledButtons = buttons.filter(
         (btn) =>
-          btn.text.includes('I-2026-') && !btn.text.includes('☑') && btn.callback_data === 'noop'
+          btn.text.includes('I-2026-') && !btn.text.includes('✓') && btn.callback_data === 'noop'
       );
       expect(disabledButtons.length).toBe(2); // 2 unselected invoices (110, 111)
     });
