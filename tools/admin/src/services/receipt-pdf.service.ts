@@ -29,6 +29,10 @@ interface GenerateReceiptPDFParams {
   businessAddress: string;
   businessPhone: string;
   logoUrl?: string;
+  // Multi-invoice receipt fields
+  isMultiInvoiceReceipt?: boolean;
+  relatedInvoiceNumbers?: string[];
+  relatedInvoiceDates?: string[];
 }
 
 export class ReceiptPDFService {
@@ -56,6 +60,10 @@ export class ReceiptPDFService {
       businessAddress: params.businessAddress,
       businessPhone: params.businessPhone,
       logoUrl: params.logoUrl,
+      // Multi-invoice receipt fields
+      isMultiInvoiceReceipt: params.isMultiInvoiceReceipt,
+      relatedInvoiceNumbers: params.relatedInvoiceNumbers,
+      relatedInvoiceDates: params.relatedInvoiceDates,
     };
 
     const html = buildReceiptHTML(templateParams);

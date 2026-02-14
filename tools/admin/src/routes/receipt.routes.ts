@@ -17,5 +17,8 @@ export function createReceiptRoutes(receiptController: ReceiptController): Route
   // POST /receipts/generate - Generate receipt for invoice
   router.post(`${BASE_PATH}/generate`, receiptController.generateReceipt);
 
+  // POST /receipts/generate-multi - Generate receipt for multiple invoices
+  router.post(`${BASE_PATH}/generate-multi`, receiptController.generateMultiInvoiceReceipt);
+
   return router;
 }

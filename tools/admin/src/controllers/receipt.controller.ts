@@ -95,6 +95,58 @@ export class ReceiptController {
   };
 
   /**
+   * POST /receipts/generate-multi
+   * Generate a receipt for multiple invoices (pays all in full)
+   */
+  generateMultiInvoiceReceipt = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { invoiceNumbers, paymentMethod, date, chatId } = req.body;
+
+      const error = validateBody(req.body, [
+        {
+          field: 'invoiceNumbers',
+          message: 'Missing or invalid field: invoiceNumbers (must be an array)',
+          validate: (v) => Array.isArray(v) && v.length > 0,
+        },
+        { field: 'paymentMethod' },
+        {
+          field: 'date',
+          message: 'Invalid date format. Expected: YYYY-MM-DD',
+          validate: (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v),
+        },
+      ]);
+      if (error) {
+        return badRequest(res, error);
+      }
+
+      // Additional validation for invoice count
+      if (invoiceNumbers.length < 2) {
+        return badRequest(res, 'Must select at least 2 invoices');
+      }
+
+      if (invoiceNumbers.length > 10) {
+        return badRequest(res, 'Cannot select more than 10 invoices');
+      }
+
+      // Generate multi-invoice receipt
+      const result = await this.receiptService.generateMultiInvoiceReceipt({
+        invoiceNumbers,
+        paymentMethod,
+        date,
+        chatId,
+      });
+
+      res.status(StatusCodes.CREATED).json(result);
+    } catch (error) {
+      console.error('Error generating multi-invoice receipt:', error);
+      if (error instanceof Error && isUserError(error.message)) {
+        return badRequest(res, error.message);
+      }
+      serverError(res, 'generate multi-invoice receipt', error);
+    }
+  };
+
+  /**
    * GET /invoices
    * List invoices filtered by chatId and payment status
    */
