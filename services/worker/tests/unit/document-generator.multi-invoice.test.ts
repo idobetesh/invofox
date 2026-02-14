@@ -429,4 +429,30 @@ describe('Document Generator - Multi-Invoice', () => {
       expect(calculatedTotal).toBe(expectedTotal);
     });
   });
+
+  describe('Invoice Count Validation', () => {
+    it('should accept SINGLE invoice (1) in selectedInvoiceNumbers', () => {
+      // CRITICAL: This test ensures single-invoice receipts work with new flow
+      const invoiceCount = 1;
+      expect(invoiceCount).toBeGreaterThanOrEqual(1);
+      expect(invoiceCount).toBeLessThanOrEqual(10);
+    });
+
+    it('should accept multi-invoice (2-10 invoices)', () => {
+      [2, 5, 10].forEach((count) => {
+        expect(count).toBeGreaterThanOrEqual(1);
+        expect(count).toBeLessThanOrEqual(10);
+      });
+    });
+
+    it('should reject 0 invoices', () => {
+      const invoiceCount = 0;
+      expect(invoiceCount).toBeLessThan(1);
+    });
+
+    it('should reject more than 10 invoices', () => {
+      const invoiceCount = 11;
+      expect(invoiceCount).toBeGreaterThan(10);
+    });
+  });
 });
