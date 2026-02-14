@@ -358,9 +358,9 @@ export async function validateAndConfirmSelection(
   const selectedNumbers = session.selectedInvoiceNumbers || [];
   const selectedData = session.selectedInvoiceData || [];
 
-  // Validate minimum selection
-  if (selectedNumbers.length < 2) {
-    return { success: false, error: 'בחר לפחות 2 חשבוניות' };
+  // Validate minimum selection (1 for single, 2+ for multi)
+  if (selectedNumbers.length < 1) {
+    return { success: false, error: 'בחר חשבונית אחת לפחות' };
   }
 
   // Validate maximum selection
@@ -368,9 +368,12 @@ export async function validateAndConfirmSelection(
     return { success: false, error: 'לא ניתן לבחור יותר מ-10 חשבוניות' };
   }
 
-  // Validate customer consistency
-  if (selectedData.length > 0) {
-    const firstCustomer = selectedData[0].customerName;
+  // Get customer and currency from first selected invoice
+  const firstCustomer = selectedData[0].customerName;
+  const firstCurrency = selectedData[0].currency;
+
+  // For multi-invoice receipts (2+), validate customer and currency consistency
+  if (selectedData.length >= 2) {
     const allSameCustomer = selectedData.every((data) => data.customerName === firstCustomer);
 
     if (!allSameCustomer) {
@@ -378,18 +381,23 @@ export async function validateAndConfirmSelection(
     }
 
     // Validate currency consistency
-    const firstCurrency = selectedData[0].currency;
     const allSameCurrency = selectedData.every((data) => data.currency === firstCurrency);
 
     if (!allSameCurrency) {
       return { success: false, error: 'כל החשבוניות חייבות להיות באותו מטבע' };
     }
+  }
 
+  // Calculate total and prepare session data
+  if (selectedData.length > 0) {
     // Calculate total amount
     const totalAmount = selectedData.reduce((sum, data) => sum + data.remainingBalance, 0);
 
     // Generate description
-    const description = `קבלה עבור חשבוניות: ${selectedNumbers.join(', ')}`;
+    const description =
+      selectedData.length === 1
+        ? `קבלה עבור חשבונית: ${selectedNumbers[0]}`
+        : `קבלה עבור חשבוניות: ${selectedNumbers.join(', ')}`;
 
     // Update session with validated data
     const updatedSession = await updateSession(chatId, userId, {

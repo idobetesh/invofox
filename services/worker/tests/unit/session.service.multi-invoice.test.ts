@@ -370,11 +370,11 @@ describe('Session Service - Multi-Invoice', () => {
       }
     });
 
-    it('should reject selection with less than 2 invoices', async () => {
+    it('should accept selection with single invoice', async () => {
       const now = new Date();
 
-      // Mock getSession to return session with only 1 invoice
-      mockGet.mockResolvedValue({
+      // First get() call in getSession() inside validateAndConfirmSelection
+      mockGet.mockResolvedValueOnce({
         exists: true,
         data: () => ({
           chatId,
@@ -386,6 +386,7 @@ describe('Session Service - Multi-Invoice', () => {
               customerName: 'רבקה לוי',
               remainingBalance: 3000,
               date: '01/01/2026',
+              currency: 'ILS',
             },
           ],
           updatedAt: createMockTimestamp(now),
@@ -393,11 +394,43 @@ describe('Session Service - Multi-Invoice', () => {
         }),
       });
 
+      // Mock update call
+      mockUpdate.mockResolvedValue(undefined);
+
+      // Second get() call in updateSession() to read back after update
+      mockGet.mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          chatId,
+          userId,
+          status: 'awaiting_payment',
+          selectedInvoiceNumbers: ['I-2026-100'],
+          selectedInvoiceData: [
+            {
+              invoiceNumber: 'I-2026-100',
+              customerName: 'רבקה לוי',
+              remainingBalance: 3000,
+              date: '01/01/2026',
+              currency: 'ILS',
+            },
+          ],
+          customerName: 'רבקה לוי',
+          amount: 3000,
+          currency: 'ILS',
+          description: 'קבלה עבור חשבונית: I-2026-100',
+          updatedAt: createMockTimestamp(now),
+          createdAt: createMockTimestamp(now),
+        }),
+      });
+
       const result = await sessionService.validateAndConfirmSelection(chatId, userId);
 
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toContain('בחר לפחות 2 חשבוניות');
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.session.status).toBe('awaiting_payment');
+        expect(result.session.customerName).toBe('רבקה לוי');
+        expect(result.session.amount).toBe(3000);
+        expect(result.session.description).toBe('קבלה עבור חשבונית: I-2026-100');
       }
     });
 
