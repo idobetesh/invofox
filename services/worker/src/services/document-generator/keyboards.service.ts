@@ -117,15 +117,14 @@ export function buildInvoiceSelectionKeyboard(
     const isDisabled =
       (maxLimitReached && !isSelected) || isDifferentCustomer || isDifferentCurrency;
 
-    // Build button text with checkbox and status prefixes
+    // Build button text with emoji prefixes (no empty boxes)
     let prefix = '';
     if (isDifferentCustomer || isDifferentCurrency) {
-      prefix = '⛔ ☐ ';
+      prefix = '⛔ ';
     } else if (isSelected) {
-      prefix = '☑ ';
-    } else {
-      prefix = '☐ ';
+      prefix = '✓ ';
     }
+    // No prefix for unselected invoices - cleaner look
 
     const data: InvoiceCallbackAction = {
       action: 'toggle_invoice',
