@@ -139,6 +139,13 @@ You're ready to go! Try these commands:
       partialPaymentFeedback:
         'Amount: ₪{amount}\nPartial payment\nRemaining after payment: ₪{newRemaining}',
       receiptDescription: 'Receipt for invoice {invoiceNumber}',
+      invoiceNotFound: 'Invoice not found',
+      multiInvoiceSelected: '✅ Selected {count} invoices | Total: ₪{total}',
+      multiInvoiceMinError: 'Select at least 2 invoices',
+      multiInvoiceMaxError: 'Cannot select more than 10 invoices',
+      multiInvoiceCustomerError: '⚠️ All invoices must be for the same customer',
+      multiInvoiceHelper: '💡 Select at least 2 invoices',
+      multiInvoiceDescription: 'Receipt for invoices: {invoiceNumbers}',
     },
 
     validation: {
@@ -291,6 +298,13 @@ docs.google.com/spreadsheets/d/[זה_השדה]/edit`,
       fullPaymentFeedback: 'סכום: ₪{amount}\nתשלום מלא - החשבונית תסגר',
       partialPaymentFeedback: 'סכום: ₪{amount}\nתשלום חלקי\nיתרה לאחר תשלום: ₪{newRemaining}',
       receiptDescription: 'קבלה עבור חשבונית {invoiceNumber}',
+      invoiceNotFound: 'חשבונית לא נמצאה',
+      multiInvoiceSelected: '✅ נבחרו {count} חשבוניות | סה״כ: ₪{total}',
+      multiInvoiceMinError: 'בחר לפחות 2 חשבוניות',
+      multiInvoiceMaxError: 'לא ניתן לבחור יותר מ-10 חשבוניות',
+      multiInvoiceCustomerError: '⚠️ כל החשבוניות חייבות להיות לאותו לקוח',
+      multiInvoiceHelper: '💡 בחר לפחות 2 חשבוניות',
+      multiInvoiceDescription: 'קבלה עבור חשבוניות: {invoiceNumbers}',
     },
 
     validation: {

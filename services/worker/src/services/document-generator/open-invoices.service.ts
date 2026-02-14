@@ -14,6 +14,7 @@ export interface OpenInvoice {
   paidAmount: number;
   remainingBalance: number;
   date: string;
+  currency: string; // Currency code (e.g., "ILS", "USD")
 }
 
 /**
@@ -63,6 +64,7 @@ export async function getOpenInvoices(
           paidAmount: data.paidAmount || 0,
           remainingBalance: data.remainingBalance,
           date: data.date || '',
+          currency: data.currency || 'ILS', // Default to ILS if not specified
         });
       }
     }
@@ -103,8 +105,9 @@ export async function countOpenInvoices(chatId: number): Promise<number> {
 
 /**
  * Format open invoice for display in keyboard button
- * Format: "I-2026-5 | John Doe | ₪500"
+ * Format: "I-2026-5 | John Doe | ₪500" or "I-2026-5 | John Doe | USD500"
  */
 export function formatInvoiceForButton(invoice: OpenInvoice): string {
-  return `${invoice.invoiceNumber} | ${invoice.customerName} | ₪${invoice.remainingBalance}`;
+  const currencySymbol = invoice.currency === 'ILS' ? '₪' : invoice.currency;
+  return `${invoice.invoiceNumber} | ${invoice.customerName} | ${currencySymbol}${invoice.remainingBalance}`;
 }

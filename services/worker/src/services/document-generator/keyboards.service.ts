@@ -71,31 +71,90 @@ export function buildConfirmationKeyboard(): TelegramInlineKeyboardMarkup {
 }
 
 /**
- * Build invoice selection keyboard for receipt creation
- * Shows open invoices with invoice number, customer name, and remaining balance
+ * Build invoice selection keyboard for receipt creation (multi-select)
+ * Shows open invoices with checkbox selection, customer validation, and selection limits
  * @param openInvoices - List of open invoices to display
+ * @param selectedInvoiceNumbers - Currently selected invoice numbers
  * @param offset - Current pagination offset
  * @param totalCount - Total number of open invoices available
  */
 export function buildInvoiceSelectionKeyboard(
   openInvoices: OpenInvoice[],
+  selectedInvoiceNumbers: string[] = [],
   offset: number = 0,
   totalCount: number = 0
 ): TelegramInlineKeyboardMarkup {
   const rows: { text: string; callback_data: string }[][] = [];
 
+  // Determine the first selected customer (for customer consistency validation)
+  const selectedInvoicesData = openInvoices.filter((inv) =>
+    selectedInvoiceNumbers.includes(inv.invoiceNumber)
+  );
+  const firstSelectedCustomer =
+    selectedInvoicesData.length > 0 ? selectedInvoicesData[0].customerName : null;
+
+  // Check if max limit reached
+  const maxLimitReached = selectedInvoiceNumbers.length >= 10;
+
   // Add a button for each open invoice
   for (const invoice of openInvoices) {
+    const isSelected = selectedInvoiceNumbers.includes(invoice.invoiceNumber);
+    const isDifferentCustomer =
+      firstSelectedCustomer !== null && invoice.customerName !== firstSelectedCustomer;
+    const isDisabled = (maxLimitReached && !isSelected) || isDifferentCustomer;
+
+    // Build button text with checkbox and status prefixes
+    let prefix = '';
+    if (isDifferentCustomer) {
+      prefix = '⛔ ☐ ';
+    } else if (isSelected) {
+      prefix = '☑ ';
+    } else {
+      prefix = '☐ ';
+    }
+
     const data: InvoiceCallbackAction = {
-      action: 'select_invoice',
+      action: 'toggle_invoice',
       invoiceNumber: invoice.invoiceNumber,
     };
+
     rows.push([
       {
-        text: formatInvoiceForButton(invoice),
-        callback_data: JSON.stringify(data),
+        text: `${prefix}${formatInvoiceForButton(invoice)}`,
+        callback_data: isDisabled && !isSelected ? 'noop' : JSON.stringify(data),
       },
     ]);
+  }
+
+  // Add selection summary row if invoices are selected
+  if (selectedInvoiceNumbers.length > 0) {
+    const totalAmount = selectedInvoicesData.reduce(
+      (sum, inv) => sum + (inv.remainingBalance || 0),
+      0
+    );
+    // Use the currency from the first selected invoice, default to ILS
+    const currency = selectedInvoicesData[0]?.currency || 'ILS';
+    const currencySymbol = currency === 'ILS' ? '₪' : currency;
+
+    const summaryText = `✅ נבחרו: ${selectedInvoiceNumbers.length} חשבוניות | סה״כ: ${currencySymbol}${totalAmount.toFixed(2)}`;
+    rows.push([{ text: summaryText, callback_data: 'noop' }]);
+  }
+
+  // Add "Continue with Selection" button if 2+ invoices selected
+  if (selectedInvoiceNumbers.length >= 2) {
+    const confirmData: InvoiceCallbackAction = { action: 'confirm_selection' };
+    rows.push([
+      {
+        text: '▶️ המשך עם הבחירה',
+        callback_data: JSON.stringify(confirmData),
+      },
+    ]);
+  } else if (selectedInvoiceNumbers.length === 0) {
+    // Show helper text when no selection
+    rows.push([{ text: '💡 בחר לפחות 2 חשבוניות', callback_data: 'noop' }]);
+  } else if (selectedInvoiceNumbers.length === 1) {
+    // Show helper text when only 1 selected
+    rows.push([{ text: '💡 בחר עוד חשבונית אחת לפחות', callback_data: 'noop' }]);
   }
 
   // Add "Show More" button if there are more invoices to display
