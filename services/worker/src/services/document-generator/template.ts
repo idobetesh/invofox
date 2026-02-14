@@ -79,17 +79,22 @@ export function buildInvoiceHTML(
 
   // Receipt - Must have parent invoice data
   if (data.documentType === 'receipt') {
-    // Detect multi-invoice receipt
-    const isMultiInvoice =
-      session?.selectedInvoiceNumbers && session.selectedInvoiceNumbers.length > 1;
+    // NEW: Unified path for both single and multi-invoice receipts (using parentInvoices array)
+    if (parentInvoices && parentInvoices.length >= 1) {
+      // Works for both single (length=1) and multi (length>=2) invoice receipts
+      const isSingleInvoice = parentInvoices.length === 1;
+      const isMultiInvoice = parentInvoices.length >= 2;
 
-    if (isMultiInvoice) {
-      // Multi-invoice receipt
-      if (!parentInvoices || parentInvoices.length === 0) {
-        throw new Error('Multi-invoice receipt generation requires parentInvoices array');
-      }
+      // For multi-invoice receipts, all invoices are paid in full
+      // For single-invoice receipts, payment may be full or partial
+      const isPartialPayment = isSingleInvoice && data.amount < parentInvoices[0].amount;
+      const remainingBalance = isSingleInvoice
+        ? Math.max(
+            0,
+            (parentInvoices[0].remainingBalance || parentInvoices[0].amount) - data.amount
+          )
+        : 0;
 
-      // For multi-invoice receipts, all invoices are paid in full, so no partial payment
       const params: ReceiptTemplateParams = {
         receiptNumber: data.invoiceNumber,
         invoiceNumber: parentInvoices[0].invoiceNumber, // For backward compatibility
@@ -100,8 +105,8 @@ export function buildInvoiceHTML(
         currency: parentInvoices[0].currency, // Use first invoice currency (should all be same)
         paymentMethod: data.paymentMethod || 'מזומן',
         receiptDate: formattedDate,
-        isPartialPayment: false, // Multi-invoice receipts always pay in full
-        remainingBalance: 0,
+        isPartialPayment,
+        remainingBalance,
         businessName: businessConfig.business.name,
         businessTaxId: businessConfig.business.taxId,
         businessTaxStatus: businessConfig.business.taxStatus,
@@ -109,20 +114,16 @@ export function buildInvoiceHTML(
         businessAddress: businessConfig.business.address,
         businessPhone: businessConfig.business.phone,
         logoUrl: logoBase64 || undefined,
-        // Multi-invoice specific fields
-        isMultiInvoiceReceipt: true,
-        relatedInvoiceNumbers: parentInvoices.map((inv) => inv.invoiceNumber),
-        relatedInvoiceDates: parentInvoices.map((inv) => inv.date),
+        // Multi-invoice specific fields (only for 2+ invoices)
+        ...(isMultiInvoice && {
+          isMultiInvoiceReceipt: true,
+          relatedInvoiceNumbers: parentInvoices.map((inv) => inv.invoiceNumber),
+          relatedInvoiceDates: parentInvoices.map((inv) => inv.date),
+        }),
       };
       return buildReceiptTemplate(params);
-    } else {
-      // Single-invoice receipt (legacy flow)
-      if (!session?.relatedInvoiceNumber || !parentInvoice) {
-        throw new Error(
-          'Receipt generation requires session with relatedInvoiceNumber and parentInvoice'
-        );
-      }
-
+    } else if (session?.relatedInvoiceNumber && parentInvoice) {
+      // LEGACY: Old receipts created before multi-select (for backward compatibility)
       // Calculate payment tracking info
       const newRemainingBalance =
         (parentInvoice.remainingBalance || parentInvoice.amount) - data.amount;
@@ -149,6 +150,10 @@ export function buildInvoiceHTML(
         logoUrl: logoBase64 || undefined,
       };
       return buildReceiptTemplate(params);
+    } else {
+      throw new Error(
+        'Receipt generation requires either parentInvoices array or session with relatedInvoiceNumber and parentInvoice'
+      );
     }
   }
 

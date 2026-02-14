@@ -429,4 +429,208 @@ describe('Document Generator - Multi-Invoice', () => {
       expect(calculatedTotal).toBe(expectedTotal);
     });
   });
+
+  describe('Invoice Count Validation (Real Validation Logic)', () => {
+    /**
+     * CRITICAL: These tests verify the ACTUAL validation logic in session.service.ts
+     * by calling validateAndConfirmSelection() with different invoice counts
+     */
+
+    let mockCollection: jest.Mock;
+    let mockDoc: jest.Mock;
+    let mockGet: jest.Mock;
+    let mockUpdate: jest.Mock;
+    let mockDelete: jest.Mock;
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+
+      // Mock Firestore
+      mockGet = jest.fn();
+      mockUpdate = jest.fn().mockResolvedValue(undefined);
+      mockDelete = jest.fn().mockResolvedValue(undefined);
+      mockDoc = jest.fn(() => ({
+        get: mockGet,
+        update: mockUpdate,
+        delete: mockDelete,
+      }));
+      mockCollection = jest.fn(() => ({
+        doc: mockDoc,
+      }));
+
+      // Mock getFirestore to return our mock
+      jest.resetModules();
+      jest.doMock('../../src/services/firestore.service', () => ({
+        getFirestore: jest.fn(() => ({
+          collection: mockCollection,
+        })),
+      }));
+    });
+
+    afterEach(() => {
+      jest.resetModules();
+    });
+
+    it('should ACCEPT 1 invoice (single-invoice receipt)', async () => {
+      const sessionData = {
+        status: 'selecting_invoices' as const,
+        documentType: 'receipt' as const,
+        selectedInvoiceNumbers: ['I-2026-100'],
+        selectedInvoiceData: [
+          {
+            invoiceNumber: 'I-2026-100',
+            customerName: 'רבקה לוי',
+            remainingBalance: 3000,
+            date: '01/01/2026',
+            currency: 'ILS',
+          },
+        ],
+        customerName: 'רבקה לוי',
+        description: 'קבלה עבור חשבונית: I-2026-100',
+        amount: 3000,
+        date: '2026-01-01',
+        createdAt: new Date(),
+        updatedAt: {
+          toMillis: () => Date.now(),
+        },
+      };
+
+      mockGet.mockResolvedValue({
+        exists: true,
+        data: () => sessionData,
+      });
+
+      // eslint-disable-next-line no-restricted-syntax
+      const { validateAndConfirmSelection } =
+        await import('../../src/services/document-generator/session.service');
+      const result = await validateAndConfirmSelection(chatId, 123);
+
+      expect(result.success).toBe(true);
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'awaiting_payment',
+          amount: 3000,
+        })
+      );
+    });
+
+    it('should ACCEPT 10 invoices (max limit)', async () => {
+      // Mock session with 10 invoices selected
+      const tenInvoices = Array.from({ length: 10 }, (_, i) => ({
+        invoiceNumber: `I-2026-${100 + i}`,
+        customerName: 'רבקה לוי',
+        remainingBalance: 1000,
+        date: '01/01/2026',
+        currency: 'ILS',
+      }));
+
+      const sessionData = {
+        status: 'selecting_invoices' as const,
+        documentType: 'receipt' as const,
+        selectedInvoiceNumbers: tenInvoices.map((inv) => inv.invoiceNumber),
+        selectedInvoiceData: tenInvoices,
+        customerName: 'רבקה לוי',
+        description: 'קבלה עבור חשבוניות',
+        amount: 10000,
+        date: '2026-01-01',
+        createdAt: new Date(),
+        updatedAt: {
+          toMillis: () => Date.now(),
+        },
+      };
+
+      mockGet.mockResolvedValue({
+        exists: true,
+        data: () => sessionData,
+      });
+
+      // eslint-disable-next-line no-restricted-syntax
+      const { validateAndConfirmSelection } =
+        await import('../../src/services/document-generator/session.service');
+      const result = await validateAndConfirmSelection(chatId, 123);
+
+      expect(result.success).toBe(true);
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'awaiting_payment',
+          amount: 10000, // 10 * 1000
+        })
+      );
+    });
+
+    it('should REJECT 0 invoices (minimum validation)', async () => {
+      const sessionData = {
+        status: 'selecting_invoices' as const,
+        documentType: 'receipt' as const,
+        selectedInvoiceNumbers: [],
+        selectedInvoiceData: [],
+        customerName: '',
+        description: '',
+        amount: 0,
+        date: '2026-01-01',
+        createdAt: new Date(),
+        updatedAt: {
+          toMillis: () => Date.now(),
+        },
+      };
+
+      mockGet.mockResolvedValue({
+        exists: true,
+        data: () => sessionData,
+      });
+
+      // eslint-disable-next-line no-restricted-syntax
+      const { validateAndConfirmSelection } =
+        await import('../../src/services/document-generator/session.service');
+      const result = await validateAndConfirmSelection(chatId, 123);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('חשבונית אחת לפחות'); // "at least one invoice"
+      }
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it('should REJECT 11 invoices (max limit validation)', async () => {
+      // Mock session with 11 invoices selected
+      const elevenInvoices = Array.from({ length: 11 }, (_, i) => ({
+        invoiceNumber: `I-2026-${100 + i}`,
+        customerName: 'רבקה לוי',
+        remainingBalance: 1000,
+        date: '01/01/2026',
+        currency: 'ILS',
+      }));
+
+      const sessionData = {
+        status: 'selecting_invoices' as const,
+        documentType: 'receipt' as const,
+        selectedInvoiceNumbers: elevenInvoices.map((inv) => inv.invoiceNumber),
+        selectedInvoiceData: elevenInvoices,
+        customerName: 'רבקה לוי',
+        description: 'קבלה עבור חשבוניות',
+        amount: 11000,
+        date: '2026-01-01',
+        createdAt: new Date(),
+        updatedAt: {
+          toMillis: () => Date.now(),
+        },
+      };
+
+      mockGet.mockResolvedValue({
+        exists: true,
+        data: () => sessionData,
+      });
+
+      // eslint-disable-next-line no-restricted-syntax
+      const { validateAndConfirmSelection } =
+        await import('../../src/services/document-generator/session.service');
+      const result = await validateAndConfirmSelection(chatId, 123);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('10'); // Should mention max limit
+      }
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+  });
 });
