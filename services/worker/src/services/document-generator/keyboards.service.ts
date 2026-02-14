@@ -113,7 +113,7 @@ export function buildInvoiceSelectionKeyboard(
     const isDifferentCustomer =
       firstSelectedCustomer !== null && invoice.customerName !== firstSelectedCustomer;
     const isDifferentCurrency =
-      firstSelectedCurrency !== null && invoice.currency !== firstSelectedCurrency;
+      firstSelectedCurrency !== null && (invoice.currency || 'ILS') !== firstSelectedCurrency;
     const isDisabled =
       (maxLimitReached && !isSelected) || isDifferentCustomer || isDifferentCurrency;
 
@@ -155,21 +155,22 @@ export function buildInvoiceSelectionKeyboard(
     rows.push([{ text: summaryText, callback_data: 'noop' }]);
   }
 
-  // Add "Continue with Selection" button if 2+ invoices selected
-  if (selectedInvoiceNumbers.length >= 2) {
+  // Add "Continue" button if 1+ invoices selected (supports both single and multi-invoice)
+  if (selectedInvoiceNumbers.length >= 1) {
     const confirmData: InvoiceCallbackAction = { action: 'confirm_selection' };
+    const buttonText =
+      selectedInvoiceNumbers.length === 1
+        ? '▶️ המשך עם חשבונית זו' // Single invoice
+        : '▶️ המשך עם הבחירה'; // Multiple invoices
     rows.push([
       {
-        text: '▶️ המשך עם הבחירה',
+        text: buttonText,
         callback_data: JSON.stringify(confirmData),
       },
     ]);
-  } else if (selectedInvoiceNumbers.length === 0) {
+  } else {
     // Show helper text when no selection
-    rows.push([{ text: '💡 בחר לפחות 2 חשבוניות', callback_data: 'noop' }]);
-  } else if (selectedInvoiceNumbers.length === 1) {
-    // Show helper text when only 1 selected
-    rows.push([{ text: '💡 בחר עוד חשבונית אחת לפחות', callback_data: 'noop' }]);
+    rows.push([{ text: '💡 בחר חשבונית אחת או יותר', callback_data: 'noop' }]);
   }
 
   // Add "Show More" button if there are more invoices to display
