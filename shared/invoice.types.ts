@@ -46,6 +46,7 @@ export interface InvoiceSession {
     customerName: string;
     remainingBalance: number;
     date: string;
+    currency: string;
   }[];
   customerName?: string;
   customerTaxId?: string;

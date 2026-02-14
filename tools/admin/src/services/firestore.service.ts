@@ -34,7 +34,7 @@ export class FirestoreService {
       'onboarding_sessions',
       'rate_limits',
       'report_sessions',
-      'user_chat_mapping',
+      'user_customer_mapping',
     ];
   }
 

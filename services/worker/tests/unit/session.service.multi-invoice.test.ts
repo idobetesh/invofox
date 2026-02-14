@@ -62,6 +62,7 @@ describe('Session Service - Multi-Invoice', () => {
         customerName: 'רבקה לוי',
         remainingBalance: 3000,
         date: '01/01/2026',
+        currency: 'ILS',
       };
 
       // Mock transaction
@@ -120,6 +121,7 @@ describe('Session Service - Multi-Invoice', () => {
         customerName: 'רבקה לוי',
         remainingBalance: 2500,
         date: '02/01/2026',
+        currency: 'ILS',
       };
 
       // Mock transaction with existing invoice
@@ -139,6 +141,7 @@ describe('Session Service - Multi-Invoice', () => {
                   customerName: 'רבקה לוי',
                   remainingBalance: 3000,
                   date: '01/01/2026',
+                  currency: 'ILS',
                 },
               ],
             }),
@@ -163,6 +166,7 @@ describe('Session Service - Multi-Invoice', () => {
             customerName: 'רבקה לוי',
             remainingBalance: 3000,
             date: '01/01/2026',
+            currency: 'ILS',
           },
           { ...newInvoiceData, invoiceNumber: newInvoice },
         ],
@@ -243,6 +247,7 @@ describe('Session Service - Multi-Invoice', () => {
         customerName: 'רבקה לוי',
         remainingBalance: 2500,
         date: '02/01/2026',
+        currency: 'ILS',
       });
 
       expect(result.selectedInvoiceNumbers).toHaveLength(1);
@@ -289,6 +294,7 @@ describe('Session Service - Multi-Invoice', () => {
           customerName: 'רבקה לוי',
           remainingBalance: 5000,
           date: '11/01/2026',
+          currency: 'ILS',
         })
       ).rejects.toThrow('לא ניתן לבחור יותר מ-10 חשבוניות');
     });
@@ -469,6 +475,45 @@ describe('Session Service - Multi-Invoice', () => {
       }
     });
 
+    it('should reject selection with mixed currencies', async () => {
+      const now = new Date();
+      const mixedCurrencies = [
+        {
+          invoiceNumber: 'I-2026-200',
+          customerName: 'רבקה לוי',
+          remainingBalance: 3000,
+          date: '01/01/2026',
+          currency: 'ILS',
+        },
+        {
+          invoiceNumber: 'I-2026-201',
+          customerName: 'רבקה לוי',
+          remainingBalance: 2500,
+          date: '02/01/2026',
+          currency: 'USD', // Different currency!
+        },
+      ];
+
+      mockGet.mockResolvedValue({
+        exists: true,
+        data: () => ({
+          chatId,
+          userId,
+          selectedInvoiceNumbers: mixedCurrencies.map((i) => i.invoiceNumber),
+          selectedInvoiceData: mixedCurrencies,
+          updatedAt: createMockTimestamp(now),
+          createdAt: createMockTimestamp(now),
+        }),
+      });
+
+      const result = await sessionService.validateAndConfirmSelection(chatId, userId);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('כל החשבוניות חייבות להיות באותו מטבע');
+      }
+    });
+
     it('should calculate total amount correctly for 10 invoices', async () => {
       const now = new Date();
       const tenInvoices = Array.from({ length: 10 }, (_, i) => ({
@@ -476,6 +521,7 @@ describe('Session Service - Multi-Invoice', () => {
         customerName: 'רבקה לוי',
         remainingBalance: 2000 + i * 100, // 2000, 2100, 2200, ..., 2900
         date: `${String(i + 1).padStart(2, '0')}/01/2026`,
+        currency: 'ILS',
       }));
 
       const expectedTotal = tenInvoices.reduce((sum, inv) => sum + inv.remainingBalance, 0); // 24500

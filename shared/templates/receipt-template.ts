@@ -346,13 +346,13 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
       ${params.relatedInvoiceNumbers
         .map((num, idx) => {
           // Shorten the date format: DD/MM/YYYY -> DD/MM/YY
-          const fullDate = params.relatedInvoiceDates![idx];
+          const fullDate = params.relatedInvoiceDates?.[idx] || '';
           const dateParts = fullDate.split('/');
           const shortDate =
             dateParts.length === 3
               ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2].slice(-2)}`
-              : fullDate;
-          return `<div class="invoice-item">${num} (${shortDate})</div>`;
+              : fullDate || 'N/A';
+          return `<div class="invoice-item">${num}${shortDate ? ` (${shortDate})` : ''}</div>`;
         })
         .join('')}
     </div>

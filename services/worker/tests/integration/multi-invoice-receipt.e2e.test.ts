@@ -366,6 +366,122 @@ describe('Multi-Invoice Receipt E2E', () => {
     });
   });
 
+  describe('Pagination and Session State', () => {
+    it('should maintain customer/currency validation across pagination', () => {
+      // Simulate scenario where user selects invoice on page 1, then navigates to page 2
+      // Page 1 had: I-2026-100 (John Doe, ILS), I-2026-101 (John Doe, ILS)
+
+      const page2Invoices = [
+        {
+          invoiceNumber: 'I-2026-102',
+          customerName: 'Jane Smith',
+          currency: 'ILS',
+          remainingBalance: 2000,
+        },
+        {
+          invoiceNumber: 'I-2026-103',
+          customerName: 'John Doe',
+          currency: 'USD',
+          remainingBalance: 3000,
+        },
+      ];
+
+      // User selected I-2026-100 from page 1
+      const selectedInvoiceData = [
+        {
+          invoiceNumber: 'I-2026-100',
+          customerName: 'John Doe',
+          remainingBalance: 1000,
+          date: '01/01/2026',
+          currency: 'ILS',
+        },
+      ];
+
+      // Build keyboard for page 2 with selection from page 1
+      const {
+        buildInvoiceSelectionKeyboard,
+      } = require('../../src/services/document-generator/keyboards.service');
+      const keyboard = buildInvoiceSelectionKeyboard(
+        page2Invoices as any,
+        ['I-2026-100'], // Selected from page 1
+        selectedInvoiceData,
+        10, // offset for page 2
+        4 // total count
+      );
+
+      const buttons = keyboard.inline_keyboard.flat();
+
+      // I-2026-102 (Jane Smith) should be disabled - different customer
+      const janeButton = buttons.find((btn: any) => btn.text.includes('I-2026-102'));
+      expect(janeButton?.text).toContain('⛔');
+      expect(janeButton?.callback_data).toBe('noop');
+
+      // I-2026-103 (John Doe but USD) should be disabled - different currency
+      const usdButton = buttons.find((btn: any) => btn.text.includes('I-2026-103'));
+      expect(usdButton?.text).toContain('⛔');
+      expect(usdButton?.callback_data).toBe('noop');
+
+      // Summary should show invoice from page 1 (not on current page)
+      const summaryButton = buttons.find((btn: any) => btn.text.includes('נבחרו'));
+      expect(summaryButton?.text).toContain('1 חשבוניות');
+      expect(summaryButton?.text).toContain('₪1000.00');
+    });
+
+    it('should calculate correct total across multiple pages', () => {
+      // User selected invoices across 3 pages
+      const selectedInvoiceData = [
+        {
+          invoiceNumber: 'I-2026-100',
+          customerName: 'John Doe',
+          remainingBalance: 1000,
+          date: '01/01/2026',
+          currency: 'ILS',
+        },
+        {
+          invoiceNumber: 'I-2026-105',
+          customerName: 'John Doe',
+          remainingBalance: 1500,
+          date: '02/01/2026',
+          currency: 'ILS',
+        },
+        {
+          invoiceNumber: 'I-2026-110',
+          customerName: 'John Doe',
+          remainingBalance: 2500,
+          date: '03/01/2026',
+          currency: 'ILS',
+        },
+      ];
+
+      const page3Invoices = [
+        {
+          invoiceNumber: 'I-2026-115',
+          customerName: 'John Doe',
+          currency: 'ILS',
+          remainingBalance: 3000,
+        },
+      ];
+
+      const {
+        buildInvoiceSelectionKeyboard,
+      } = require('../../src/services/document-generator/keyboards.service');
+      const keyboard = buildInvoiceSelectionKeyboard(
+        page3Invoices as any,
+        ['I-2026-100', 'I-2026-105', 'I-2026-110'], // Selected across pages 1-3
+        selectedInvoiceData,
+        20, // offset for page 3
+        4
+      );
+
+      const buttons = keyboard.inline_keyboard.flat();
+      const summaryButton = buttons.find((btn: any) => btn.text.includes('נבחרו'));
+
+      // Should show total from all 3 pages (5000 total)
+      expect(summaryButton?.text).toContain('3 חשבוניות');
+      expect(summaryButton?.text).toContain('₪5000.00');
+    });
+  });
+
   describe('Backward Compatibility', () => {
     it('should support both single and multi-invoice receipt formats', () => {
       // Single-invoice receipt (old format)

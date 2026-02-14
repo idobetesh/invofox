@@ -46,9 +46,26 @@ describe('Keyboards Service - Multi-Invoice', () => {
     },
   ];
 
+  // Helper to convert selected invoice numbers to selectedInvoiceData
+  const toSelectedData = (invoiceNumbers: string[], invoices: OpenInvoice[] = mockOpenInvoices) => {
+    return invoiceNumbers.map((num) => {
+      const invoice = invoices.find((inv) => inv.invoiceNumber === num);
+      if (!invoice) {
+        throw new Error(`Invoice ${num} not found in mock data`);
+      }
+      return {
+        invoiceNumber: invoice.invoiceNumber,
+        customerName: invoice.customerName,
+        remainingBalance: invoice.remainingBalance,
+        date: invoice.date,
+        currency: invoice.currency,
+      };
+    });
+  };
+
   describe('buildInvoiceSelectionKeyboard', () => {
     it('should show unchecked boxes for all invoices when nothing selected', () => {
-      const keyboard = buildInvoiceSelectionKeyboard(mockOpenInvoices, [], 0, 4);
+      const keyboard = buildInvoiceSelectionKeyboard(mockOpenInvoices, [], [], 0, 4);
 
       expect(keyboard.inline_keyboard).toBeDefined();
       const buttons = keyboard.inline_keyboard.flat();
@@ -63,7 +80,13 @@ describe('Keyboards Service - Multi-Invoice', () => {
 
     it('should show checked box for selected invoice', () => {
       const selected = ['I-2026-100'];
-      const keyboard = buildInvoiceSelectionKeyboard(mockOpenInvoices, selected, 0, 4);
+      const keyboard = buildInvoiceSelectionKeyboard(
+        mockOpenInvoices,
+        selected,
+        toSelectedData(selected),
+        0,
+        4
+      );
 
       const buttons = keyboard.inline_keyboard.flat();
       const selectedButton = buttons.find((btn) => btn.text.includes('I-2026-100'));
@@ -75,7 +98,13 @@ describe('Keyboards Service - Multi-Invoice', () => {
 
     it('should show multiple checked boxes for multiple selected invoices', () => {
       const selected = ['I-2026-100', 'I-2026-101', 'I-2026-103'];
-      const keyboard = buildInvoiceSelectionKeyboard(mockOpenInvoices, selected, 0, 4);
+      const keyboard = buildInvoiceSelectionKeyboard(
+        mockOpenInvoices,
+        selected,
+        toSelectedData(selected),
+        0,
+        4
+      );
 
       const buttons = keyboard.inline_keyboard.flat();
 
@@ -91,7 +120,7 @@ describe('Keyboards Service - Multi-Invoice', () => {
     });
 
     it('should use toggle_invoice callback action', () => {
-      const keyboard = buildInvoiceSelectionKeyboard(mockOpenInvoices, [], 0, 4);
+      const keyboard = buildInvoiceSelectionKeyboard(mockOpenInvoices, [], [], 0, 4);
 
       const buttons = keyboard.inline_keyboard.flat();
       const invoiceButton = buttons.find((btn) => btn.text.includes('I-2026-100'));
@@ -104,7 +133,13 @@ describe('Keyboards Service - Multi-Invoice', () => {
 
     it('should disable invoices from different customers with ⛔ prefix', () => {
       const selected = ['I-2026-100']; // רבקה לוי
-      const keyboard = buildInvoiceSelectionKeyboard(mockOpenInvoices, selected, 0, 4);
+      const keyboard = buildInvoiceSelectionKeyboard(
+        mockOpenInvoices,
+        selected,
+        toSelectedData(selected),
+        0,
+        4
+      );
 
       const buttons = keyboard.inline_keyboard.flat();
 
@@ -120,7 +155,13 @@ describe('Keyboards Service - Multi-Invoice', () => {
 
     it('should show summary row when invoices are selected', () => {
       const selected = ['I-2026-100', 'I-2026-101'];
-      const keyboard = buildInvoiceSelectionKeyboard(mockOpenInvoices, selected, 0, 4);
+      const keyboard = buildInvoiceSelectionKeyboard(
+        mockOpenInvoices,
+        selected,
+        toSelectedData(selected),
+        0,
+        4
+      );
 
       const buttons = keyboard.inline_keyboard.flat();
       const summaryButton = buttons.find((btn) => btn.text.includes('נבחרו'));
@@ -132,7 +173,13 @@ describe('Keyboards Service - Multi-Invoice', () => {
 
     it('should show continue button when 2+ invoices selected', () => {
       const selected = ['I-2026-100', 'I-2026-101'];
-      const keyboard = buildInvoiceSelectionKeyboard(mockOpenInvoices, selected, 0, 4);
+      const keyboard = buildInvoiceSelectionKeyboard(
+        mockOpenInvoices,
+        selected,
+        toSelectedData(selected),
+        0,
+        4
+      );
 
       const buttons = keyboard.inline_keyboard.flat();
       const continueButton = buttons.find((btn) => btn.text.includes('המשך'));
@@ -144,7 +191,13 @@ describe('Keyboards Service - Multi-Invoice', () => {
 
     it('should not show continue button when less than 2 invoices selected', () => {
       const selected = ['I-2026-100'];
-      const keyboard = buildInvoiceSelectionKeyboard(mockOpenInvoices, selected, 0, 4);
+      const keyboard = buildInvoiceSelectionKeyboard(
+        mockOpenInvoices,
+        selected,
+        toSelectedData(selected),
+        0,
+        4
+      );
 
       const buttons = keyboard.inline_keyboard.flat();
       const continueButton = buttons.find((btn) => btn.text.includes('המשך'));
@@ -153,7 +206,7 @@ describe('Keyboards Service - Multi-Invoice', () => {
     });
 
     it('should show helper text when no invoices selected', () => {
-      const keyboard = buildInvoiceSelectionKeyboard(mockOpenInvoices, [], 0, 4);
+      const keyboard = buildInvoiceSelectionKeyboard(mockOpenInvoices, [], [], 0, 4);
 
       const buttons = keyboard.inline_keyboard.flat();
       const helperButton = buttons.find((btn) => btn.text.includes('💡'));
@@ -164,7 +217,13 @@ describe('Keyboards Service - Multi-Invoice', () => {
 
     it('should calculate correct total for multiple invoices with different amounts', () => {
       const selected = ['I-2026-100', 'I-2026-103']; // 3000 + 4000 = 7000
-      const keyboard = buildInvoiceSelectionKeyboard(mockOpenInvoices, selected, 0, 4);
+      const keyboard = buildInvoiceSelectionKeyboard(
+        mockOpenInvoices,
+        selected,
+        toSelectedData(selected),
+        0,
+        4
+      );
 
       const buttons = keyboard.inline_keyboard.flat();
       const summaryButton = buttons.find((btn) => btn.text.includes('נבחרו'));
@@ -173,7 +232,7 @@ describe('Keyboards Service - Multi-Invoice', () => {
     });
 
     it('should show cancel button', () => {
-      const keyboard = buildInvoiceSelectionKeyboard(mockOpenInvoices, [], 0, 4);
+      const keyboard = buildInvoiceSelectionKeyboard(mockOpenInvoices, [], [], 0, 4);
 
       const buttons = keyboard.inline_keyboard.flat();
       const cancelButton = buttons.find((btn) => btn.text.includes('❌'));
@@ -194,7 +253,7 @@ describe('Keyboards Service - Multi-Invoice', () => {
         currency: 'ILS',
       }));
 
-      const keyboard = buildInvoiceSelectionKeyboard(manyInvoices.slice(0, 10), [], 0, 15);
+      const keyboard = buildInvoiceSelectionKeyboard(manyInvoices.slice(0, 10), [], [], 0, 15);
 
       const buttons = keyboard.inline_keyboard.flat();
       const showMoreButton = buttons.find((btn) => btn.text.includes('הצג עוד'));
@@ -216,7 +275,13 @@ describe('Keyboards Service - Multi-Invoice', () => {
       }));
 
       const selected = tenInvoices.slice(0, 10).map((inv) => inv.invoiceNumber);
-      const keyboard = buildInvoiceSelectionKeyboard(tenInvoices, selected, 0, 12);
+      const keyboard = buildInvoiceSelectionKeyboard(
+        tenInvoices,
+        selected,
+        toSelectedData(selected, tenInvoices),
+        0,
+        12
+      );
 
       const buttons = keyboard.inline_keyboard.flat();
 
@@ -255,7 +320,13 @@ describe('Keyboards Service - Multi-Invoice', () => {
       ];
 
       const selected = ['I-2026-200', 'I-2026-201'];
-      const keyboard = buildInvoiceSelectionKeyboard(usdInvoices, selected, 0, 2);
+      const keyboard = buildInvoiceSelectionKeyboard(
+        usdInvoices,
+        selected,
+        toSelectedData(selected, usdInvoices),
+        0,
+        2
+      );
 
       const buttons = keyboard.inline_keyboard.flat();
       const summaryButton = buttons.find((btn) => btn.text.includes('נבחרו'));

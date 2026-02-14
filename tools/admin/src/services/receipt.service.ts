@@ -323,30 +323,27 @@ export class ReceiptService {
       throw new Error('Cannot select more than 10 invoices');
     }
 
-    // Step 2: Fetch all invoices
-    const invoices: InvoiceDocument[] = [];
-    for (const invoiceNumber of params.invoiceNumbers) {
-      const invoiceSnapshot = await this.firestore
-        .collection(GENERATED_INVOICES_COLLECTION)
-        .where('invoiceNumber', '==', invoiceNumber)
-        .where('documentType', '==', 'invoice')
-        .limit(1)
-        .get();
+    // Step 2: Fetch all invoices in a single query (optimized with 'in' operator)
+    const invoiceSnapshot = await this.firestore
+      .collection(GENERATED_INVOICES_COLLECTION)
+      .where('invoiceNumber', 'in', params.invoiceNumbers)
+      .where('documentType', '==', 'invoice')
+      .get();
 
-      if (invoiceSnapshot.empty) {
-        throw new Error(`Invoice ${invoiceNumber} not found`);
-      }
-
-      const invoiceDoc = invoiceSnapshot.docs[0];
-      const invoice = invoiceDoc.data();
-      const invoiceId = invoiceDoc.id;
+    // Build a map of invoices by invoice number
+    const invoiceMap = new Map<string, InvoiceDocument>();
+    for (const doc of invoiceSnapshot.docs) {
+      const invoice = doc.data();
+      const invoiceId = doc.id;
 
       // Validate chatId if provided
       if (params.chatId !== undefined && invoice.chatId !== params.chatId) {
-        throw new Error(`Invoice ${invoiceNumber} does not belong to chatId ${params.chatId}`);
+        throw new Error(
+          `Invoice ${invoice.invoiceNumber} does not belong to chatId ${params.chatId}`
+        );
       }
 
-      invoices.push({
+      invoiceMap.set(invoice.invoiceNumber, {
         id: invoiceId,
         invoiceNumber: invoice.invoiceNumber,
         chatId: invoice.chatId,
@@ -367,6 +364,16 @@ export class ReceiptService {
         storagePath: invoice.storagePath,
         storageUrl: invoice.storageUrl,
       });
+    }
+
+    // Ensure all requested invoices were found and maintain order
+    const invoices: InvoiceDocument[] = [];
+    for (const invoiceNumber of params.invoiceNumbers) {
+      const invoice = invoiceMap.get(invoiceNumber);
+      if (!invoice) {
+        throw new Error(`Invoice ${invoiceNumber} not found`);
+      }
+      invoices.push(invoice);
     }
 
     // Step 3: Validate customer consistency
@@ -537,6 +544,13 @@ export class ReceiptService {
 
     // Get business config for PDF generation
     const businessConfig = await getBusinessConfig(this.firestore, result.chatId);
+
+    // Validate array lengths match (defensive check)
+    if (params.invoiceNumbers.length !== result.latestInvoices.length) {
+      throw new Error(
+        `Array length mismatch: ${params.invoiceNumbers.length} invoice numbers but ${result.latestInvoices.length} invoices loaded`
+      );
+    }
 
     // Generate PDF with multi-invoice support
     console.log('Generating multi-invoice PDF for receipt:', result.receiptNumber);

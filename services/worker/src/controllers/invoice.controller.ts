@@ -340,7 +340,7 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
           const invoiceListMsg = `${t('he', 'invoice.selectInvoiceHe')}\n\n📋 מציג ${showing} מתוך ${totalCount} חשבוניות\n💡 ניתן לבחור מספר חשבוניות ליצירת קבלה אחת`;
 
           await telegramService.sendMessage(payload.chatId, invoiceListMsg, {
-            replyMarkup: buildInvoiceSelectionKeyboard(openInvoices, [], 0, totalCount),
+            replyMarkup: buildInvoiceSelectionKeyboard(openInvoices, [], [], 0, totalCount),
           });
 
           log.info(
@@ -462,6 +462,18 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
             res.status(StatusCodes.OK).json({ ok: true, action: 'customer_mismatch' });
             return;
           }
+
+          // Check currency consistency when adding
+          const firstCurrency = selectedData[0].currency;
+          const invoiceCurrency = invoice.currency || 'ILS';
+          if (invoiceCurrency !== firstCurrency) {
+            await telegramService.answerCallbackQuery(payload.callbackQueryId, {
+              text: 'כל החשבוניות חייבות להיות באותו מטבע',
+              showAlert: true,
+            });
+            res.status(StatusCodes.OK).json({ ok: true, action: 'currency_mismatch' });
+            return;
+          }
         }
 
         // Toggle selection in session
@@ -474,6 +486,7 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
             customerName: invoice.customerName,
             remainingBalance,
             date: invoice.date,
+            currency: invoice.currency || 'ILS',
           }
         );
 
@@ -496,6 +509,7 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
           inline_keyboard: buildInvoiceSelectionKeyboard(
             openInvoices,
             updatedSession.selectedInvoiceNumbers || [],
+            updatedSession.selectedInvoiceData || [],
             0,
             totalCount
           ).inline_keyboard,
@@ -542,11 +556,13 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
         const confirmedSession = validationResult.session;
         const selectedCount = confirmedSession.selectedInvoiceNumbers?.length || 0;
         const totalAmount = confirmedSession.amount || 0;
+        const currency = confirmedSession.currency || 'ILS';
+        const currencySymbol = currency === 'ILS' ? '₪' : currency;
 
         await telegramService.answerCallbackQuery(payload.callbackQueryId);
 
         // Show selection summary
-        const summaryText = `✅ נבחרו ${selectedCount} חשבוניות\nסה״כ לתשלום: ₪${totalAmount.toFixed(2)}\n\nעבור לקוח: ${confirmedSession.customerName}`;
+        const summaryText = `✅ נבחרו ${selectedCount} חשבוניות\nסה״כ לתשלום: ${currencySymbol}${totalAmount.toFixed(2)}\n\nעבור לקוח: ${confirmedSession.customerName}`;
 
         await telegramService.editMessageText(payload.chatId, payload.messageId, summaryText);
 
@@ -575,6 +591,7 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
 
         // Preserve selection state during pagination
         const selectedInvoiceNumbers = session.selectedInvoiceNumbers || [];
+        const selectedInvoiceData = session.selectedInvoiceData || [];
 
         // Fetch next batch of invoices with pagination
         const [openInvoices, totalCount] = await Promise.all([
@@ -604,6 +621,7 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
           inline_keyboard: buildInvoiceSelectionKeyboard(
             openInvoices,
             selectedInvoiceNumbers,
+            selectedInvoiceData,
             action.offset,
             totalCount
           ).inline_keyboard,

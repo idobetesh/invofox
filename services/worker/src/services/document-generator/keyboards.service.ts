@@ -73,25 +73,36 @@ export function buildConfirmationKeyboard(): TelegramInlineKeyboardMarkup {
 /**
  * Build invoice selection keyboard for receipt creation (multi-select)
  * Shows open invoices with checkbox selection, customer validation, and selection limits
- * @param openInvoices - List of open invoices to display
- * @param selectedInvoiceNumbers - Currently selected invoice numbers
+ * @param openInvoices - List of open invoices to display (current page)
+ * @param selectedInvoiceNumbers - Currently selected invoice numbers (all pages)
+ * @param selectedInvoiceData - Full metadata for all selected invoices (from session, all pages)
  * @param offset - Current pagination offset
  * @param totalCount - Total number of open invoices available
  */
 export function buildInvoiceSelectionKeyboard(
   openInvoices: OpenInvoice[],
   selectedInvoiceNumbers: string[] = [],
+  selectedInvoiceData: Array<{
+    invoiceNumber: string;
+    customerName: string;
+    remainingBalance: number;
+    date: string;
+    currency: string;
+  }> = [],
   offset: number = 0,
   totalCount: number = 0
 ): TelegramInlineKeyboardMarkup {
   const rows: { text: string; callback_data: string }[][] = [];
 
   // Determine the first selected customer (for customer consistency validation)
-  const selectedInvoicesData = openInvoices.filter((inv) =>
-    selectedInvoiceNumbers.includes(inv.invoiceNumber)
-  );
+  // IMPORTANT: Use selectedInvoiceData from session, not filtered from current page
+  // This ensures validation works across pagination
   const firstSelectedCustomer =
-    selectedInvoicesData.length > 0 ? selectedInvoicesData[0].customerName : null;
+    selectedInvoiceData.length > 0 ? selectedInvoiceData[0].customerName : null;
+
+  // Determine the first selected currency (for currency consistency validation)
+  const firstSelectedCurrency =
+    selectedInvoiceData.length > 0 ? selectedInvoiceData[0].currency : null;
 
   // Check if max limit reached
   const maxLimitReached = selectedInvoiceNumbers.length >= 10;
@@ -101,11 +112,14 @@ export function buildInvoiceSelectionKeyboard(
     const isSelected = selectedInvoiceNumbers.includes(invoice.invoiceNumber);
     const isDifferentCustomer =
       firstSelectedCustomer !== null && invoice.customerName !== firstSelectedCustomer;
-    const isDisabled = (maxLimitReached && !isSelected) || isDifferentCustomer;
+    const isDifferentCurrency =
+      firstSelectedCurrency !== null && invoice.currency !== firstSelectedCurrency;
+    const isDisabled =
+      (maxLimitReached && !isSelected) || isDifferentCustomer || isDifferentCurrency;
 
     // Build button text with checkbox and status prefixes
     let prefix = '';
-    if (isDifferentCustomer) {
+    if (isDifferentCustomer || isDifferentCurrency) {
       prefix = '⛔ ☐ ';
     } else if (isSelected) {
       prefix = '☑ ';
@@ -128,12 +142,13 @@ export function buildInvoiceSelectionKeyboard(
 
   // Add selection summary row if invoices are selected
   if (selectedInvoiceNumbers.length > 0) {
-    const totalAmount = selectedInvoicesData.reduce(
+    // Calculate total from all selected invoices (across all pages)
+    const totalAmount = selectedInvoiceData.reduce(
       (sum, inv) => sum + (inv.remainingBalance || 0),
       0
     );
     // Use the currency from the first selected invoice, default to ILS
-    const currency = selectedInvoicesData[0]?.currency || 'ILS';
+    const currency = selectedInvoiceData[0]?.currency || 'ILS';
     const currencySymbol = currency === 'ILS' ? '₪' : currency;
 
     const summaryText = `✅ נבחרו: ${selectedInvoiceNumbers.length} חשבוניות | סה״כ: ${currencySymbol}${totalAmount.toFixed(2)}`;

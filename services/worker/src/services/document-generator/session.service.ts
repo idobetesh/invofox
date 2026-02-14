@@ -271,6 +271,7 @@ export async function toggleInvoiceSelection(
     customerName: string;
     remainingBalance: number;
     date: string;
+    currency: string;
   }
 ): Promise<InvoiceSession> {
   const db = getFirestore();
@@ -310,6 +311,7 @@ export async function toggleInvoiceSelection(
           customerName: invoiceData.customerName,
           remainingBalance: invoiceData.remainingBalance,
           date: invoiceData.date,
+          currency: invoiceData.currency,
         },
       ];
       log.debug('Added invoice to selection');
@@ -375,6 +377,14 @@ export async function validateAndConfirmSelection(
       return { success: false, error: 'כל החשבוניות חייבות להיות לאותו לקוח' };
     }
 
+    // Validate currency consistency
+    const firstCurrency = selectedData[0].currency;
+    const allSameCurrency = selectedData.every((data) => data.currency === firstCurrency);
+
+    if (!allSameCurrency) {
+      return { success: false, error: 'כל החשבוניות חייבות להיות באותו מטבע' };
+    }
+
     // Calculate total amount
     const totalAmount = selectedData.reduce((sum, data) => sum + data.remainingBalance, 0);
 
@@ -386,6 +396,7 @@ export async function validateAndConfirmSelection(
       status: 'awaiting_payment',
       customerName: firstCustomer,
       amount: totalAmount,
+      currency: firstCurrency,
       description,
     });
 
