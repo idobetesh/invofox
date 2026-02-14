@@ -53,11 +53,245 @@ const mockParentInvoice: GeneratedInvoice = {
     username: 'demo_user',
     chatId: 123456,
   },
-  pdfLink: 'https://example.com/invoice-20260099.pdf',
-  sheetRow: 10,
+  storagePath: 'demo/invoice-20260099.pdf',
+  storageUrl: 'https://example.com/invoice-20260099.pdf',
   paymentStatus: 'unpaid',
   remainingBalance: 3500,
 };
+
+// Mock parent invoices for multi-invoice receipt demo (10 invoices - maximum)
+const mockParentInvoices: GeneratedInvoice[] = [
+  {
+    chatId: 123456,
+    invoiceNumber: 'I-2026-100',
+    documentType: 'invoice',
+    customerName: 'רבקה לוי',
+    customerTaxId: '111222333',
+    description: 'שירותי ייעוץ - נובמבר',
+    amount: 2500,
+    currency: 'ILS',
+    paymentMethod: undefined,
+    date: '10/11/2025',
+    generatedAt: new Date('2025-11-10'),
+    generatedBy: {
+      telegramUserId: 999999,
+      username: 'demo_user',
+      chatId: 123456,
+    },
+    storagePath: 'demo/invoice-2026100.pdf',
+    storageUrl: 'https://example.com/invoice-2026100.pdf',
+    paymentStatus: 'unpaid',
+    paidAmount: 0,
+    remainingBalance: 2500,
+  },
+  {
+    chatId: 123456,
+    invoiceNumber: 'I-2026-101',
+    documentType: 'invoice',
+    customerName: 'רבקה לוי',
+    customerTaxId: '111222333',
+    description: 'שירותי ייעוץ - דצמבר',
+    amount: 3000,
+    currency: 'ILS',
+    paymentMethod: undefined,
+    date: '12/12/2025',
+    generatedAt: new Date('2025-12-12'),
+    generatedBy: {
+      telegramUserId: 999999,
+      username: 'demo_user',
+      chatId: 123456,
+    },
+    storagePath: 'demo/invoice-2026101.pdf',
+    storageUrl: 'https://example.com/invoice-2026101.pdf',
+    paymentStatus: 'unpaid',
+    paidAmount: 0,
+    remainingBalance: 3000,
+  },
+  {
+    chatId: 123456,
+    invoiceNumber: 'I-2026-102',
+    documentType: 'invoice',
+    customerName: 'רבקה לוי',
+    customerTaxId: '111222333',
+    description: 'שירותי ייעוץ - ינואר',
+    amount: 2800,
+    currency: 'ILS',
+    paymentMethod: undefined,
+    date: '15/01/2026',
+    generatedAt: new Date('2026-01-15'),
+    generatedBy: {
+      telegramUserId: 999999,
+      username: 'demo_user',
+      chatId: 123456,
+    },
+    storagePath: 'demo/invoice-2026102.pdf',
+    storageUrl: 'https://example.com/invoice-2026102.pdf',
+    paymentStatus: 'unpaid',
+    paidAmount: 0,
+    remainingBalance: 2800,
+  },
+  {
+    chatId: 123456,
+    invoiceNumber: 'I-2026-103',
+    documentType: 'invoice',
+    customerName: 'רבקה לוי',
+    customerTaxId: '111222333',
+    description: 'שירותי ייעוץ - פברואר',
+    amount: 3200,
+    currency: 'ILS',
+    paymentMethod: undefined,
+    date: '20/02/2026',
+    generatedAt: new Date('2026-02-20'),
+    generatedBy: {
+      telegramUserId: 999999,
+      username: 'demo_user',
+      chatId: 123456,
+    },
+    storagePath: 'demo/invoice-2026103.pdf',
+    storageUrl: 'https://example.com/invoice-2026103.pdf',
+    paymentStatus: 'unpaid',
+    paidAmount: 0,
+    remainingBalance: 3200,
+  },
+  {
+    chatId: 123456,
+    invoiceNumber: 'I-2026-104',
+    documentType: 'invoice',
+    customerName: 'רבקה לוי',
+    customerTaxId: '111222333',
+    description: 'שירותי ייעוץ - מרץ',
+    amount: 2900,
+    currency: 'ILS',
+    paymentMethod: undefined,
+    date: '15/03/2026',
+    generatedAt: new Date('2026-03-15'),
+    generatedBy: {
+      telegramUserId: 999999,
+      username: 'demo_user',
+      chatId: 123456,
+    },
+    storagePath: 'demo/invoice-2026104.pdf',
+    storageUrl: 'https://example.com/invoice-2026104.pdf',
+    paymentStatus: 'unpaid',
+    paidAmount: 0,
+    remainingBalance: 2900,
+  },
+  {
+    chatId: 123456,
+    invoiceNumber: 'I-2026-105',
+    documentType: 'invoice',
+    customerName: 'רבקה לוי',
+    customerTaxId: '111222333',
+    description: 'שירותי ייעוץ - אפריל',
+    amount: 3100,
+    currency: 'ILS',
+    paymentMethod: undefined,
+    date: '10/04/2026',
+    generatedAt: new Date('2026-04-10'),
+    generatedBy: {
+      telegramUserId: 999999,
+      username: 'demo_user',
+      chatId: 123456,
+    },
+    storagePath: 'demo/invoice-2026105.pdf',
+    storageUrl: 'https://example.com/invoice-2026105.pdf',
+    paymentStatus: 'unpaid',
+    paidAmount: 0,
+    remainingBalance: 3100,
+  },
+  {
+    chatId: 123456,
+    invoiceNumber: 'I-2026-106',
+    documentType: 'invoice',
+    customerName: 'רבקה לוי',
+    customerTaxId: '111222333',
+    description: 'שירותי ייעוץ - מאי',
+    amount: 2700,
+    currency: 'ILS',
+    paymentMethod: undefined,
+    date: '05/05/2026',
+    generatedAt: new Date('2026-05-05'),
+    generatedBy: {
+      telegramUserId: 999999,
+      username: 'demo_user',
+      chatId: 123456,
+    },
+    storagePath: 'demo/invoice-2026106.pdf',
+    storageUrl: 'https://example.com/invoice-2026106.pdf',
+    paymentStatus: 'unpaid',
+    paidAmount: 0,
+    remainingBalance: 2700,
+  },
+  {
+    chatId: 123456,
+    invoiceNumber: 'I-2026-107',
+    documentType: 'invoice',
+    customerName: 'רבקה לוי',
+    customerTaxId: '111222333',
+    description: 'שירותי ייעוץ - יוני',
+    amount: 3300,
+    currency: 'ILS',
+    paymentMethod: undefined,
+    date: '20/06/2026',
+    generatedAt: new Date('2026-06-20'),
+    generatedBy: {
+      telegramUserId: 999999,
+      username: 'demo_user',
+      chatId: 123456,
+    },
+    storagePath: 'demo/invoice-2026107.pdf',
+    storageUrl: 'https://example.com/invoice-2026107.pdf',
+    paymentStatus: 'unpaid',
+    paidAmount: 0,
+    remainingBalance: 3300,
+  },
+  {
+    chatId: 123456,
+    invoiceNumber: 'I-2026-108',
+    documentType: 'invoice',
+    customerName: 'רבקה לוי',
+    customerTaxId: '111222333',
+    description: 'שירותי ייעוץ - יולי',
+    amount: 2850,
+    currency: 'ILS',
+    paymentMethod: undefined,
+    date: '15/07/2026',
+    generatedAt: new Date('2026-07-15'),
+    generatedBy: {
+      telegramUserId: 999999,
+      username: 'demo_user',
+      chatId: 123456,
+    },
+    storagePath: 'demo/invoice-2026108.pdf',
+    storageUrl: 'https://example.com/invoice-2026108.pdf',
+    paymentStatus: 'unpaid',
+    paidAmount: 0,
+    remainingBalance: 2850,
+  },
+  {
+    chatId: 123456,
+    invoiceNumber: 'I-2026-109',
+    documentType: 'invoice',
+    customerName: 'רבקה לוי',
+    customerTaxId: '111222333',
+    description: 'שירותי ייעוץ - אוגוסט',
+    amount: 3050,
+    currency: 'ILS',
+    paymentMethod: undefined,
+    date: '25/08/2026',
+    generatedAt: new Date('2026-08-25'),
+    generatedBy: {
+      telegramUserId: 999999,
+      username: 'demo_user',
+      chatId: 123456,
+    },
+    storagePath: 'demo/invoice-2026109.pdf',
+    storageUrl: 'https://example.com/invoice-2026109.pdf',
+    paymentStatus: 'unpaid',
+    paidAmount: 0,
+    remainingBalance: 3050,
+  },
+];
 
 // Mock session for receipt demo
 const mockReceiptSession: InvoiceSession = {
@@ -75,6 +309,96 @@ const mockReceiptSession: InvoiceSession = {
   updatedAt: new Date('2026-01-20'),
 };
 
+// Mock session for multi-invoice receipt demo (10 invoices - maximum)
+const mockMultiInvoiceReceiptSession: InvoiceSession = {
+  status: 'confirming',
+  documentType: 'receipt',
+  selectedInvoiceNumbers: [
+    'I-2026-100',
+    'I-2026-101',
+    'I-2026-102',
+    'I-2026-103',
+    'I-2026-104',
+    'I-2026-105',
+    'I-2026-106',
+    'I-2026-107',
+    'I-2026-108',
+    'I-2026-109',
+  ],
+  selectedInvoiceData: [
+    {
+      invoiceNumber: 'I-2026-100',
+      customerName: 'רבקה לוי',
+      remainingBalance: 2500,
+      date: '10/11/2025',
+    },
+    {
+      invoiceNumber: 'I-2026-101',
+      customerName: 'רבקה לוי',
+      remainingBalance: 3000,
+      date: '12/12/2025',
+    },
+    {
+      invoiceNumber: 'I-2026-102',
+      customerName: 'רבקה לוי',
+      remainingBalance: 2800,
+      date: '15/01/2026',
+    },
+    {
+      invoiceNumber: 'I-2026-103',
+      customerName: 'רבקה לוי',
+      remainingBalance: 3200,
+      date: '20/02/2026',
+    },
+    {
+      invoiceNumber: 'I-2026-104',
+      customerName: 'רבקה לוי',
+      remainingBalance: 2900,
+      date: '15/03/2026',
+    },
+    {
+      invoiceNumber: 'I-2026-105',
+      customerName: 'רבקה לוי',
+      remainingBalance: 3100,
+      date: '10/04/2026',
+    },
+    {
+      invoiceNumber: 'I-2026-106',
+      customerName: 'רבקה לוי',
+      remainingBalance: 2700,
+      date: '05/05/2026',
+    },
+    {
+      invoiceNumber: 'I-2026-107',
+      customerName: 'רבקה לוי',
+      remainingBalance: 3300,
+      date: '20/06/2026',
+    },
+    {
+      invoiceNumber: 'I-2026-108',
+      customerName: 'רבקה לוי',
+      remainingBalance: 2850,
+      date: '15/07/2026',
+    },
+    {
+      invoiceNumber: 'I-2026-109',
+      customerName: 'רבקה לוי',
+      remainingBalance: 3050,
+      date: '25/08/2026',
+    },
+  ],
+  customerName: 'רבקה לוי',
+  customerTaxId: '111222333',
+  description:
+    'קבלה עבור חשבוניות: I-2026-100, I-2026-101, I-2026-102, I-2026-103, I-2026-104, I-2026-105, I-2026-106, I-2026-107, I-2026-108, I-2026-109',
+  amount: 29400, // Sum of all 10 invoices
+  currency: 'ILS',
+  paymentMethod: 'העברה בנקאית',
+  date: '2026-09-01',
+  createdAt: new Date('2026-09-01'),
+  updatedAt: new Date('2026-09-01'),
+};
+
 // Mock data for each document type
 const documentSamples: Array<{
   type: 'invoice' | 'receipt' | 'invoice_receipt';
@@ -83,6 +407,7 @@ const documentSamples: Array<{
   data: InvoiceData;
   session?: InvoiceSession;
   parentInvoice?: GeneratedInvoice;
+  parentInvoices?: GeneratedInvoice[];
 }> = [
   {
     type: 'invoice',
@@ -130,6 +455,25 @@ const documentSamples: Array<{
       paymentMethod: 'העברה בנקאית',
       date: '2026-02-10',
     },
+  },
+  {
+    type: 'receipt',
+    emoji: '🧾✨',
+    hebrewName: 'קבלה - 10 חשבוניות',
+    data: {
+      invoiceNumber: 'R-2026-2',
+      documentType: 'receipt',
+      customerName: 'רבקה לוי',
+      customerTaxId: '111222333',
+      description:
+        'קבלה עבור חשבוניות: I-2026-100, I-2026-101, I-2026-102, I-2026-103, I-2026-104, I-2026-105, I-2026-106, I-2026-107, I-2026-108, I-2026-109',
+      amount: 29400,
+      paymentMethod: 'העברה בנקאית',
+      date: '2026-09-01',
+    },
+    session: mockMultiInvoiceReceiptSession,
+    parentInvoice: mockParentInvoices[0], // For backward compatibility
+    parentInvoices: mockParentInvoices,
   },
 ];
 
@@ -229,7 +573,8 @@ async function generateAllDocuments(): Promise<void> {
         sampleBusinessConfig,
         logoBase64,
         sample.session,
-        sample.parentInvoice
+        sample.parentInvoice,
+        sample.parentInvoices
       );
 
       // Generate PDF
@@ -281,9 +626,10 @@ async function generateAllDocuments(): Promise<void> {
 
     console.log('💡 Open the PDF files to view the documents!');
     console.log('\n📄 Document types generated:');
-    console.log('   • invoice         - חשבונית (bill for future payment)');
-    console.log('   • receipt         - קבלה (payment received)');
-    console.log('   • invoice_receipt - חשבונית מס/קבלה (invoice + receipt combined)');
+    console.log('   • invoice             - חשבונית (bill for future payment)');
+    console.log('   • receipt             - קבלה (payment received)');
+    console.log('   • receipt (multi)     - קבלה - מרובת חשבוניות (multi-invoice receipt)');
+    console.log('   • invoice_receipt     - חשבונית מס/קבלה (invoice + receipt combined)');
   } finally {
     await browser.close();
   }

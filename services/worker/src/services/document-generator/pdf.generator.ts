@@ -47,6 +47,7 @@ const CHROMIUM_ARGS = [
  * @param logoBase64 - Base64-encoded logo image (optional)
  * @param session - Invoice session (required for receipts)
  * @param parentInvoice - Parent invoice (required for receipts)
+ * @param parentInvoices - Array of parent invoices (for multi-invoice receipts)
  * @returns PDF as Buffer
  */
 export async function generateInvoicePDFWithConfig(
@@ -54,7 +55,8 @@ export async function generateInvoicePDFWithConfig(
   businessConfig: BusinessConfig,
   logoBase64?: string | null,
   session?: InvoiceSession,
-  parentInvoice?: GeneratedInvoice | null
+  parentInvoice?: GeneratedInvoice | null,
+  parentInvoices?: GeneratedInvoice[]
 ): Promise<Buffer> {
   const log = logger.child({ invoiceNumber: data.invoiceNumber });
   log.info('Starting PDF generation with custom config');
@@ -74,7 +76,14 @@ export async function generateInvoicePDFWithConfig(
     const page = await browser.newPage();
 
     // Build HTML content with logo
-    const html = buildInvoiceHTML(data, businessConfig, logoBase64, session, parentInvoice);
+    const html = buildInvoiceHTML(
+      data,
+      businessConfig,
+      logoBase64,
+      session,
+      parentInvoice,
+      parentInvoices
+    );
 
     // Set content with wait for fonts to load
     await page.setContent(html, {
