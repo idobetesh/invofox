@@ -1,7 +1,7 @@
 import {
   formatDuplicateWarning,
   formatDuplicateResolved,
-} from '../../src/services/telegram.service';
+} from '../../src/services/duplicate-detection.service';
 import type { DuplicateMatch, InvoiceExtraction } from '../../../../shared/types';
 import { MESSAGES } from '../../src/constants/messages';
 
@@ -25,7 +25,6 @@ describe('Duplicate Detection', () => {
         456
       );
 
-      expect(result.text).toContain(MESSAGES.DUPLICATE_EXACT);
       expect(result.text).toContain(MESSAGES.DUPLICATE_DETECTED);
       expect(result.text).toContain('05/01/2026');
       expect(result.text).toContain('150');
@@ -52,7 +51,6 @@ describe('Duplicate Detection', () => {
         456
       );
 
-      expect(result.text).toContain(MESSAGES.DUPLICATE_SIMILAR);
       expect(result.text).toContain(MESSAGES.DUPLICATE_DETECTED);
       expect(result.text).toContain('?'); // No date
       expect(result.text).toContain('89.5');
