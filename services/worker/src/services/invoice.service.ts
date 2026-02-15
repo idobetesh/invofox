@@ -12,6 +12,7 @@ import type {
 } from '../../../../shared/types';
 import * as storeService from './firestore.service';
 import * as telegramService from './telegram.service';
+import * as duplicateService from './duplicate-detection.service';
 import * as storageService from './storage.service';
 import * as llmService from './llm.service';
 import * as sheetsService from './sheets.service';
@@ -284,7 +285,7 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
 
     const [, duplicate] = await Promise.all([
       storeService.storeExtraction(chatId, messageId, extraction),
-      storeService.findDuplicateInvoice(chatId, extraction, jobId),
+      duplicateService.findDuplicateInvoice(chatId, extraction, jobId),
     ]);
 
     log.info({ isDuplicate: !!duplicate }, 'Duplicate check completed');
@@ -297,7 +298,7 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
       );
 
       // Store pending decision state with all data needed to resume
-      await storeService.markJobPendingDecision(chatId, messageId, {
+      await duplicateService.markJobPendingDecision(chatId, messageId, {
         duplicateOfJobId: duplicate.jobId,
         llmProvider: usage.provider,
         totalTokens: usage.totalTokens,
@@ -306,7 +307,7 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
       });
 
       // Send message with inline buttons
-      const { text, keyboard } = telegramService.formatDuplicateWarning(
+      const { text, keyboard } = duplicateService.formatDuplicateWarning(
         duplicate,
         driveLink,
         chatId,
@@ -451,7 +452,7 @@ export async function handleDuplicateDecision(
 
   try {
     // Get the pending decision job
-    const job = await storeService.getPendingDecisionJob(chatId, messageId);
+    const job = await duplicateService.getPendingDecisionJob(chatId, messageId);
 
     if (!job) {
       log.warn('No pending decision job found');
@@ -485,7 +486,7 @@ export async function handleDuplicateDecision(
       });
 
       // Edit the button message to show result
-      const resultMessage = telegramService.formatDuplicateResolved(
+      const resultMessage = duplicateService.formatDuplicateResolved(
         action,
         job.driveLink || '',
         existingLink
@@ -517,8 +518,8 @@ export async function handleDuplicateDecision(
 
     const sheetRow = sheetsService.buildSheetRow({
       receivedAt: job.receivedAt,
-      uploaderUsername: job.uploaderUsername,
-      chatTitle: job.chatTitle,
+      uploaderUsername: job.uploaderUsername || '',
+      chatTitle: job.chatTitle || '',
       driveLink: job.driveLink || '',
       extraction: {
         is_invoice: true,
@@ -549,7 +550,7 @@ export async function handleDuplicateDecision(
     });
 
     // Edit the button message to show result
-    const resultMessage = telegramService.formatDuplicateResolved(
+    const resultMessage = duplicateService.formatDuplicateResolved(
       action,
       job.driveLink || '',
       existingLink

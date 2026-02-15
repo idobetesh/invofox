@@ -7,7 +7,6 @@ import type {
   InvoiceJob,
   JobStatus,
   PipelineStep,
-  DuplicateMatch,
   InvoiceExtraction,
 } from '../../../../shared/types';
 import logger from '../logger';
@@ -230,15 +229,8 @@ export async function getJob(chatId: number, messageId: number): Promise<Invoice
 }
 
 // ============================================================================
-// Duplicate Detection
+// Duplicate Detection - Moved to duplicate-detection.service.ts
 // ============================================================================
-
-interface StoredExtraction {
-  vendorName?: string | null;
-  totalAmount?: number | null;
-  invoiceDate?: string | null;
-  category?: string | null;
-}
 
 /**
  * Store extraction data for duplicate detection
@@ -264,156 +256,4 @@ export async function storeExtraction(
     category: extraction.category,
     updatedAt: FieldValue.serverTimestamp(),
   });
-}
-
-/**
- * Mark job as pending user decision for duplicate handling
- * Stores all data needed to resume processing after user decides
- */
-export async function markJobPendingDecision(
-  chatId: number,
-  messageId: number,
-  data: {
-    duplicateOfJobId: string;
-    llmProvider: 'gemini' | 'openai';
-    totalTokens: number;
-    costUSD: number;
-    currency: string | null;
-  }
-): Promise<void> {
-  const db = getFirestore();
-  const docId = getJobId(chatId, messageId);
-  const docRef = db.collection(INVOICE_JOBS_COLLECTION).doc(docId);
-
-  await docRef.update({
-    status: 'pending_decision' as JobStatus,
-    duplicateOfJobId: data.duplicateOfJobId,
-    llmProvider: data.llmProvider,
-    totalTokens: data.totalTokens,
-    costUSD: data.costUSD,
-    currency: data.currency,
-    updatedAt: FieldValue.serverTimestamp(),
-  });
-}
-
-/**
- * Get a pending decision job for resuming after user callback
- */
-export async function getPendingDecisionJob(
-  chatId: number,
-  messageId: number
-): Promise<InvoiceJob | null> {
-  const job = await getJob(chatId, messageId);
-
-  if (!job || job.status !== 'pending_decision') {
-    return null;
-  }
-
-  return job;
-}
-
-/**
- * Find potential duplicate invoices by vendor + amount + date
- * Returns matches from the last 90 days within the same customer (chatId)
- */
-export async function findDuplicateInvoice(
-  chatId: number,
-  extraction: InvoiceExtraction,
-  currentJobId: string
-): Promise<DuplicateMatch | null> {
-  const db = getFirestore();
-  const log = logger.child({ currentJobId, chatId });
-
-  // Need at least vendor and amount to detect duplicates
-  if (!extraction.vendor_name || extraction.total_amount === null) {
-    log.debug('Insufficient data for duplicate detection');
-    return null;
-  }
-
-  try {
-    // Query for processed invoices with same vendor (case-insensitive via lowercase)
-    const vendorLower = extraction.vendor_name.toLowerCase().trim();
-
-    // Get all processed jobs from start of current calendar year for this customer only
-    const startOfYear = new Date();
-    startOfYear.setMonth(0); // January
-    startOfYear.setDate(1); // 1st
-    startOfYear.setHours(0, 0, 0, 0); // Midnight
-
-    log.info(
-      { vendorLower, amount: extraction.total_amount, date: extraction.invoice_date },
-      'Querying for duplicates'
-    );
-
-    const snapshot = await db
-      .collection(INVOICE_JOBS_COLLECTION)
-      .where('telegramChatId', '==', chatId)
-      .where('status', 'in', ['processed', 'processing', 'pending_decision'])
-      .where('createdAt', '>=', Timestamp.fromDate(startOfYear))
-      .get();
-
-    log.info({ jobsFound: snapshot.docs.length }, 'Query completed');
-
-    for (const doc of snapshot.docs) {
-      // Skip current job
-      if (doc.id === currentJobId) {
-        continue;
-      }
-
-      const job = doc.data() as InvoiceJob & StoredExtraction;
-
-      // Skip if no extraction data
-      if (!job.vendorName || job.totalAmount === null) {
-        continue;
-      }
-
-      // Check vendor match (case-insensitive)
-      const storedVendorLower = job.vendorName.toLowerCase().trim();
-      if (storedVendorLower !== vendorLower) {
-        continue;
-      }
-
-      // Check amount match (exact)
-      if (job.totalAmount !== extraction.total_amount) {
-        continue;
-      }
-
-      // Check date match (if both have dates)
-      let matchType: 'exact' | 'similar' = 'similar';
-      if (extraction.invoice_date && job.invoiceDate) {
-        if (extraction.invoice_date === job.invoiceDate) {
-          matchType = 'exact';
-        } else {
-          // Different dates with same vendor/amount - not a duplicate
-          continue;
-        }
-      }
-
-      log.info(
-        {
-          duplicateJobId: doc.id,
-          vendor: job.vendorName,
-          amount: job.totalAmount,
-          matchType,
-        },
-        'Potential duplicate found'
-      );
-
-      return {
-        jobId: doc.id,
-        vendorName: job.vendorName,
-        totalAmount: job.totalAmount,
-        invoiceDate: job.invoiceDate || null,
-        driveLink: job.driveLink || '',
-        receivedAt: job.receivedAt,
-        matchType,
-      };
-    }
-
-    return null;
-  } catch (error) {
-    log.error({ error }, 'Error checking for duplicates');
-    // Don't block processing on duplicate check failure
-    return null;
-  }
 }
