@@ -56,6 +56,12 @@ export const InvoiceJobSchema = z.object({
   receivedAt: z.string(), // ISO timestamp
   createdAt: z.custom<Timestamp>(),
   updatedAt: z.custom<Timestamp>(),
+
+  // Duplicate detection fields
+  duplicateOfJobId: z.string().nullable().optional(),
+  llmProvider: z.enum(['gemini', 'openai']).nullable().optional(),
+  totalTokens: z.number().nullable().optional(),
+  costUSD: z.number().nullable().optional(),
 });
 
 export type InvoiceJob = z.infer<typeof InvoiceJobSchema>;

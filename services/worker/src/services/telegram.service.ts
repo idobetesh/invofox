@@ -5,13 +5,11 @@
 import type {
   TelegramFile,
   TelegramApiResponse,
-  DuplicateMatch,
   TelegramInlineKeyboardMarkup,
-  DuplicateDecision,
   TelegramMessage,
 } from '../../../../shared/types';
 import { getConfig } from '../config';
-import { MESSAGES, getDuplicateLabel } from '../constants/messages';
+import { MESSAGES } from '../constants/messages';
 
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
 
@@ -292,7 +290,7 @@ export async function sendDocument(
 /**
  * Format date as DD/MM/YYYY
  */
-function formatDateForDisplay(isoString: string | null): string {
+export function formatDateForDisplay(isoString: string | null): string {
   if (!isoString) {
     return '?';
   }
@@ -346,56 +344,4 @@ Error: ${shortError}
 (Try sending a clearer screenshot)`;
 }
 
-/**
- * Format duplicate warning message with inline buttons
- */
-export function formatDuplicateWarning(
-  duplicate: DuplicateMatch,
-  newDriveLink: string,
-  chatId: number,
-  messageId: number
-): { text: string; keyboard: TelegramInlineKeyboardMarkup } {
-  const date = formatDateForDisplay(duplicate.invoiceDate);
-  const amount = duplicate.totalAmount !== null ? duplicate.totalAmount.toString() : '?';
-  const vendor = duplicate.vendorName || MESSAGES.VENDOR_UNKNOWN;
-  const matchLabel = getDuplicateLabel(duplicate.matchType);
-
-  const text = `⚠️ ${matchLabel} ${MESSAGES.DUPLICATE_DETECTED}
-📅 ${date} | 💰 ${amount}
-🏢 ${vendor}
-📎 [${MESSAGES.LINK_EXISTING}](${duplicate.driveLink})
-
-${MESSAGES.DUPLICATE_PENDING_ACTION}`;
-
-  // Encode callback data as JSON
-  const keepBothData: DuplicateDecision = { action: 'keep_both', chatId, messageId };
-  const deleteNewData: DuplicateDecision = { action: 'delete_new', chatId, messageId };
-
-  const keyboard: TelegramInlineKeyboardMarkup = {
-    inline_keyboard: [
-      [
-        { text: MESSAGES.BUTTON_KEEP_BOTH, callback_data: JSON.stringify(keepBothData) },
-        { text: MESSAGES.BUTTON_DELETE_NEW, callback_data: JSON.stringify(deleteNewData) },
-      ],
-    ],
-  };
-
-  return { text, keyboard };
-}
-
-/**
- * Format message after user decides on duplicate
- */
-export function formatDuplicateResolved(
-  action: 'keep_both' | 'delete_new',
-  driveLink: string,
-  existingLink: string
-): string {
-  if (action === 'keep_both') {
-    return `✅ ${MESSAGES.RESOLUTION_BOTH_KEPT}
-📎 [${MESSAGES.LINK_NEW}](${driveLink}) | [${MESSAGES.LINK_EXISTING}](${existingLink})`;
-  } else {
-    return `🗑️ ${MESSAGES.RESOLUTION_DUPLICATE_DELETED}
-📎 [${MESSAGES.LINK_EXISTING}](${existingLink}) ${MESSAGES.RESOLUTION_KEPT}`;
-  }
-}
+// Duplicate detection functions moved to duplicate-detection.service.ts

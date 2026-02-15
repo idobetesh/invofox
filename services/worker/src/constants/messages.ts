@@ -10,8 +10,8 @@ export const MESSAGES = {
   // Duplicate detection
   DUPLICATE_EXACT: 'כפילות מלאה',
   DUPLICATE_SIMILAR: 'חשבונית דומה',
-  DUPLICATE_DETECTED: 'זוהתה!',
-  DUPLICATE_PENDING_ACTION: 'העלאה חדשה ממתינה - בחר פעולה:',
+  DUPLICATE_DETECTED: 'רגע! נראה שהחשבונית הזו כבר קיימת במערכת',
+  DUPLICATE_PENDING_ACTION: 'מה ברצונך לעשות?',
 
   // Vendor fallback
   VENDOR_UNKNOWN: 'לא ידוע',
@@ -19,10 +19,11 @@ export const MESSAGES = {
   // Link labels
   LINK_EXISTING: 'קיים',
   LINK_NEW: 'חדש',
+  LINK_EXISTING_LABEL: 'לחץ לצפייה בחשבונית הקיימת',
 
   // Button labels
-  BUTTON_KEEP_BOTH: '✅ שמור שניים',
-  BUTTON_DELETE_NEW: '🗑️ מחק חדש',
+  BUTTON_KEEP_BOTH: '✅ לשמור את שתיהן',
+  BUTTON_DELETE_NEW: '🗑️ למחוק את החדשה',
 
   // Loading messages (callback responses)
   LOADING_KEEPING_BOTH: 'שומר שניים...',

@@ -3,7 +3,7 @@
  * Tests the fix for: https://github.com/idobetesh/papertrail/issues/XXX
  */
 
-import { findDuplicateInvoice } from '../../src/services/firestore.service';
+import { findDuplicateInvoice } from '../../src/services/duplicate-detection.service';
 import type { InvoiceExtraction } from '../../../../shared/types';
 import { Firestore, Timestamp } from '@google-cloud/firestore';
 
@@ -201,5 +201,206 @@ describe('Duplicate Detection - ChatId Scoping', () => {
     // Should return first match found
     expect(result).not.toBeNull();
     expect(result?.jobId).toBe('555555_1');
+  });
+
+  describe('Invoice Number Differentiation', () => {
+    const chatId = 999999;
+
+    it('should NOT flag as duplicate if invoice numbers differ (same vendor/amount/date)', async () => {
+      const extraction = createExtraction({
+        vendor_name: 'Cafe Hillel',
+        invoice_number: 'INV-12346',
+        total_amount: 25.5,
+        invoice_date: '2026-02-15',
+      });
+
+      const mockDocs = [
+        {
+          id: '999999_100',
+          data: () => ({
+            chatId: 999999,
+            vendorName: 'Cafe Hillel',
+            invoiceNumber: 'INV-12345', // Different invoice number!
+            totalAmount: 25.5,
+            invoiceDate: '2026-02-15',
+            status: 'processed',
+            driveLink: 'https://example.com/invoice1',
+            receivedAt: '2026-02-15T10:00:00Z',
+          }),
+        },
+      ];
+
+      mockGet.mockResolvedValue({ docs: mockDocs });
+
+      const result = await findDuplicateInvoice(chatId, extraction, 'current_job');
+
+      // Should NOT be flagged as duplicate because invoice numbers differ
+      expect(result).toBeNull();
+    });
+
+    it('should flag as duplicate if invoice numbers are the same', async () => {
+      const extraction = createExtraction({
+        vendor_name: 'SuperSal',
+        invoice_number: 'INV-99999',
+        total_amount: 150.0,
+        invoice_date: '2026-02-10',
+      });
+
+      const mockDocs = [
+        {
+          id: '999999_200',
+          data: () => ({
+            chatId: 999999,
+            vendorName: 'SuperSal',
+            invoiceNumber: 'INV-99999', // Same invoice number!
+            totalAmount: 150.0,
+            invoiceDate: '2026-02-10',
+            status: 'processed',
+            driveLink: 'https://example.com/invoice2',
+            receivedAt: '2026-02-10T12:00:00Z',
+          }),
+        },
+      ];
+
+      mockGet.mockResolvedValue({ docs: mockDocs });
+
+      const result = await findDuplicateInvoice(chatId, extraction, 'current_job');
+
+      // Should be flagged as exact duplicate
+      expect(result).not.toBeNull();
+      expect(result?.matchType).toBe('exact');
+      expect(result?.jobId).toBe('999999_200');
+    });
+
+    it('should flag as similar duplicate if new invoice has number but stored does not', async () => {
+      const extraction = createExtraction({
+        vendor_name: 'Rami Levy',
+        invoice_number: 'INV-55555',
+        total_amount: 89.9,
+        invoice_date: '2026-02-12',
+      });
+
+      const mockDocs = [
+        {
+          id: '999999_300',
+          data: () => ({
+            chatId: 999999,
+            vendorName: 'Rami Levy',
+            invoiceNumber: null, // No invoice number in stored
+            totalAmount: 89.9,
+            invoiceDate: '2026-02-12',
+            status: 'processed',
+            driveLink: 'https://example.com/invoice3',
+            receivedAt: '2026-02-12T14:00:00Z',
+          }),
+        },
+      ];
+
+      mockGet.mockResolvedValue({ docs: mockDocs });
+
+      const result = await findDuplicateInvoice(chatId, extraction, 'current_job');
+
+      // Should still flag as potential duplicate (can't rule it out)
+      expect(result).not.toBeNull();
+      expect(result?.matchType).toBe('exact'); // Same date makes it exact
+    });
+
+    it('should flag as similar duplicate if stored has number but new does not', async () => {
+      const extraction = createExtraction({
+        vendor_name: 'Electric Company',
+        invoice_number: null, // No invoice number in new
+        total_amount: 300.0,
+        invoice_date: '2026-02-08',
+      });
+
+      const mockDocs = [
+        {
+          id: '999999_400',
+          data: () => ({
+            chatId: 999999,
+            vendorName: 'Electric Company',
+            invoiceNumber: 'ELEC-2026-001',
+            totalAmount: 300.0,
+            invoiceDate: '2026-02-08',
+            status: 'processed',
+            driveLink: 'https://example.com/invoice4',
+            receivedAt: '2026-02-08T16:00:00Z',
+          }),
+        },
+      ];
+
+      mockGet.mockResolvedValue({ docs: mockDocs });
+
+      const result = await findDuplicateInvoice(chatId, extraction, 'current_job');
+
+      // Should still flag as potential duplicate
+      expect(result).not.toBeNull();
+      expect(result?.matchType).toBe('exact');
+    });
+
+    it('should flag as duplicate if both invoices lack invoice numbers', async () => {
+      const extraction = createExtraction({
+        vendor_name: 'Local Shop',
+        invoice_number: null,
+        total_amount: 45.0,
+        invoice_date: '2026-02-14',
+      });
+
+      const mockDocs = [
+        {
+          id: '999999_500',
+          data: () => ({
+            chatId: 999999,
+            vendorName: 'Local Shop',
+            invoiceNumber: null, // Both lack invoice numbers
+            totalAmount: 45.0,
+            invoiceDate: '2026-02-14',
+            status: 'processed',
+            driveLink: 'https://example.com/invoice5',
+            receivedAt: '2026-02-14T18:00:00Z',
+          }),
+        },
+      ];
+
+      mockGet.mockResolvedValue({ docs: mockDocs });
+
+      const result = await findDuplicateInvoice(chatId, extraction, 'current_job');
+
+      // Should flag as duplicate (can't differentiate without invoice numbers)
+      expect(result).not.toBeNull();
+      expect(result?.matchType).toBe('exact');
+    });
+
+    it('real-world scenario: two coffees same day, different invoice numbers', async () => {
+      const extraction = createExtraction({
+        vendor_name: 'Cafe Hillel',
+        invoice_number: '20260215-002', // Second coffee
+        total_amount: 18.0,
+        invoice_date: '2026-02-15',
+      });
+
+      const mockDocs = [
+        {
+          id: '999999_600',
+          data: () => ({
+            chatId: 999999,
+            vendorName: 'Cafe Hillel',
+            invoiceNumber: '20260215-001', // First coffee
+            totalAmount: 18.0,
+            invoiceDate: '2026-02-15',
+            status: 'processed',
+            driveLink: 'https://example.com/coffee1',
+            receivedAt: '2026-02-15T09:00:00Z',
+          }),
+        },
+      ];
+
+      mockGet.mockResolvedValue({ docs: mockDocs });
+
+      const result = await findDuplicateInvoice(chatId, extraction, 'current_job');
+
+      // Should NOT flag as duplicate - different invoice numbers = different purchases
+      expect(result).toBeNull();
+    });
   });
 });
