@@ -7,6 +7,7 @@
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
   <link rel="stylesheet" href="style.css">
+  <script>(function(){var t=localStorage.getItem('invofox-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
   <style>
     @keyframes spin {
       from {
@@ -483,7 +484,7 @@
   <div class="container">
     <!-- Header -->
     <div class="card" style="margin-bottom: 24px;">
-      <div class="card-header">
+      <div class="card-header" style="direction: ltr;">
         <h2>
           <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -494,7 +495,7 @@
           </svg>
           Document Generator
         </h2>
-        <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">
+        <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px; direction: rtl;">
           ייצור חשבוניות, קבלות וחשבוניות-קבלה
         </p>
       </div>
@@ -1821,5 +1822,6 @@
     // Initial preview render
     updatePreview();
   </script>
+  <script src="/theme.js"></script>
 </body>
 </html>
