@@ -34,6 +34,10 @@ export const RATE_LIMITS_COLLECTION = 'rate_limits';
 export const INVITE_CODES_COLLECTION = 'invite_codes';
 export const PROCESSED_CALLBACKS_COLLECTION = 'processed_callbacks';
 
+// Feature flags collections
+export const FEATURE_FLAGS_COLLECTION = 'feature_flags';
+export const FLAG_AUDIT_LOG_COLLECTION = 'flag_audit_log';
+
 /**
  * Import document type from invoice.types
  * Re-export for convenience
