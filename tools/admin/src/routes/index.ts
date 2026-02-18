@@ -8,6 +8,7 @@ import { ReceiptController } from '../controllers/receipt.controller';
 import { InvoiceController } from '../controllers/invoice.controller';
 import { InvoiceReceiptController } from '../controllers/invoice-receipt.controller';
 import { OffboardingController } from '../offboarding/offboarding.controller';
+import { FeatureFlagsController } from '../controllers/feature-flags.controller';
 import { createHealthRoutes } from './health.routes';
 import { createFirestoreRoutes } from './firestore.routes';
 import { createStorageRoutes } from './storage.routes';
@@ -17,6 +18,7 @@ import { createReceiptRoutes } from './receipt.routes';
 import { createInvoiceRoutes } from './invoice.routes';
 import { createInvoiceReceiptRoutes } from './invoice-receipt.routes';
 import { createOffboardingRoutes } from './offboarding.routes';
+import { createFeatureFlagsRoutes } from './feature-flags.routes';
 
 export function createRoutes(
   firestoreController: FirestoreController,
@@ -27,7 +29,8 @@ export function createRoutes(
   receiptController: ReceiptController,
   invoiceController: InvoiceController,
   invoiceReceiptController: InvoiceReceiptController,
-  offboardingController: OffboardingController
+  offboardingController: OffboardingController,
+  featureFlagsController: FeatureFlagsController
 ): Router {
   const router = Router();
 
@@ -41,6 +44,7 @@ export function createRoutes(
   router.use(createInvoiceRoutes(invoiceController));
   router.use(createInvoiceReceiptRoutes(invoiceReceiptController));
   router.use(createOffboardingRoutes(offboardingController));
+  router.use(createFeatureFlagsRoutes(featureFlagsController));
 
   return router;
 }
