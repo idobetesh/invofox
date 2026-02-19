@@ -41,6 +41,8 @@ import { InvoiceReceiptController } from './src/controllers/invoice-receipt.cont
 import { OffboardingController } from './src/offboarding/offboarding.controller';
 import { FeatureFlagsService } from './src/services/feature-flags.service';
 import { FeatureFlagsController } from './src/controllers/feature-flags.controller';
+import { InvoiceJobsService } from './src/services/invoice-jobs.service';
+import { InvoiceJobsController } from './src/controllers/invoice-jobs.controller';
 import { requireAuth } from './src/middlewares/auth.middleware';
 import { createRoutes } from './src/routes/index';
 
@@ -78,6 +80,7 @@ const offboardingService = new OffboardingService(
   GENERATED_INVOICES_BUCKET
 );
 const featureFlagsService = new FeatureFlagsService(firestore);
+const invoiceJobsService = new InvoiceJobsService(firestore);
 
 // Initialize controllers
 const firestoreController = new FirestoreController(firestoreService);
@@ -90,6 +93,7 @@ const invoiceController = new InvoiceController(invoiceService);
 const invoiceReceiptController = new InvoiceReceiptController(invoiceReceiptService);
 const offboardingController = new OffboardingController(offboardingService);
 const featureFlagsController = new FeatureFlagsController(featureFlagsService);
+const invoiceJobsController = new InvoiceJobsController(invoiceJobsService);
 
 // Middleware
 app.use(express.json());
@@ -131,7 +135,8 @@ app.use(
     invoiceController,
     invoiceReceiptController,
     offboardingController,
-    featureFlagsController
+    featureFlagsController,
+    invoiceJobsController
   )
 );
 
