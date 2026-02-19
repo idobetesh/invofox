@@ -347,6 +347,56 @@ export function buildSheetRow(params: {
   };
 }
 
+/**
+ * Update specific cells in an existing Invoices row (for corrections)
+ * Column mapping (1-indexed): Amount=3(C), InvoiceDate=2(B), VendorName=6(F)
+ */
+export async function updateRow(
+  chatId: number,
+  rowNumber: number,
+  updates: { amount?: string; invoiceDate?: string; vendorName?: string }
+): Promise<void> {
+  const sheetId = await getSheetIdForCustomer(chatId);
+
+  if (!sheetId) {
+    logger.error({ chatId }, 'No Google Sheet configured for customer - cannot update row');
+    throw new Error(`No Google Sheet configured for customer ${chatId}`);
+  }
+
+  const sheets = getSheets();
+
+  const data: sheets_v4.Schema$ValueRange[] = [];
+
+  if (updates.amount !== undefined) {
+    data.push({ range: `Invoices!C${rowNumber}`, values: [[updates.amount]] });
+  }
+
+  if (updates.invoiceDate !== undefined) {
+    data.push({ range: `Invoices!B${rowNumber}`, values: [[updates.invoiceDate]] });
+  }
+
+  if (updates.vendorName !== undefined) {
+    data.push({ range: `Invoices!F${rowNumber}`, values: [[updates.vendorName]] });
+  }
+
+  if (data.length === 0) {
+    return;
+  }
+
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: sheetId,
+    requestBody: {
+      valueInputOption: 'USER_ENTERED',
+      data,
+    },
+  });
+
+  logger.info(
+    { chatId, rowNumber, fields: Object.keys(updates) },
+    'Sheet row updated (correction)'
+  );
+}
+
 // ============================================================================
 // Generated Invoices Tab
 // ============================================================================

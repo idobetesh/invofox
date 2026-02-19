@@ -157,8 +157,158 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
   log.info({ data, botMessageChatId, botMessageId }, 'Processing callback query');
 
   try {
-    // Parse callback data (contains DuplicateDecision)
-    const decision = JSON.parse(data) as DuplicateDecision;
+    const parsed = JSON.parse(data) as { action: string; [key: string]: unknown };
+
+    if (!parsed.action) {
+      throw new Error('Invalid callback payload: missing action');
+    }
+
+    // -----------------------------------------------------------------------
+    // Edit correction flow
+    // -----------------------------------------------------------------------
+    if (parsed.action === 'edit_invoice') {
+      const { jobId, chatId } = parsed as unknown as { jobId: string; chatId: number };
+      await telegramService.answerCallbackQuery(callbackQueryId);
+
+      await telegramService.editMessageText(
+        botMessageChatId,
+        botMessageId,
+        '✏️ What would you like to edit?',
+        {
+          replyMarkup: {
+            inline_keyboard: [
+              [
+                {
+                  text: '💰 Amount',
+                  callback_data: JSON.stringify({
+                    action: 'edit_field',
+                    jobId,
+                    chatId,
+                    field: 'totalAmount',
+                    successMessageId: botMessageId,
+                  }),
+                },
+                {
+                  text: '📅 Date',
+                  callback_data: JSON.stringify({
+                    action: 'edit_field',
+                    jobId,
+                    chatId,
+                    field: 'invoiceDate',
+                    successMessageId: botMessageId,
+                  }),
+                },
+                {
+                  text: '🏢 Vendor',
+                  callback_data: JSON.stringify({
+                    action: 'edit_field',
+                    jobId,
+                    chatId,
+                    field: 'vendorName',
+                    successMessageId: botMessageId,
+                  }),
+                },
+              ],
+              [
+                {
+                  text: '✖ Cancel',
+                  callback_data: JSON.stringify({
+                    action: 'edit_cancel',
+                    jobId,
+                    chatId,
+                    successMessageId: botMessageId,
+                  }),
+                },
+              ],
+            ],
+          },
+        }
+      );
+
+      log.info({ jobId }, 'Edit invoice: field selection shown');
+      res.status(StatusCodes.OK).json({ ok: true, action: 'edit_invoice' });
+      return;
+    }
+
+    if (parsed.action === 'edit_field') {
+      const { jobId, chatId, field, successMessageId } = parsed as unknown as {
+        jobId: string;
+        chatId: number;
+        field: 'totalAmount' | 'invoiceDate' | 'vendorName';
+        successMessageId: number;
+      };
+
+      const fieldLabel =
+        field === 'totalAmount' ? 'amount' : field === 'invoiceDate' ? 'date' : 'vendor name';
+
+      await telegramService.answerCallbackQuery(callbackQueryId);
+
+      const prompt = await telegramService.sendMessage(
+        chatId,
+        `Please enter the correct ${fieldLabel}:`
+      );
+
+      await storeService.setCorrectionPending(
+        jobId,
+        field,
+        prompt.message_id,
+        successMessageId as number
+      );
+
+      log.info({ jobId, field }, 'Correction pending set, ForceReply sent');
+      res.status(StatusCodes.OK).json({ ok: true, action: 'edit_field' });
+      return;
+    }
+
+    if (parsed.action === 'edit_cancel') {
+      const { jobId, chatId, successMessageId } = parsed as unknown as {
+        jobId: string;
+        chatId: number;
+        successMessageId: number;
+      };
+
+      await telegramService.answerCallbackQuery(callbackQueryId);
+
+      // Get the job to rebuild the original success message
+      const jobParts = jobId.split('_');
+      const jobChatId = parseInt(jobParts[0]);
+      const jobMessageId = parseInt(jobParts[1]);
+      const job = await storeService.getJob(jobChatId, jobMessageId);
+
+      if (job) {
+        const originalText = telegramService.formatSuccessMessage(
+          job.invoiceDate || null,
+          job.totalAmount ?? null,
+          job.currency || null,
+          job.driveLink || ''
+        );
+        await telegramService.editMessageText(chatId, successMessageId as number, originalText, {
+          parseMode: 'Markdown',
+          disableWebPagePreview: true,
+          replyMarkup: {
+            inline_keyboard: [
+              [
+                {
+                  text: '✏️ Edit details',
+                  callback_data: JSON.stringify({ action: 'edit_invoice', jobId, chatId }),
+                },
+              ],
+            ],
+          },
+        });
+      }
+
+      await storeService.clearCorrectionPending(jobId);
+
+      log.info({ jobId }, 'Edit cancelled');
+      res.status(StatusCodes.OK).json({ ok: true, action: 'edit_cancel' });
+      return;
+    }
+
+    // -----------------------------------------------------------------------
+    // Duplicate decision flow
+    // -----------------------------------------------------------------------
+    const decision = parsed as unknown as DuplicateDecision;
     const { action, chatId, messageId } = decision;
 
     if (!action || !chatId || !messageId) {

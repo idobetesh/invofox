@@ -13,6 +13,8 @@ import type {
 import type { InvoiceCallbackAction, InvoiceDocumentType } from '../../../../shared/invoice.types';
 import * as sessionService from '../services/document-generator/session.service';
 import { generateInvoice, getGeneratedInvoice } from '../services/document-generator';
+import * as storeService from '../services/firestore.service';
+import * as sheetsService from '../services/sheets.service';
 import * as telegramService from '../services/telegram.service';
 import * as userMappingService from '../services/customer/user-mapping.service';
 import {
@@ -105,6 +107,136 @@ export async function handleInvoiceCommand(req: Request, res: Response): Promise
 }
 
 /**
+ * Handle a pending correction input from the user
+ */
+async function handleCorrectionInput(
+  pendingJob: Awaited<ReturnType<typeof storeService.getCorrectionPendingJob>>,
+  text: string,
+  chatId: number
+): Promise<void> {
+  if (!pendingJob?.correctionPending) {
+    return;
+  }
+
+  const { field, successMessageId } = pendingJob.correctionPending;
+  const jobId = pendingJob.jobId as string;
+
+  // Validate input
+  if (field === 'totalAmount') {
+    const amount = parseFloat(text.replace(/,/g, '.').trim());
+    if (isNaN(amount) || amount <= 0) {
+      await telegramService.sendMessage(
+        chatId,
+        '❌ Invalid amount. Please enter a positive number (e.g. 200 or 1500.50):'
+      );
+      return;
+    }
+    const oldAmount = pendingJob.totalAmount ?? null;
+    await storeService.applyJobCorrection(jobId, { totalAmount: amount });
+    if (pendingJob.sheetRowId) {
+      await sheetsService.updateRow(chatId, pendingJob.sheetRowId, { amount: String(amount) });
+    }
+    const updatedMessage = telegramService.formatSuccessMessage(
+      pendingJob.invoiceDate || null,
+      amount,
+      pendingJob.currency || null,
+      pendingJob.driveLink || ''
+    );
+    await telegramService.editMessageText(
+      chatId,
+      successMessageId,
+      `${updatedMessage}\n\n✏️ _Amount corrected_`,
+      {
+        parseMode: 'Markdown',
+        disableWebPagePreview: true,
+      }
+    );
+    await storeService.clearCorrectionPending(jobId);
+    const oldDisplay =
+      oldAmount !== null ? `${oldAmount} ${pendingJob.currency || ''}`.trim() : '?';
+    await telegramService.sendMessage(
+      chatId,
+      `✅ Amount updated: ${oldDisplay} → ${amount} ${pendingJob.currency || ''}`.trim()
+    );
+    return;
+  }
+
+  if (field === 'invoiceDate') {
+    // Accept DD/MM/YYYY format
+    const dateMatch = text.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!dateMatch) {
+      await telegramService.sendMessage(
+        chatId,
+        '❌ Invalid date format. Please use DD/MM/YYYY (e.g. 15/01/2026):'
+      );
+      return;
+    }
+    const [, day, month, year] = dateMatch;
+    const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    const oldDate = pendingJob.invoiceDate || null;
+    await storeService.applyJobCorrection(jobId, { invoiceDate: isoDate });
+    if (pendingJob.sheetRowId) {
+      await sheetsService.updateRow(chatId, pendingJob.sheetRowId, {
+        invoiceDate: `'${text.trim()}`,
+      });
+    }
+    const updatedMessage = telegramService.formatSuccessMessage(
+      isoDate,
+      pendingJob.totalAmount ?? null,
+      pendingJob.currency || null,
+      pendingJob.driveLink || ''
+    );
+    await telegramService.editMessageText(
+      chatId,
+      successMessageId,
+      `${updatedMessage}\n\n✏️ _Date corrected_`,
+      {
+        parseMode: 'Markdown',
+        disableWebPagePreview: true,
+      }
+    );
+    await storeService.clearCorrectionPending(jobId);
+    const oldDisplay = oldDate ? oldDate.split('T')[0] : '?';
+    await telegramService.sendMessage(chatId, `✅ Date updated: ${oldDisplay} → ${text.trim()}`);
+    return;
+  }
+
+  if (field === 'vendorName') {
+    const name = text.trim();
+    if (!name) {
+      await telegramService.sendMessage(
+        chatId,
+        '❌ Vendor name cannot be empty. Please enter the correct name:'
+      );
+      return;
+    }
+    const oldName = pendingJob.vendorName || null;
+    await storeService.applyJobCorrection(jobId, { vendorName: name });
+    if (pendingJob.sheetRowId) {
+      await sheetsService.updateRow(chatId, pendingJob.sheetRowId, { vendorName: name });
+    }
+    const updatedMessage = telegramService.formatSuccessMessage(
+      pendingJob.invoiceDate || null,
+      pendingJob.totalAmount ?? null,
+      pendingJob.currency || null,
+      pendingJob.driveLink || ''
+    );
+    await telegramService.editMessageText(
+      chatId,
+      successMessageId,
+      `${updatedMessage}\n\n✏️ _Vendor corrected_`,
+      {
+        parseMode: 'Markdown',
+        disableWebPagePreview: true,
+      }
+    );
+    await storeService.clearCorrectionPending(jobId);
+    await telegramService.sendMessage(chatId, `✅ Vendor updated: ${oldName || '?'} → ${name}`);
+    return;
+  }
+}
+
+/**
  * Handle text message during invoice conversation
  */
 export async function handleInvoiceMessage(req: Request, res: Response): Promise<void> {
@@ -118,6 +250,14 @@ export async function handleInvoiceMessage(req: Request, res: Response): Promise
   log.info('Processing invoice message');
 
   try {
+    // Check for pending correction first (edit flow takes priority)
+    const pendingJob = await storeService.getCorrectionPendingJob(payload.chatId);
+    if (pendingJob?.correctionPending) {
+      await handleCorrectionInput(pendingJob, payload.text, payload.chatId);
+      res.status(StatusCodes.OK).json({ ok: true, action: 'correction_handled' });
+      return;
+    }
+
     // Get current session
     const session = await sessionService.getSession(payload.chatId, payload.userId);
 

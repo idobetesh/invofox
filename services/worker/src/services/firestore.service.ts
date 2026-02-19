@@ -232,6 +232,93 @@ export async function getJob(chatId: number, messageId: number): Promise<Invoice
 // Duplicate Detection - Moved to duplicate-detection.service.ts
 // ============================================================================
 
+// ============================================================================
+// Correction Flow Helpers
+// ============================================================================
+
+/**
+ * Find the first processed job for this chatId that has correctionPending set
+ */
+export async function getCorrectionPendingJob(
+  chatId: number
+): Promise<(InvoiceJob & { jobId: string }) | null> {
+  const db = getFirestore();
+  // Query recent jobs for this chatId and filter for correctionPending in memory
+  // to avoid requiring a composite Firestore index
+  const snapshot = await db
+    .collection(INVOICE_JOBS_COLLECTION)
+    .where('telegramChatId', '==', chatId)
+    .limit(30)
+    .get();
+
+  for (const doc of snapshot.docs) {
+    const job = doc.data() as InvoiceJob;
+    if (job.correctionPending) {
+      return { ...job, jobId: doc.id };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Set correctionPending on a job document
+ */
+export async function setCorrectionPending(
+  jobId: string,
+  field: 'totalAmount' | 'invoiceDate' | 'vendorName',
+  promptMessageId: number,
+  successMessageId: number
+): Promise<void> {
+  const db = getFirestore();
+  const docRef = db.collection(INVOICE_JOBS_COLLECTION).doc(jobId);
+
+  await docRef.update({
+    correctionPending: { field, promptMessageId, successMessageId },
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+}
+
+/**
+ * Remove correctionPending from a job document
+ */
+export async function clearCorrectionPending(jobId: string): Promise<void> {
+  const db = getFirestore();
+  const docRef = db.collection(INVOICE_JOBS_COLLECTION).doc(jobId);
+
+  await docRef.update({
+    correctionPending: FieldValue.delete(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+}
+
+/**
+ * Apply a correction to extracted fields in a job document
+ */
+export async function applyJobCorrection(
+  jobId: string,
+  updates: { totalAmount?: number; invoiceDate?: string; vendorName?: string }
+): Promise<void> {
+  const db = getFirestore();
+  const docRef = db.collection(INVOICE_JOBS_COLLECTION).doc(jobId);
+
+  const data: Record<string, unknown> = {
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+
+  if (updates.totalAmount !== undefined) {
+    data.totalAmount = updates.totalAmount;
+  }
+  if (updates.invoiceDate !== undefined) {
+    data.invoiceDate = updates.invoiceDate;
+  }
+  if (updates.vendorName !== undefined) {
+    data.vendorName = updates.vendorName;
+  }
+
+  await docRef.update(data);
+}
+
 /**
  * Store extraction data for duplicate detection
  * Called after successful LLM extraction

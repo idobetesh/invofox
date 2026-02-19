@@ -19,6 +19,7 @@ import * as sheetsService from './sheets.service';
 import * as pdfService from './pdf.service';
 import * as heicService from './heic.service';
 import logger from '../logger';
+import { featureFlags } from './feature-flags';
 
 /**
  * Escape Markdown special characters to prevent injection in Telegram messages
@@ -389,10 +390,23 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
 
     // NOW send the success message (after job is marked complete)
     // If this fails, job won't retry because it's already marked complete
+    const editEnabled = await featureFlags.isEnabled('invoice-correction', { chatId });
     await telegramService.sendMessage(chatId, ackMessage, {
       parseMode: 'Markdown',
       replyToMessageId: messageId,
       disableWebPagePreview: true,
+      ...(editEnabled && {
+        replyMarkup: {
+          inline_keyboard: [
+            [
+              {
+                text: '✏️ Edit details',
+                callback_data: JSON.stringify({ action: 'edit_invoice', jobId, chatId, messageId }),
+              },
+            ],
+          ],
+        },
+      }),
     });
     log.info('ACK message sent');
 
@@ -556,9 +570,28 @@ export async function handleDuplicateDecision(
       existingLink
     );
 
+    const keepBothJobId = storeService.getJobId(chatId, messageId);
+    const keepBothEditEnabled = await featureFlags.isEnabled('invoice-correction', { chatId });
     await telegramService.editMessageText(chatId, botMessageId, resultMessage, {
       parseMode: 'Markdown',
       disableWebPagePreview: true,
+      ...(keepBothEditEnabled && {
+        replyMarkup: {
+          inline_keyboard: [
+            [
+              {
+                text: '✏️ Edit details',
+                callback_data: JSON.stringify({
+                  action: 'edit_invoice',
+                  jobId: keepBothJobId,
+                  chatId,
+                  messageId,
+                }),
+              },
+            ],
+          ],
+        },
+      }),
     });
 
     return { success: true };
