@@ -8,6 +8,7 @@ import * as Firestore from './js/firestore.js';
 import * as Storage from './js/storage.js';
 import * as Customers from './js/customers.js';
 import * as Invites from './js/invites.js';
+import * as InvoiceJobs from './js/invoice-jobs.js';
 
 /**
  * Load status snapshot
@@ -225,6 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Setup module-specific functionality
   Customers.setupCustomerManagement();
   Invites.setupInviteCodesTab();
+  InvoiceJobs.setupInvoiceJobsTab();
 
   // Expose functions to window for onclick handlers in dynamically generated HTML
   window.viewFirestoreDocument = Firestore.viewFirestoreDocument;
@@ -237,6 +239,8 @@ document.addEventListener('DOMContentLoaded', () => {
   window.deleteInviteCode = Invites.deleteInviteCode;
   window.cleanupSession = Invites.cleanupSession;
   window.deleteAll = Invites.deleteAll;
+  window.openInvoiceEditModal = InvoiceJobs.openInvoiceEditModal;
+  window.closeInvoiceEditModal = InvoiceJobs.closeInvoiceEditModal;
 
   // Auto-refresh disabled to save GCP API costs
   // Only loads when user manually refreshes the page (Cmd+R)
