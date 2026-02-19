@@ -133,7 +133,7 @@ function renderTable(jobs) {
       <td>${j.chatTitle || j.chatId || '?'}</td>
       <td>${statusBadge(j.status)}</td>
       <td>
-        ${j.driveLink ? `<a href="${j.driveLink}" target="_blank" style="font-size:0.8rem;">View</a>` : ''}
+        ${j.driveLink && /^https?:\/\//i.test(j.driveLink) ? `<a href="${j.driveLink}" target="_blank" rel="noopener noreferrer" style="font-size:0.8rem;">View</a>` : ''}
       </td>
       <td>
         <button class="btn btn-ghost" style="padding:4px 10px;font-size:0.8rem;" onclick="openInvoiceEditModal('${j.jobId}')">Edit</button>
