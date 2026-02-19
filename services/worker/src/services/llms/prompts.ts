@@ -10,10 +10,11 @@
 /**
  * System prompt for invoice data extraction
  *
- * Version: 3.0.0
- * Last updated: 2026-01-16
+ * Version: 3.1.0
+ * Last updated: 2026-02-19
  *
  * Changelog:
+ * - 3.1.0: Added explicit rule to never use balance/יתרה fields as total_amount (Rav-Kav fix)
  * - 3.0.0: Added prompt injection defenses and document type validation
  * - 2.1.0: Added multi-page PDF support - extract single record from multiple images
  * - 2.0.0: Added automatic category extraction with 10 predefined business categories
@@ -85,6 +86,8 @@ Important notes:
 - If you only see month/year like "12.2025", return it as "01/12/2025" (first day of that month)
 - Always return dates as DD/MM/YYYY format (e.g., "08/12/2025")
 - Look for the TOTAL amount (סה"כ לתשלום, סה"כ כולל מע"מ) - this is usually the final/bottom line amount
+- CRITICAL: NEVER use יתרה (balance), יתרה לאחר טעינה (balance after recharge), or any "remaining balance" field as total_amount. These represent an account balance, NOT what was paid.
+- For transit card / prepaid card recharges (Rav-Kav, Moovit, etc.): use סכום שחויב (charged amount) as total_amount, NOT the resulting card balance.
 - For category: Use vendor name as primary signal. Examples:
   * "מקדונלד" / "McDonald's" / "רולדין" → "Food"
   * "גט טקסי" / "Gett" / "יאנגו" / "Yango" / "פז" / "דלק" / "רבקו" → "Transport"
