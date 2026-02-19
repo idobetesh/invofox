@@ -12,6 +12,9 @@ import type { TaskPayload, DuplicateAction } from '../../../../shared/types';
 jest.mock('../../src/services/invoice.service');
 jest.mock('../../src/services/firestore.service');
 jest.mock('../../src/services/telegram.service');
+jest.mock('../../src/services/feature-flags', () => ({
+  featureFlags: { isEnabled: jest.fn().mockResolvedValue(true) },
+}));
 jest.mock('../../src/middlewares/cloudTasks', () => ({
   validateCloudTasks: jest.fn((req, _res, next) => next()),
   getRetryCount: jest.fn(() => 0),
@@ -234,6 +237,90 @@ describe('Process Controller Integration Tests', () => {
       const response = await request(app).get('/callback');
 
       expect(response.status).toBe(StatusCodes.NOT_FOUND);
+    });
+
+    describe('Edit correction flow', () => {
+      const baseEditPayload = {
+        callbackQueryId: 'cb_edit',
+        botMessageChatId: 123456,
+        botMessageId: 999,
+      };
+
+      it('should handle edit_invoice callback and show field picker', async () => {
+        (telegramService.answerCallbackQuery as jest.Mock).mockResolvedValue(undefined);
+        (telegramService.editMessageText as jest.Mock).mockResolvedValue(undefined);
+
+        const response = await request(app)
+          .post('/callback')
+          .send({
+            ...baseEditPayload,
+            data: JSON.stringify({ action: 'edit_invoice', jobId: '123456_789', chatId: 123456 }),
+          });
+
+        expect(response.status).toBe(StatusCodes.OK);
+        expect(response.body).toEqual({ ok: true, action: 'edit_invoice' });
+        expect(telegramService.answerCallbackQuery).toHaveBeenCalledWith('cb_edit');
+        expect(telegramService.editMessageText).toHaveBeenCalled();
+      });
+
+      it('should handle edit_field callback and set correction pending', async () => {
+        (telegramService.answerCallbackQuery as jest.Mock).mockResolvedValue(undefined);
+        (telegramService.sendMessage as jest.Mock).mockResolvedValue({ message_id: 1001 });
+        (storeService.setCorrectionPending as jest.Mock).mockResolvedValue(undefined);
+
+        const response = await request(app)
+          .post('/callback')
+          .send({
+            ...baseEditPayload,
+            data: JSON.stringify({
+              action: 'edit_field',
+              jobId: '123456_789',
+              chatId: 123456,
+              field: 'totalAmount',
+              successMessageId: 999,
+            }),
+          });
+
+        expect(response.status).toBe(StatusCodes.OK);
+        expect(response.body).toEqual({ ok: true, action: 'edit_field' });
+        expect(storeService.setCorrectionPending).toHaveBeenCalledWith(
+          '123456_789',
+          'totalAmount',
+          1001,
+          999
+        );
+      });
+
+      it('should handle edit_cancel callback and clear correction pending', async () => {
+        (telegramService.answerCallbackQuery as jest.Mock).mockResolvedValue(undefined);
+        (telegramService.editMessageText as jest.Mock).mockResolvedValue(undefined);
+        (telegramService.formatSuccessMessage as jest.Mock).mockReturnValue(
+          'original message text'
+        );
+        (storeService.getJob as jest.Mock).mockResolvedValue({
+          invoiceDate: '2026-01-01',
+          totalAmount: 200,
+          currency: 'ILS',
+          driveLink: 'https://drive.google.com/file/123',
+        });
+        (storeService.clearCorrectionPending as jest.Mock).mockResolvedValue(undefined);
+
+        const response = await request(app)
+          .post('/callback')
+          .send({
+            ...baseEditPayload,
+            data: JSON.stringify({
+              action: 'edit_cancel',
+              jobId: '123456_789',
+              chatId: 123456,
+              successMessageId: 999,
+            }),
+          });
+
+        expect(response.status).toBe(StatusCodes.OK);
+        expect(response.body).toEqual({ ok: true, action: 'edit_cancel' });
+        expect(storeService.clearCorrectionPending).toHaveBeenCalledWith('123456_789');
+      });
     });
   });
 
