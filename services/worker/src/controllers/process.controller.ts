@@ -16,6 +16,7 @@ import type {
 } from '../../../../shared/types';
 import * as telegramService from '../services/telegram.service';
 import { MESSAGES } from '../constants/messages';
+import { t } from '../services/i18n/languages';
 
 /**
  * Process an invoice image
@@ -173,13 +174,13 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
       await telegramService.editMessageText(
         botMessageChatId,
         botMessageId,
-        '✏️ What would you like to edit?',
+        t('he', 'correction.whatToEdit'),
         {
           replyMarkup: {
             inline_keyboard: [
               [
                 {
-                  text: '💰 Amount',
+                  text: t('he', 'correction.btnAmount'),
                   callback_data: JSON.stringify({
                     action: 'edit_field',
                     jobId,
@@ -189,7 +190,7 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
                   }),
                 },
                 {
-                  text: '📅 Date',
+                  text: t('he', 'correction.btnDate'),
                   callback_data: JSON.stringify({
                     action: 'edit_field',
                     jobId,
@@ -199,7 +200,7 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
                   }),
                 },
                 {
-                  text: '🏢 Vendor',
+                  text: t('he', 'correction.btnVendor'),
                   callback_data: JSON.stringify({
                     action: 'edit_field',
                     jobId,
@@ -211,7 +212,7 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
               ],
               [
                 {
-                  text: '✖ Cancel',
+                  text: t('he', 'correction.btnCancel'),
                   callback_data: JSON.stringify({
                     action: 'edit_cancel',
                     jobId,
@@ -238,15 +239,16 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
         successMessageId: number;
       };
 
-      const fieldLabel =
-        field === 'totalAmount' ? 'amount' : field === 'invoiceDate' ? 'date' : 'vendor name';
-
       await telegramService.answerCallbackQuery(callbackQueryId);
 
-      const prompt = await telegramService.sendMessage(
-        chatId,
-        `Please enter the correct ${fieldLabel}:`
-      );
+      const promptText =
+        field === 'totalAmount'
+          ? t('he', 'correction.promptAmount')
+          : field === 'invoiceDate'
+            ? t('he', 'correction.promptDate')
+            : t('he', 'correction.promptVendor');
+
+      const prompt = await telegramService.sendMessage(chatId, promptText);
 
       await storeService.setCorrectionPending(
         jobId,

@@ -209,7 +209,7 @@ describe('Invoice Generator Integration Tests', () => {
         expect(storeService.applyJobCorrection).not.toHaveBeenCalled();
         expect(telegramService.sendMessage).toHaveBeenCalledWith(
           -123456,
-          expect.stringContaining('Invalid amount')
+          expect.stringContaining('סכום לא תקין')
         );
       });
 

@@ -125,10 +125,7 @@ async function handleCorrectionInput(
   if (field === 'totalAmount') {
     const amount = parseFloat(text.replace(/,/g, '.').trim());
     if (isNaN(amount) || amount <= 0) {
-      await telegramService.sendMessage(
-        chatId,
-        '❌ Invalid amount. Please enter a positive number (e.g. 200 or 1500.50):'
-      );
+      await telegramService.sendMessage(chatId, t('he', 'correction.invalidAmount'));
       return;
     }
     const oldAmount = pendingJob.totalAmount ?? null;
@@ -145,18 +142,18 @@ async function handleCorrectionInput(
     await telegramService.editMessageText(
       chatId,
       successMessageId,
-      `${updatedMessage}\n\n✏️ _Amount corrected_`,
-      {
-        parseMode: 'Markdown',
-        disableWebPagePreview: true,
-      }
+      `${updatedMessage}\n\n${t('he', 'correction.amountCorrected')}`,
+      { parseMode: 'Markdown', disableWebPagePreview: true }
     );
     await storeService.clearCorrectionPending(jobId);
     const oldDisplay =
       oldAmount !== null ? `${oldAmount} ${pendingJob.currency || ''}`.trim() : '?';
     await telegramService.sendMessage(
       chatId,
-      `✅ Amount updated: ${oldDisplay} → ${amount} ${pendingJob.currency || ''}`.trim()
+      t('he', 'correction.amountUpdated', {
+        old: oldDisplay,
+        new: `${amount} ${pendingJob.currency || ''}`.trim(),
+      })
     );
     return;
   }
@@ -165,10 +162,7 @@ async function handleCorrectionInput(
     // Accept DD/MM/YYYY format
     const dateMatch = text.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
     if (!dateMatch) {
-      await telegramService.sendMessage(
-        chatId,
-        '❌ Invalid date format. Please use DD/MM/YYYY (e.g. 15/01/2026):'
-      );
+      await telegramService.sendMessage(chatId, t('he', 'correction.invalidDate'));
       return;
     }
     const [, day, month, year] = dateMatch;
@@ -189,25 +183,22 @@ async function handleCorrectionInput(
     await telegramService.editMessageText(
       chatId,
       successMessageId,
-      `${updatedMessage}\n\n✏️ _Date corrected_`,
-      {
-        parseMode: 'Markdown',
-        disableWebPagePreview: true,
-      }
+      `${updatedMessage}\n\n${t('he', 'correction.dateCorrected')}`,
+      { parseMode: 'Markdown', disableWebPagePreview: true }
     );
     await storeService.clearCorrectionPending(jobId);
     const oldDisplay = oldDate ? oldDate.split('T')[0] : '?';
-    await telegramService.sendMessage(chatId, `✅ Date updated: ${oldDisplay} → ${text.trim()}`);
+    await telegramService.sendMessage(
+      chatId,
+      t('he', 'correction.dateUpdated', { old: oldDisplay, new: text.trim() })
+    );
     return;
   }
 
   if (field === 'vendorName') {
     const name = text.trim();
     if (!name) {
-      await telegramService.sendMessage(
-        chatId,
-        '❌ Vendor name cannot be empty. Please enter the correct name:'
-      );
+      await telegramService.sendMessage(chatId, t('he', 'correction.invalidVendor'));
       return;
     }
     const oldName = pendingJob.vendorName || null;
@@ -224,14 +215,14 @@ async function handleCorrectionInput(
     await telegramService.editMessageText(
       chatId,
       successMessageId,
-      `${updatedMessage}\n\n✏️ _Vendor corrected_`,
-      {
-        parseMode: 'Markdown',
-        disableWebPagePreview: true,
-      }
+      `${updatedMessage}\n\n${t('he', 'correction.vendorCorrected')}`,
+      { parseMode: 'Markdown', disableWebPagePreview: true }
     );
     await storeService.clearCorrectionPending(jobId);
-    await telegramService.sendMessage(chatId, `✅ Vendor updated: ${oldName || '?'} → ${name}`);
+    await telegramService.sendMessage(
+      chatId,
+      t('he', 'correction.vendorUpdated', { old: oldName || '?', new: name })
+    );
     return;
   }
 }

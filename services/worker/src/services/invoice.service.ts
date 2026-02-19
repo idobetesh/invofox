@@ -20,6 +20,7 @@ import * as pdfService from './pdf.service';
 import * as heicService from './heic.service';
 import logger from '../logger';
 import { featureFlags } from './feature-flags';
+import { t } from './i18n/languages';
 
 /**
  * Escape Markdown special characters to prevent injection in Telegram messages
@@ -400,7 +401,7 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
           inline_keyboard: [
             [
               {
-                text: '✏️ Edit details',
+                text: t('he', 'correction.editButton'),
                 callback_data: JSON.stringify({ action: 'edit_invoice', jobId, chatId, messageId }),
               },
             ],
@@ -580,7 +581,7 @@ export async function handleDuplicateDecision(
           inline_keyboard: [
             [
               {
-                text: '✏️ Edit details',
+                text: t('he', 'correction.editButton'),
                 callback_data: JSON.stringify({
                   action: 'edit_invoice',
                   jobId: keepBothJobId,
