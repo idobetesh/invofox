@@ -18,6 +18,7 @@ import { FEATURE_FLAGS_COLLECTION } from '../collections';
 
 export class FeatureFlagsService {
   private cache: Map<string, FlagConfig> = new Map();
+  private unsubscribeSync?: () => void;
 
   constructor(private db: Firestore) {
     this.initializeRealTimeSync();
@@ -175,7 +176,7 @@ export class FeatureFlagsService {
    * Any flag change in Firestore is reflected in <1s.
    */
   private initializeRealTimeSync(): void {
-    this.db.collection(FEATURE_FLAGS_COLLECTION).onSnapshot(
+    this.unsubscribeSync = this.db.collection(FEATURE_FLAGS_COLLECTION).onSnapshot(
       (snapshot) => {
         snapshot.docChanges().forEach((change) => {
           const flagKey = change.doc.id;
@@ -192,5 +193,13 @@ export class FeatureFlagsService {
         console.error('[FeatureFlags] Real-time sync error:', error);
       }
     );
+  }
+
+  /**
+   * Unsubscribes the real-time Firestore listener.
+   * Call this when the service instance is no longer needed (e.g. in tests).
+   */
+  dispose(): void {
+    this.unsubscribeSync?.();
   }
 }

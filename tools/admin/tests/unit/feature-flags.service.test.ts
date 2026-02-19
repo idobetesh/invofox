@@ -320,6 +320,44 @@ describe('archiveFlag', () => {
   });
 });
 
+// --- getAuditLog ---
+
+describe('getAuditLog', () => {
+  it('returns sorted audit entries for a flag', async () => {
+    const entries = [
+      { flagKey: 'my-flag', action: 'toggled', timestamp: { toMillis: () => 2000 } },
+      { flagKey: 'my-flag', action: 'created', timestamp: { toMillis: () => 1000 } },
+    ];
+    mockWhereGet.mockResolvedValue({ docs: entries.map((e) => ({ data: () => e })) });
+
+    const svc = makeService();
+    const result = await svc.getAuditLog('my-flag');
+
+    expect(mockWhereGet).toHaveBeenCalledTimes(1);
+    // Most recent first
+    expect(result[0].action).toBe('toggled');
+    expect(result[1].action).toBe('created');
+  });
+
+  it('returns empty array when no entries exist', async () => {
+    mockWhereGet.mockResolvedValue({ docs: [] });
+
+    const svc = makeService();
+    const result = await svc.getAuditLog('my-flag');
+
+    expect(result).toHaveLength(0);
+  });
+
+  it('throws a descriptive error on Firestore failure', async () => {
+    mockWhereGet.mockRejectedValue(new Error('Firestore unavailable'));
+
+    const svc = makeService();
+    await expect(svc.getAuditLog('my-flag')).rejects.toThrow(
+      "Failed to fetch audit log for flag 'my-flag'"
+    );
+  });
+});
+
 // --- deleteFlag ---
 
 describe('deleteFlag', () => {

@@ -96,6 +96,29 @@ export class FeatureFlagsController {
         });
         return;
       }
+      if (targets?.percentage !== undefined) {
+        const pct = targets.percentage;
+        if (typeof pct !== 'number' || pct < 0 || pct > 100) {
+          res.status(StatusCodes.BAD_REQUEST).json({
+            error: 'targets.percentage must be a number between 0 and 100',
+          });
+          return;
+        }
+      }
+
+      if (variants !== undefined) {
+        const variantValues = Object.values(variants as Record<string, { weight: number }>);
+        const allValidWeights = variantValues.every(
+          (v) => typeof v.weight === 'number' && v.weight >= 0
+        );
+        const weightSum = variantValues.reduce((acc, v) => acc + (v.weight ?? 0), 0);
+        if (!allValidWeights || Math.abs(weightSum - 100) > 0.01) {
+          res.status(StatusCodes.BAD_REQUEST).json({
+            error: 'variant weights must be non-negative numbers summing to 100',
+          });
+          return;
+        }
+      }
 
       const flag = await this.featureFlagsService.createFlag({
         key,
@@ -129,6 +152,29 @@ export class FeatureFlagsController {
           error: `description must be ${FLAG_DESCRIPTION_MAX_LENGTH} characters or fewer`,
         });
         return;
+      }
+      if (targets?.percentage !== undefined) {
+        const pct = targets.percentage;
+        if (typeof pct !== 'number' || pct < 0 || pct > 100) {
+          res.status(StatusCodes.BAD_REQUEST).json({
+            error: 'targets.percentage must be a number between 0 and 100',
+          });
+          return;
+        }
+      }
+
+      if (variants !== undefined) {
+        const variantValues = Object.values(variants as Record<string, { weight: number }>);
+        const allValidWeights = variantValues.every(
+          (v) => typeof v.weight === 'number' && v.weight >= 0
+        );
+        const weightSum = variantValues.reduce((acc, v) => acc + (v.weight ?? 0), 0);
+        if (!allValidWeights || Math.abs(weightSum - 100) > 0.01) {
+          res.status(StatusCodes.BAD_REQUEST).json({
+            error: 'variant weights must be non-negative numbers summing to 100',
+          });
+          return;
+        }
       }
 
       const flag = await this.featureFlagsService.updateFlag(key, {

@@ -31,20 +31,18 @@ function makeApp(svcOverrides: Partial<FeatureFlagsService> = {}) {
   Object.assign(svc, {
     listFlags: jest.fn().mockResolvedValue([]),
     getFlag: jest.fn().mockResolvedValue(null),
-    createFlag: jest
-      .fn()
-      .mockResolvedValue({
-        key: 'test',
-        description: 'Test',
-        type: 'boolean',
-        enabled: false,
-        defaultValue: false,
-        archived: false,
-        targets: {},
-        prerequisites: {},
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }),
+    createFlag: jest.fn().mockResolvedValue({
+      key: 'test',
+      description: 'Test',
+      type: 'boolean',
+      enabled: false,
+      defaultValue: false,
+      archived: false,
+      targets: {},
+      prerequisites: {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }),
     updateFlag: jest.fn().mockResolvedValue({}),
     toggleFlag: jest.fn().mockResolvedValue({ key: 'test', enabled: true }),
     archiveFlag: jest.fn().mockResolvedValue(undefined),
@@ -291,5 +289,43 @@ describe('DELETE /api/feature-flags/:key', () => {
     const res = await request(app).delete('/api/feature-flags/my-flag');
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/feature-flags/:key/audit
+// ---------------------------------------------------------------------------
+
+describe('GET /api/feature-flags/:key/audit', () => {
+  it('returns 200 with audit entries', async () => {
+    const entries = [
+      { flagKey: 'my-flag', action: 'created', timestamp: new Date() },
+      { flagKey: 'my-flag', action: 'toggled', timestamp: new Date() },
+    ];
+    const { app } = makeApp({ getAuditLog: jest.fn().mockResolvedValue(entries) });
+    const res = await request(app).get('/api/feature-flags/my-flag/audit');
+
+    expect(res.status).toBe(200);
+    expect(res.body.entries).toHaveLength(2);
+    expect(res.body.total).toBe(2);
+  });
+
+  it('returns 200 with empty entries when no history', async () => {
+    const { app } = makeApp({ getAuditLog: jest.fn().mockResolvedValue([]) });
+    const res = await request(app).get('/api/feature-flags/my-flag/audit');
+
+    expect(res.status).toBe(200);
+    expect(res.body.entries).toHaveLength(0);
+    expect(res.body.total).toBe(0);
+  });
+
+  it('returns 500 on service error', async () => {
+    const { app } = makeApp({
+      getAuditLog: jest.fn().mockRejectedValue(new Error('Firestore unavailable')),
+    });
+    const res = await request(app).get('/api/feature-flags/my-flag/audit');
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toMatch(/audit log/i);
   });
 });

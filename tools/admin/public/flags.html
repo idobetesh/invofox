@@ -297,6 +297,16 @@
 
   <script>
     const API = '/api/feature-flags';
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     let allFlags = [];
 
     async function api(path, options = {}) {
@@ -353,7 +363,12 @@
         allFlags = flags;
         filterFlags();
       } catch (e) {
-        list.innerHTML = `<div class="empty-state" style="color:var(--danger)">${e.message}</div>`;
+        const errDiv = document.createElement('div');
+        errDiv.className = 'empty-state';
+        errDiv.style.color = 'var(--danger)';
+        errDiv.textContent = e.message;
+        list.innerHTML = '';
+        list.appendChild(errDiv);
       }
     }
 
@@ -371,7 +386,7 @@
 
       if (!visible.length) {
         list.innerHTML = q
-          ? `<div class="empty-state">No flags match "<strong>${q}</strong>".</div>`
+          ? `<div class="empty-state">No flags match "<strong>${escapeHtml(q)}</strong>".</div>`
           : '<div class="empty-state">No flags yet. Create one above.</div>';
         return;
       }
@@ -388,7 +403,7 @@
           </div>
           <div class="flag-info">
             <div class="flag-key">${flag.key}</div>
-            <div class="flag-name">${flag.description || ''}</div>
+            <div class="flag-name">${escapeHtml(flag.description)}</div>
             <div class="flag-meta">
               ${typeTag(flag.type)}
               ${flag.archived ? '<span class="flag-tag tag-archived">archived</span>' : ''}
@@ -582,7 +597,7 @@
       if (action === 'created' && next && typeof next === 'object') {
         const { description, type, enabled } = next;
         return [
-          description ? `desc: ${description}` : '',
+          description ? `desc: ${escapeHtml(description)}` : '',
           type ? `type: ${type}` : '',
           `enabled: ${enabled}`,
         ].filter(Boolean).join(' · ');
@@ -590,7 +605,7 @@
       if (action === 'updated' && next && typeof next === 'object') {
         return Object.entries(next)
           .filter(([k]) => k !== 'updatedAt')
-          .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
+          .map(([k, v]) => `${escapeHtml(k)}: ${escapeHtml(JSON.stringify(v))}`)
           .join(' · ');
       }
       return '';

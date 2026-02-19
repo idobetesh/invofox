@@ -201,15 +201,20 @@ export class FeatureFlagsService {
    * sorted by timestamp in memory to avoid a composite index.
    */
   async getAuditLog(key: string): Promise<AuditLogEntry[]> {
-    const snapshot = await this.db
-      .collection(FLAG_AUDIT_LOG_COLLECTION)
-      .where('flagKey', '==', key)
-      .limit(50)
-      .get();
+    try {
+      const snapshot = await this.db
+        .collection(FLAG_AUDIT_LOG_COLLECTION)
+        .where('flagKey', '==', key)
+        .limit(50)
+        .get();
 
-    return snapshot.docs
-      .map((doc) => doc.data() as AuditLogEntry)
-      .sort((a, b) => toMillis(b.timestamp) - toMillis(a.timestamp));
+      return snapshot.docs
+        .map((doc) => doc.data() as AuditLogEntry)
+        .sort((a, b) => toMillis(b.timestamp) - toMillis(a.timestamp));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      throw new Error(`Failed to fetch audit log for flag '${key}': ${message}`);
+    }
   }
 
   private invalidateCache(): void {
