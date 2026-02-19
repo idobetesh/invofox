@@ -158,19 +158,36 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
   log.info({ data, botMessageChatId, botMessageId }, 'Processing callback query');
 
   try {
-    const parsed = JSON.parse(data) as { action: string; [key: string]: unknown };
+    const parsed = JSON.parse(data) as Record<string, unknown>;
 
-    if (!parsed.action) {
+    // Support both compact keys (a/j/f/s) and legacy full keys (action/jobId/field/successMessageId)
+    const COMPACT_ACTIONS: Record<string, string> = {
+      ei: 'edit_invoice',
+      ef: 'edit_field',
+      ec: 'edit_cancel',
+    };
+    const COMPACT_FIELDS: Record<string, string> = {
+      amt: 'totalAmount',
+      dat: 'invoiceDate',
+      vnd: 'vendorName',
+    };
+    const resolvedAction = COMPACT_ACTIONS[parsed.a as string] ?? (parsed.action as string);
+
+    if (!resolvedAction) {
       throw new Error('Invalid callback payload: missing action');
     }
 
     // -----------------------------------------------------------------------
     // Edit correction flow
     // -----------------------------------------------------------------------
-    if (parsed.action === 'edit_invoice') {
-      const { jobId, chatId } = parsed as unknown as { jobId: string; chatId: number };
-      await telegramService.answerCallbackQuery(callbackQueryId);
+    if (resolvedAction === 'edit_invoice') {
+      const jobId = (parsed.j ?? parsed.jobId) as string | undefined;
+      if (!jobId || typeof jobId !== 'string') {
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Missing jobId' });
+        return;
+      }
 
+      await telegramService.answerCallbackQuery(callbackQueryId);
       await telegramService.editMessageText(
         botMessageChatId,
         botMessageId,
@@ -181,44 +198,21 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
               [
                 {
                   text: t('he', 'correction.btnAmount'),
-                  callback_data: JSON.stringify({
-                    action: 'edit_field',
-                    jobId,
-                    chatId,
-                    field: 'totalAmount',
-                    successMessageId: botMessageId,
-                  }),
+                  callback_data: JSON.stringify({ a: 'ef', j: jobId, f: 'amt', s: botMessageId }),
                 },
                 {
                   text: t('he', 'correction.btnDate'),
-                  callback_data: JSON.stringify({
-                    action: 'edit_field',
-                    jobId,
-                    chatId,
-                    field: 'invoiceDate',
-                    successMessageId: botMessageId,
-                  }),
+                  callback_data: JSON.stringify({ a: 'ef', j: jobId, f: 'dat', s: botMessageId }),
                 },
                 {
                   text: t('he', 'correction.btnVendor'),
-                  callback_data: JSON.stringify({
-                    action: 'edit_field',
-                    jobId,
-                    chatId,
-                    field: 'vendorName',
-                    successMessageId: botMessageId,
-                  }),
+                  callback_data: JSON.stringify({ a: 'ef', j: jobId, f: 'vnd', s: botMessageId }),
                 },
               ],
               [
                 {
                   text: t('he', 'correction.btnCancel'),
-                  callback_data: JSON.stringify({
-                    action: 'edit_cancel',
-                    jobId,
-                    chatId,
-                    successMessageId: botMessageId,
-                  }),
+                  callback_data: JSON.stringify({ a: 'ec', j: jobId, s: botMessageId }),
                 },
               ],
             ],
@@ -231,13 +225,24 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
       return;
     }
 
-    if (parsed.action === 'edit_field') {
-      const { jobId, chatId, field, successMessageId } = parsed as unknown as {
-        jobId: string;
-        chatId: number;
-        field: 'totalAmount' | 'invoiceDate' | 'vendorName';
-        successMessageId: number;
-      };
+    if (resolvedAction === 'edit_field') {
+      const jobId = (parsed.j ?? parsed.jobId) as string | undefined;
+      const fieldAbbrev = parsed.f as string | undefined;
+      const field = (COMPACT_FIELDS[fieldAbbrev ?? ''] ?? parsed.field) as string | undefined;
+      const successMessageId = (parsed.s ?? parsed.successMessageId) as number | undefined;
+
+      if (!jobId || typeof jobId !== 'string') {
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Missing jobId' });
+        return;
+      }
+      if (!field || !['totalAmount', 'invoiceDate', 'vendorName'].includes(field)) {
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid or missing field' });
+        return;
+      }
+      if (successMessageId === undefined || typeof successMessageId !== 'number') {
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Missing successMessageId' });
+        return;
+      }
 
       await telegramService.answerCallbackQuery(callbackQueryId);
 
@@ -248,13 +253,14 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
             ? t('he', 'correction.promptDate')
             : t('he', 'correction.promptVendor');
 
-      const prompt = await telegramService.sendMessage(chatId, promptText);
+      // Use botMessageChatId from the request (not client-controlled chatId from callback_data)
+      const prompt = await telegramService.sendMessage(botMessageChatId, promptText);
 
       await storeService.setCorrectionPending(
         jobId,
-        field,
+        field as 'totalAmount' | 'invoiceDate' | 'vendorName',
         prompt.message_id,
-        successMessageId as number
+        successMessageId
       );
 
       log.info({ jobId, field }, 'Correction pending set, ForceReply sent');
@@ -262,16 +268,22 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
       return;
     }
 
-    if (parsed.action === 'edit_cancel') {
-      const { jobId, chatId, successMessageId } = parsed as unknown as {
-        jobId: string;
-        chatId: number;
-        successMessageId: number;
-      };
+    if (resolvedAction === 'edit_cancel') {
+      const jobId = (parsed.j ?? parsed.jobId) as string | undefined;
+      const successMessageId = (parsed.s ?? parsed.successMessageId) as number | undefined;
+
+      if (!jobId || typeof jobId !== 'string') {
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Missing jobId' });
+        return;
+      }
+      if (successMessageId === undefined || typeof successMessageId !== 'number') {
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Missing successMessageId' });
+        return;
+      }
 
       await telegramService.answerCallbackQuery(callbackQueryId);
 
-      // Get the job to rebuild the original success message
+      // Derive chatId/messageId from jobId to look up the job
       const jobParts = jobId.split('_');
       const jobChatId = parseInt(jobParts[0]);
       const jobMessageId = parseInt(jobParts[1]);
@@ -284,7 +296,8 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
           job.currency || null,
           job.driveLink || ''
         );
-        await telegramService.editMessageText(chatId, successMessageId as number, originalText, {
+        // Use botMessageChatId from the request (not client-controlled chatId from callback_data)
+        await telegramService.editMessageText(botMessageChatId, successMessageId, originalText, {
           parseMode: 'Markdown',
           disableWebPagePreview: true,
           replyMarkup: {
@@ -292,7 +305,7 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
               [
                 {
                   text: t('he', 'correction.editButton'),
-                  callback_data: JSON.stringify({ action: 'edit_invoice', jobId, chatId }),
+                  callback_data: JSON.stringify({ a: 'ei', j: jobId }),
                 },
               ],
             ],

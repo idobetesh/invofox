@@ -28,8 +28,13 @@ export async function handleCorrectionInput(
   const log = logger.child({ jobId, field, chatId });
 
   if (field === 'totalAmount') {
-    const amount = parseFloat(text.replace(/,/g, '.').trim());
-    if (isNaN(amount) || amount <= 0) {
+    const normalizedText = text.trim();
+    if (!/^\d+(\.\d+)?$/.test(normalizedText)) {
+      await telegramService.sendMessage(chatId, t('he', 'correction.invalidAmount'));
+      return;
+    }
+    const amount = parseFloat(normalizedText);
+    if (amount <= 0) {
       await telegramService.sendMessage(chatId, t('he', 'correction.invalidAmount'));
       return;
     }
@@ -61,7 +66,7 @@ export async function handleCorrectionInput(
               [
                 {
                   text: t('he', 'correction.editButton'),
-                  callback_data: JSON.stringify({ action: 'edit_invoice', jobId, chatId }),
+                  callback_data: JSON.stringify({ a: 'ei', j: jobId }),
                 },
               ],
             ],
@@ -133,7 +138,7 @@ export async function handleCorrectionInput(
               [
                 {
                   text: t('he', 'correction.editButton'),
-                  callback_data: JSON.stringify({ action: 'edit_invoice', jobId, chatId }),
+                  callback_data: JSON.stringify({ a: 'ei', j: jobId }),
                 },
               ],
             ],
@@ -185,7 +190,7 @@ export async function handleCorrectionInput(
               [
                 {
                   text: t('he', 'correction.editButton'),
-                  callback_data: JSON.stringify({ action: 'edit_invoice', jobId, chatId }),
+                  callback_data: JSON.stringify({ a: 'ei', j: jobId }),
                 },
               ],
             ],

@@ -12,6 +12,10 @@ import type {
 import logger from '../logger';
 
 import { INVOICE_JOBS_COLLECTION } from '../../../../shared/collections';
+
+// Dedicated index collection: one doc per chatId → { jobId }
+// Provides O(1) lookup without requiring a composite Firestore index
+const CORRECTION_PENDING_INDEX_COLLECTION = 'invoice_correction_pending_index';
 const STALE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
 
 let firestore: Firestore | null = null;
@@ -237,32 +241,53 @@ export async function getJob(chatId: number, messageId: number): Promise<Invoice
 // ============================================================================
 
 /**
- * Find the first processed job for this chatId that has correctionPending set
+ * Find the job with correctionPending for this chatId.
+ * Uses a dedicated index document for O(1) lookup (no composite index required).
  */
 export async function getCorrectionPendingJob(
   chatId: number
 ): Promise<(InvoiceJob & { jobId: string }) | null> {
   const db = getFirestore();
-  // Query recent jobs for this chatId and filter for correctionPending in memory
-  // to avoid requiring a composite Firestore index
-  const snapshot = await db
-    .collection(INVOICE_JOBS_COLLECTION)
-    .where('telegramChatId', '==', chatId)
-    .limit(30)
+
+  // Read the index doc to get the jobId directly
+  const indexDoc = await db
+    .collection(CORRECTION_PENDING_INDEX_COLLECTION)
+    .doc(String(chatId))
     .get();
 
-  for (const doc of snapshot.docs) {
-    const job = doc.data() as InvoiceJob;
-    if (job.correctionPending) {
-      return { ...job, jobId: doc.id };
-    }
+  if (!indexDoc.exists) {
+    return null;
   }
 
-  return null;
+  const { jobId } = indexDoc.data() as { jobId: string };
+  const jobDoc = await db.collection(INVOICE_JOBS_COLLECTION).doc(jobId).get();
+
+  if (!jobDoc.exists) {
+    // Index is stale — clean it up silently
+    await db
+      .collection(CORRECTION_PENDING_INDEX_COLLECTION)
+      .doc(String(chatId))
+      .delete()
+      .catch(() => {});
+    return null;
+  }
+
+  const job = jobDoc.data() as InvoiceJob;
+  if (!job.correctionPending) {
+    // Job no longer has correctionPending — clean up stale index
+    await db
+      .collection(CORRECTION_PENDING_INDEX_COLLECTION)
+      .doc(String(chatId))
+      .delete()
+      .catch(() => {});
+    return null;
+  }
+
+  return { ...job, jobId: jobDoc.id };
 }
 
 /**
- * Set correctionPending on a job document
+ * Set correctionPending on a job document and update the chatId index.
  */
 export async function setCorrectionPending(
   jobId: string,
@@ -277,10 +302,16 @@ export async function setCorrectionPending(
     correctionPending: { field, promptMessageId, successMessageId },
     updatedAt: FieldValue.serverTimestamp(),
   });
+
+  // Write index: chatId → jobId for fast lookup
+  const chatId = parseInt(jobId.split('_')[0], 10);
+  if (!isNaN(chatId)) {
+    await db.collection(CORRECTION_PENDING_INDEX_COLLECTION).doc(String(chatId)).set({ jobId });
+  }
 }
 
 /**
- * Remove correctionPending from a job document
+ * Remove correctionPending from a job document and delete the chatId index entry.
  */
 export async function clearCorrectionPending(jobId: string): Promise<void> {
   const db = getFirestore();
@@ -290,6 +321,15 @@ export async function clearCorrectionPending(jobId: string): Promise<void> {
     correctionPending: FieldValue.delete(),
     updatedAt: FieldValue.serverTimestamp(),
   });
+
+  // Remove index entry (fire-and-forget — non-critical)
+  const chatId = parseInt(jobId.split('_')[0], 10);
+  if (!isNaN(chatId)) {
+    db.collection(CORRECTION_PENDING_INDEX_COLLECTION)
+      .doc(String(chatId))
+      .delete()
+      .catch(() => {});
+  }
 }
 
 /**

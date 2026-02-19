@@ -391,7 +391,15 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
 
     // NOW send the success message (after job is marked complete)
     // If this fails, job won't retry because it's already marked complete
-    const editEnabled = await featureFlags.isEnabled('invoice-correction', { chatId });
+    let editEnabled = false;
+    try {
+      editEnabled = await featureFlags.isEnabled('invoice-correction', { chatId });
+    } catch (err) {
+      logger.warn(
+        { err, chatId },
+        'Feature flag lookup failed, defaulting invoice-correction to disabled'
+      );
+    }
     await telegramService.sendMessage(chatId, ackMessage, {
       parseMode: 'Markdown',
       replyToMessageId: messageId,
@@ -402,7 +410,7 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
             [
               {
                 text: t('he', 'correction.editButton'),
-                callback_data: JSON.stringify({ action: 'edit_invoice', jobId, chatId, messageId }),
+                callback_data: JSON.stringify({ a: 'ei', j: jobId }),
               },
             ],
           ],
@@ -572,7 +580,15 @@ export async function handleDuplicateDecision(
     );
 
     const keepBothJobId = storeService.getJobId(chatId, messageId);
-    const keepBothEditEnabled = await featureFlags.isEnabled('invoice-correction', { chatId });
+    let keepBothEditEnabled = false;
+    try {
+      keepBothEditEnabled = await featureFlags.isEnabled('invoice-correction', { chatId });
+    } catch (err) {
+      logger.warn(
+        { err, chatId },
+        'Feature flag lookup failed, defaulting invoice-correction to disabled'
+      );
+    }
     await telegramService.editMessageText(chatId, botMessageId, resultMessage, {
       parseMode: 'Markdown',
       disableWebPagePreview: true,
@@ -582,12 +598,7 @@ export async function handleDuplicateDecision(
             [
               {
                 text: t('he', 'correction.editButton'),
-                callback_data: JSON.stringify({
-                  action: 'edit_invoice',
-                  jobId: keepBothJobId,
-                  chatId,
-                  messageId,
-                }),
+                callback_data: JSON.stringify({ a: 'ei', j: keepBothJobId }),
               },
             ],
           ],

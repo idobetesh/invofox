@@ -321,6 +321,86 @@ describe('Process Controller Integration Tests', () => {
         expect(response.body).toEqual({ ok: true, action: 'edit_cancel' });
         expect(storeService.clearCorrectionPending).toHaveBeenCalledWith('123456_789');
       });
+
+      it('should handle edit_cancel gracefully when job is not found', async () => {
+        (telegramService.answerCallbackQuery as jest.Mock).mockResolvedValue(undefined);
+        (storeService.getJob as jest.Mock).mockResolvedValue(null);
+        (storeService.clearCorrectionPending as jest.Mock).mockResolvedValue(undefined);
+
+        const response = await request(app)
+          .post('/callback')
+          .send({
+            ...baseEditPayload,
+            data: JSON.stringify({
+              action: 'edit_cancel',
+              jobId: '123456_789',
+              chatId: 123456,
+              successMessageId: 999,
+            }),
+          });
+
+        expect(response.status).toBe(StatusCodes.OK);
+        expect(response.body).toEqual({ ok: true, action: 'edit_cancel' });
+        expect(storeService.clearCorrectionPending).toHaveBeenCalledWith('123456_789');
+        expect(telegramService.editMessageText).not.toHaveBeenCalled();
+      });
+
+      describe('Required field validation', () => {
+        it('should reject edit_invoice without jobId', async () => {
+          const response = await request(app)
+            .post('/callback')
+            .send({
+              ...baseEditPayload,
+              data: JSON.stringify({ a: 'ei' }), // missing j
+            });
+
+          expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+        });
+
+        it('should reject edit_field without field', async () => {
+          const response = await request(app)
+            .post('/callback')
+            .send({
+              ...baseEditPayload,
+              data: JSON.stringify({ a: 'ef', j: '123456_789', s: 999 }), // missing f
+            });
+
+          expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+        });
+
+        it('should reject edit_field with invalid field value', async () => {
+          const response = await request(app)
+            .post('/callback')
+            .send({
+              ...baseEditPayload,
+              data: JSON.stringify({ a: 'ef', j: '123456_789', f: 'invalid', s: 999 }),
+            });
+
+          expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+        });
+
+        it('should reject edit_field without successMessageId', async () => {
+          const response = await request(app)
+            .post('/callback')
+            .send({
+              ...baseEditPayload,
+              data: JSON.stringify({ a: 'ef', j: '123456_789', f: 'amt' }), // missing s
+            });
+
+          expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+        });
+
+        it('should reject edit_cancel without successMessageId', async () => {
+          const response = await request(app)
+            .post('/callback')
+            .send({
+              ...baseEditPayload,
+              data: JSON.stringify({ a: 'ec', j: '123456_789' }), // missing s
+            });
+
+          expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+        });
+      });
     });
   });
 
