@@ -1,3 +1,9 @@
+/* ============================================================
+ * Themes
+ * Default (dark) lives in :root.
+ * Light overrides live in html[data-theme="light"].
+ * ============================================================ */
+
 /* Modern CSS Variables - Dark Theme */
 :root {
   --primary: #818cf8;
@@ -27,6 +33,79 @@
   --radius: 8px;
   --radius-lg: 12px;
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --overlay-bg: rgba(0, 0, 0, 0.6);
+}
+
+/* Light Theme */
+html[data-theme="light"] {
+  --primary: #6366f1;
+  --primary-dark: #4f46e5;
+  --primary-light: #818cf8;
+  --primary-glow: rgba(99, 102, 241, 0.2);
+  --danger: #dc2626;
+  --danger-dark: #b91c1c;
+  --danger-glow: rgba(220, 38, 38, 0.2);
+  --success: #059669;
+  --warning: #d97706;
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-tertiary: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-hover: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+  --border-light: #cbd5e1;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --overlay-bg: rgba(0, 0, 0, 0.35);
+}
+
+/* Light mode: hardcoded value overrides */
+html[data-theme="light"] body {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #f8fafc 100%);
+}
+
+html[data-theme="light"] .json-viewer,
+html[data-theme="light"] .json-editor {
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+html[data-theme="light"] .json-viewer::-webkit-scrollbar-track { background: #f1f5f9; }
+html[data-theme="light"] .json-viewer::-webkit-scrollbar-thumb { background: #94a3b8; }
+
+html[data-theme="light"] .modal-backdrop { background: rgba(0, 0, 0, 0.35); }
+html[data-theme="light"] .ff-overlay    { background: rgba(0, 0, 0, 0.35); }
+
+/* Theme Toggle Button */
+#theme-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 999;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md);
+  transition: var(--transition);
+}
+#theme-toggle:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: var(--shadow-lg);
+  transform: scale(1.08);
 }
 
 * {

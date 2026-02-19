@@ -30,3 +30,6 @@ export * from './security.types';
 
 // Report generation
 export * from './report.types';
+
+// Feature flags
+export * from './feature-flags.types';

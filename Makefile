@@ -16,7 +16,7 @@ VERSION ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "latest")
         terraform-init terraform-plan terraform-apply terraform-destroy \
         set-webhook get-webhook-info dev-webhook dev-worker test-worker \
         logs-webhook logs-worker clean lint lint-fix test test-unit \
-        version revisions rollback-webhook rollback-worker \
+        version revisions rollback-webhook rollback-worker test-admin \
         sample-invoice demo-report demo-doc admin-dev merge-dependabot offboard-business offboard-user migrate
 
 # =============================================================================
@@ -62,7 +62,8 @@ help:
 	@echo ""
 	@echo "TESTING"
 	@echo "  make test             Run all tests (unit + integration)"
-	@echo "  make test-unit        Run unit tests only"
+	@echo "  make test-unit        Run unit tests only (worker + webhook-handler + admin)"
+	@echo "  make test-admin       Run admin tool unit tests only"
 	@echo "  make test-integration Run integration tests only"
 	@echo ""
 	@echo "LOCAL DEVELOPMENT"
@@ -275,6 +276,13 @@ test-unit:
 	@echo ""
 	@echo "=== Worker Unit Tests ==="
 	cd services/worker && npm run test:fast
+	@echo ""
+	@echo "=== Admin Tool Unit Tests ==="
+	cd tools/admin && npm test
+
+test-admin:
+	@echo "Running admin tool unit tests..."
+	cd tools/admin && npm test
 
 test-integration:
 	@echo "Running integration tests..."

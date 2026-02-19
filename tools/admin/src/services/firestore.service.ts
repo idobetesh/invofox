@@ -35,6 +35,8 @@ export class FirestoreService {
       'rate_limits',
       'report_sessions',
       'user_customer_mapping',
+      'feature_flags',
+      'flag_audit_log',
     ];
   }
 
