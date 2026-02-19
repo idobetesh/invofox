@@ -291,13 +291,15 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
             inline_keyboard: [
               [
                 {
-                  text: '✏️ Edit details',
+                  text: t('he', 'correction.editButton'),
                   callback_data: JSON.stringify({ action: 'edit_invoice', jobId, chatId }),
                 },
               ],
             ],
           },
         });
+      } else {
+        log.warn({ jobId }, 'Job not found when cancelling edit');
       }
 
       await storeService.clearCorrectionPending(jobId);
