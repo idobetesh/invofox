@@ -157,11 +157,10 @@ You're ready to go! Try these commands:
       btnVendor: '🏢 Vendor',
       btnCancel: '✖ Cancel',
       promptAmount:
-        'Please enter the correct amount. No commas — use a dot for decimals (e.g. 200 or 1500.50):',
+        'Enter the correct amount, no commas.\nFor cents — use a dot (e.g. 200 or 1500.50):',
       promptDate: 'Please enter the correct date in DD/MM/YYYY format (e.g. 15/01/2026):',
       promptVendor: 'Please enter the correct vendor name:',
-      invalidAmount:
-        '❌ Invalid amount. Digits only, dot for decimals, no commas (e.g. 200 or 1500.50):',
+      invalidAmount: '❌ Invalid amount. Digits only, no commas (e.g. 200 or 1500.50):',
       invalidDate: '❌ Invalid date format. Please use DD/MM/YYYY (e.g. 15/01/2026):',
       invalidVendor: '❌ Vendor name cannot be empty. Please enter the correct name:',
       amountCorrected: '✏️ _Amount corrected_',
@@ -340,19 +339,18 @@ docs.google.com/spreadsheets/d/[זה_השדה]/edit`,
       btnVendor: '🏢 ספק',
       btnCancel: '✖ ביטול',
       promptAmount:
-        'אנא הזן את הסכום הנכון ללא פסיקות. ניתן להשתמש בנקודה לסנטים (לדוגמה: 200 או 1500.50):',
+        'הזן את הסכום הנכון, ללא פסיקים.\nלאגורות — השתמש בנקודה (לדוגמה: 200 או 1500.50):',
       promptDate: 'אנא הזן את התאריך הנכון בפורמט DD/MM/YYYY (לדוגמה: 15/01/2026):',
       promptVendor: 'אנא הזן את שם הספק הנכון:',
-      invalidAmount:
-        '❌ סכום לא תקין. הזן ספרות בלבד, ניתן להשתמש בנקודה (לדוגמה: 200 או 1500.50):',
+      invalidAmount: '❌ סכום לא תקין. ספרות בלבד, ללא פסיקים (לדוגמה: 200 או 1500.50):',
       invalidDate: '❌ פורמט תאריך לא תקין. אנא השתמש בפורמט DD/MM/YYYY (לדוגמה: 15/01/2026):',
       invalidVendor: '❌ שם הספק לא יכול להיות ריק. אנא הזן את השם הנכון:',
       amountCorrected: '✏️ _סכום תוקן_',
       dateCorrected: '✏️ _תאריך תוקן_',
       vendorCorrected: '✏️ _ספק תוקן_',
-      amountUpdated: '✅ הסכום עודכן: {old} → {new}',
-      dateUpdated: '✅ התאריך עודכן: {old} → {new}',
-      vendorUpdated: '✅ הספק עודכן: {old} → {new}',
+      amountUpdated: '✅ הסכום עודכן: {new} ← {old}',
+      dateUpdated: '✅ התאריך עודכן: {new} ← {old}',
+      vendorUpdated: '✅ הספק עודכן: {new} ← {old}',
     },
 
     validation: {
