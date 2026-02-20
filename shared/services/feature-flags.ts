@@ -13,15 +13,37 @@
  *   const limit = await featureFlags.getValue('max-invoices', 50);
  */
 
-import { Firestore } from '@google-cloud/firestore';
 import type { FlagConfig, FeatureFlagContext } from '../feature-flags.types';
 import { FEATURE_FLAGS_COLLECTION } from '../collections';
+
+// Minimal structural interface — avoids importing @google-cloud/firestore in the
+// shared package (which has no node_modules). Any Firestore instance satisfies this.
+interface FirestoreDoc {
+  exists: boolean;
+  data(): unknown;
+}
+interface FirestoreDocChange {
+  type: 'added' | 'modified' | 'removed';
+  doc: { id: string; data(): unknown };
+}
+interface FirestoreSnapshot {
+  docChanges(): FirestoreDocChange[];
+}
+interface FirestoreDb {
+  collection(name: string): {
+    doc(id: string): { get(): Promise<FirestoreDoc> };
+    onSnapshot(
+      onNext: (snapshot: FirestoreSnapshot) => void,
+      onError: (error: Error) => void
+    ): () => void;
+  };
+}
 
 export class FeatureFlagsService {
   private cache: Map<string, FlagConfig> = new Map();
   private unsubscribeSync?: () => void;
 
-  constructor(private db: Firestore) {
+  constructor(private db: FirestoreDb) {
     this.initializeRealTimeSync();
   }
 
@@ -165,6 +187,7 @@ export class FeatureFlagsService {
       },
       (error) => {
         // Log but don't crash - cache still serves last-known values
+        // eslint-disable-next-line no-console
         console.error('[FeatureFlags] Real-time sync error:', error);
       }
     );
