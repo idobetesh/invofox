@@ -12,7 +12,6 @@ import { Timestamp, FieldValue } from '@google-cloud/firestore';
 import type {
   InvoiceExtraction,
   DuplicateMatch,
-  DuplicateDecision,
   TelegramInlineKeyboardMarkup,
 } from '../../../../shared/types';
 import type { InvoiceJob } from '../models/invoice-job.model';
@@ -205,15 +204,19 @@ export function formatDuplicateWarning(
 
 ${MESSAGES.DUPLICATE_PENDING_ACTION}`;
 
-  // Encode callback data as JSON
-  const keepBothData: DuplicateDecision = { action: 'keep_both', chatId, messageId };
-  const deleteNewData: DuplicateDecision = { action: 'delete_new', chatId, messageId };
-
+  // Encode callback data as compact JSON to stay within Telegram's 64-byte limit.
+  // { a: action, c: chatId, m: messageId } — process.controller decodes with fallbacks.
   const keyboard: TelegramInlineKeyboardMarkup = {
     inline_keyboard: [
       [
-        { text: MESSAGES.BUTTON_KEEP_BOTH, callback_data: JSON.stringify(keepBothData) },
-        { text: MESSAGES.BUTTON_DELETE_NEW, callback_data: JSON.stringify(deleteNewData) },
+        {
+          text: MESSAGES.BUTTON_KEEP_BOTH,
+          callback_data: JSON.stringify({ a: 'keep_both', c: chatId, m: messageId }),
+        },
+        {
+          text: MESSAGES.BUTTON_DELETE_NEW,
+          callback_data: JSON.stringify({ a: 'delete_new', c: chatId, m: messageId }),
+        },
       ],
     ],
   };

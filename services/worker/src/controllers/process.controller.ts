@@ -8,12 +8,7 @@ import { getRetryCount, getMaxRetries } from '../middlewares/cloudTasks';
 import * as invoiceService from '../services/invoice.service';
 import * as storeService from '../services/firestore.service';
 import logger from '../logger';
-import type {
-  TaskPayload,
-  PipelineStep,
-  DuplicateDecision,
-  DuplicateAction,
-} from '../../../../shared/types';
+import type { TaskPayload, PipelineStep, DuplicateAction } from '../../../../shared/types';
 import * as telegramService from '../services/telegram.service';
 import { MESSAGES } from '../constants/messages';
 import { t } from '../services/i18n/languages';
@@ -324,9 +319,11 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
 
     // -----------------------------------------------------------------------
     // Duplicate decision flow
+    // Support both compact keys (a/c/m) and legacy full keys (action/chatId/messageId)
     // -----------------------------------------------------------------------
-    const decision = parsed as unknown as DuplicateDecision;
-    const { action, chatId, messageId } = decision;
+    const action = ((parsed.a ?? parsed.action) as DuplicateAction) || null;
+    const chatId = (parsed.c ?? parsed.chatId) as number | undefined;
+    const messageId = (parsed.m ?? parsed.messageId) as number | undefined;
 
     if (!action || !chatId || !messageId) {
       throw new Error('Invalid callback payload');
