@@ -7,6 +7,7 @@ import { StatusCodes } from 'http-status-codes';
 import type { JobStatus } from '../../../../shared/types';
 import logger from '../logger';
 import { getFirestore } from '../services/firestore.service';
+import { INVOICE_JOBS_COLLECTION } from '../../../../shared/collections';
 
 const VERSION = process.env.APP_VERSION || 'development';
 
@@ -24,7 +25,7 @@ export function getHealth(_req: Request, res: Response): void {
 export async function getMetrics(_req: Request, res: Response): Promise<void> {
   try {
     const db = getFirestore();
-    const collection = db.collection('invoice_jobs');
+    const collection = db.collection(INVOICE_JOBS_COLLECTION);
 
     // Get counts by status
     const statuses: JobStatus[] = [

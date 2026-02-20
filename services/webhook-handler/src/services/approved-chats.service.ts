@@ -6,9 +6,10 @@
 
 import logger from '../logger';
 import { getFirestore } from './firestore.service';
-
-const COLLECTION_NAME = 'approved_chats';
-const ONBOARDING_SESSIONS_COLLECTION = 'onboarding_sessions';
+import {
+  APPROVED_CHATS_COLLECTION,
+  ONBOARDING_SESSIONS_COLLECTION,
+} from '../../../../shared/collections';
 
 // In-memory cache of approved chats (chatId -> { approved, expiry })
 // Cache for 5 minutes to balance freshness vs performance
@@ -101,7 +102,7 @@ export async function isChatApproved(chatId: number): Promise<boolean> {
   // 2. Not in cache or expired - check Firestore
   try {
     const db = getFirestore();
-    const docRef = db.collection(COLLECTION_NAME).doc(chatId.toString());
+    const docRef = db.collection(APPROVED_CHATS_COLLECTION).doc(chatId.toString());
     const doc = await docRef.get();
 
     const approved = doc.exists;

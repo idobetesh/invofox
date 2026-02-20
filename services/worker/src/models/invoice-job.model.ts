@@ -11,6 +11,7 @@
 
 import { z } from 'zod';
 import type { Firestore, Timestamp } from '@google-cloud/firestore';
+import { INVOICE_JOBS_COLLECTION } from '../../../../shared/collections';
 
 /**
  * Zod schema for invoice_jobs collection (expenses)
@@ -87,5 +88,5 @@ export const invoiceJobConverter = {
  *   .get();
  */
 export function getInvoiceJobsCollection(db: Firestore) {
-  return db.collection('invoice_jobs').withConverter(invoiceJobConverter);
+  return db.collection(INVOICE_JOBS_COLLECTION).withConverter(invoiceJobConverter);
 }

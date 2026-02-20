@@ -23,7 +23,7 @@ jest.mock('../../src/services/document-generator/open-invoices.service');
 jest.mock('../../src/services/firestore.service');
 jest.mock('../../src/services/sheets.service');
 jest.mock('../../src/services/feature-flags', () => ({
-  featureFlags: { isEnabled: jest.fn().mockResolvedValue(false) },
+  featureFlags: { getValue: jest.fn().mockResolvedValue(false) },
 }));
 
 import * as userMappingService from '../../src/services/customer/user-mapping.service';

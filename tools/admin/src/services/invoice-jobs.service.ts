@@ -4,8 +4,7 @@
  */
 
 import { Firestore, FieldValue } from '@google-cloud/firestore';
-
-const INVOICE_JOBS_COLLECTION = 'invoice_jobs';
+import { INVOICE_JOBS_COLLECTION } from '../../../../shared/collections';
 
 export interface InvoiceJobRecord {
   jobId: string;

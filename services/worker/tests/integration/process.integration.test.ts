@@ -13,7 +13,7 @@ jest.mock('../../src/services/invoice.service');
 jest.mock('../../src/services/firestore.service');
 jest.mock('../../src/services/telegram.service');
 jest.mock('../../src/services/feature-flags', () => ({
-  featureFlags: { isEnabled: jest.fn().mockResolvedValue(true) },
+  featureFlags: { getValue: jest.fn().mockResolvedValue(true) },
 }));
 jest.mock('../../src/middlewares/cloudTasks', () => ({
   validateCloudTasks: jest.fn((req, _res, next) => next()),
