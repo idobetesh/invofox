@@ -46,6 +46,12 @@ export interface InvoiceJob {
   costUSD?: number;
   // Rejection data (for non-invoice documents)
   rejectionReason?: string | null;
+  // Pending correction from user (edit flow)
+  correctionPending?: {
+    field: 'totalAmount' | 'invoiceDate' | 'vendorName';
+    promptMessageId: number;
+    successMessageId: number; // The success message to edit after correction
+  };
 }
 
 // ============================================================================

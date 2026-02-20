@@ -99,9 +99,9 @@ describe('Duplicate Detection', () => {
       expect(deleteNewButton.text).toBe(MESSAGES.BUTTON_DELETE_NEW);
 
       const keepBothData = JSON.parse(keepBothButton.callback_data || '{}');
-      expect(keepBothData.action).toBe('keep_both');
-      expect(keepBothData.chatId).toBe(999);
-      expect(keepBothData.messageId).toBe(888);
+      expect(keepBothData.a).toBe('keep_both');
+      expect(keepBothData.c).toBe(999);
+      expect(keepBothData.m).toBe(888);
     });
   });
 

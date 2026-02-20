@@ -179,6 +179,7 @@ export async function editMessageText(
   options?: {
     parseMode?: 'HTML' | 'Markdown' | 'MarkdownV2';
     disableWebPagePreview?: boolean;
+    replyMarkup?: TelegramInlineKeyboardMarkup;
   }
 ): Promise<void> {
   const config = getConfig();
@@ -196,6 +197,10 @@ export async function editMessageText(
 
   if (options?.disableWebPagePreview) {
     body.disable_web_page_preview = options.disableWebPagePreview;
+  }
+
+  if (options?.replyMarkup) {
+    body.reply_markup = options.replyMarkup;
   }
 
   await telegramPost(url, body, 'Failed to edit message');

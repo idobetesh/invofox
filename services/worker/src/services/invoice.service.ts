@@ -19,6 +19,8 @@ import * as sheetsService from './sheets.service';
 import * as pdfService from './pdf.service';
 import * as heicService from './heic.service';
 import logger from '../logger';
+import { featureFlags } from './feature-flags';
+import { t } from './i18n/languages';
 
 /**
  * Escape Markdown special characters to prevent injection in Telegram messages
@@ -389,10 +391,31 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
 
     // NOW send the success message (after job is marked complete)
     // If this fails, job won't retry because it's already marked complete
+    let editEnabled = false;
+    try {
+      editEnabled = await featureFlags.isEnabled('invoice-correction', { chatId });
+    } catch (err) {
+      logger.warn(
+        { err, chatId },
+        'Feature flag lookup failed, defaulting invoice-correction to disabled'
+      );
+    }
     await telegramService.sendMessage(chatId, ackMessage, {
       parseMode: 'Markdown',
       replyToMessageId: messageId,
       disableWebPagePreview: true,
+      ...(editEnabled && {
+        replyMarkup: {
+          inline_keyboard: [
+            [
+              {
+                text: t('he', 'correction.editButton'),
+                callback_data: JSON.stringify({ a: 'ei', j: jobId }),
+              },
+            ],
+          ],
+        },
+      }),
     });
     log.info('ACK message sent');
 
@@ -556,9 +579,31 @@ export async function handleDuplicateDecision(
       existingLink
     );
 
+    const keepBothJobId = storeService.getJobId(chatId, messageId);
+    let keepBothEditEnabled = false;
+    try {
+      keepBothEditEnabled = await featureFlags.isEnabled('invoice-correction', { chatId });
+    } catch (err) {
+      logger.warn(
+        { err, chatId },
+        'Feature flag lookup failed, defaulting invoice-correction to disabled'
+      );
+    }
     await telegramService.editMessageText(chatId, botMessageId, resultMessage, {
       parseMode: 'Markdown',
       disableWebPagePreview: true,
+      ...(keepBothEditEnabled && {
+        replyMarkup: {
+          inline_keyboard: [
+            [
+              {
+                text: t('he', 'correction.editButton'),
+                callback_data: JSON.stringify({ a: 'ei', j: keepBothJobId }),
+              },
+            ],
+          ],
+        },
+      }),
     });
 
     return { success: true };

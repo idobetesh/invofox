@@ -103,7 +103,8 @@ app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
     const duration = Date.now() - start;
-    const timestamp = new Date().toISOString();
+    const now = new Date();
+    const timestamp = `${now.toISOString().slice(0, 10)}|${now.toISOString().slice(11, 19)}`;
     console.log(`[${timestamp}] ${req.method} ${req.url} ${res.statusCode} - ${duration}ms`);
   });
   next();

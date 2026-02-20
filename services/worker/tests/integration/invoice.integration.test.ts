@@ -20,6 +20,11 @@ jest.mock('../../src/services/telegram.service');
 jest.mock('../../src/services/document-generator/parser.service');
 jest.mock('../../src/services/business-config/config.service');
 jest.mock('../../src/services/document-generator/open-invoices.service');
+jest.mock('../../src/services/firestore.service');
+jest.mock('../../src/services/sheets.service');
+jest.mock('../../src/services/feature-flags', () => ({
+  featureFlags: { isEnabled: jest.fn().mockResolvedValue(false) },
+}));
 
 import * as userMappingService from '../../src/services/customer/user-mapping.service';
 import * as sessionService from '../../src/services/document-generator/session.service';
@@ -27,6 +32,8 @@ import { generateInvoice } from '../../src/services/document-generator';
 import * as telegramService from '../../src/services/telegram.service';
 import * as parserService from '../../src/services/document-generator/parser.service';
 import * as openInvoicesService from '../../src/services/document-generator/open-invoices.service';
+import * as storeService from '../../src/services/firestore.service';
+import * as sheetsService from '../../src/services/sheets.service';
 
 describe('Invoice Generator Integration Tests', () => {
   beforeEach(() => {
@@ -152,6 +159,205 @@ describe('Invoice Generator Integration Tests', () => {
       text: 'Vendor A, 250, 15/01/2024',
       receivedAt: new Date().toISOString(),
     };
+
+    describe('Correction interceptor', () => {
+      const pendingJob = {
+        jobId: '-123456_102',
+        telegramChatId: -123456,
+        totalAmount: 100,
+        invoiceDate: '2026-01-01',
+        vendorName: 'Old Vendor',
+        currency: 'ILS',
+        driveLink: 'https://drive.google.com/file/abc',
+        sheetRowId: null,
+        correctionPending: {
+          field: 'totalAmount' as const,
+          promptMessageId: 500,
+          successMessageId: 600,
+        },
+      };
+
+      it('should handle correction when pending job exists with valid amount', async () => {
+        (storeService.getCorrectionPendingJob as jest.Mock).mockResolvedValue(pendingJob);
+        (storeService.applyJobCorrection as jest.Mock).mockResolvedValue(undefined);
+        (storeService.clearCorrectionPending as jest.Mock).mockResolvedValue(undefined);
+        (telegramService.formatSuccessMessage as jest.Mock).mockReturnValue('updated message');
+        (telegramService.editMessageText as jest.Mock).mockResolvedValue(undefined);
+        (telegramService.sendMessage as jest.Mock).mockResolvedValue({ message_id: 700 });
+
+        const response = await request(app)
+          .post('/invoice/message')
+          .send({ ...validMessagePayload, text: '250' });
+
+        expect(response.status).toBe(StatusCodes.OK);
+        expect(response.body).toEqual({ ok: true, action: 'correction_handled' });
+        expect(storeService.applyJobCorrection).toHaveBeenCalledWith('-123456_102', {
+          totalAmount: 250,
+        });
+        expect(storeService.clearCorrectionPending).toHaveBeenCalledWith('-123456_102');
+      });
+
+      it('should reject invalid amount and keep correction pending', async () => {
+        (storeService.getCorrectionPendingJob as jest.Mock).mockResolvedValue(pendingJob);
+        (telegramService.sendMessage as jest.Mock).mockResolvedValue({ message_id: 700 });
+
+        const response = await request(app)
+          .post('/invoice/message')
+          .send({ ...validMessagePayload, text: 'not-a-number' });
+
+        expect(response.status).toBe(StatusCodes.OK);
+        expect(response.body).toEqual({ ok: true, action: 'correction_handled' });
+        expect(storeService.applyJobCorrection).not.toHaveBeenCalled();
+        expect(telegramService.sendMessage).toHaveBeenCalledWith(
+          -123456,
+          expect.stringContaining('סכום לא תקין')
+        );
+      });
+
+      it('should reject amount with comma (1,223 is not valid)', async () => {
+        (storeService.getCorrectionPendingJob as jest.Mock).mockResolvedValue(pendingJob);
+        (telegramService.sendMessage as jest.Mock).mockResolvedValue({ message_id: 700 });
+
+        const response = await request(app)
+          .post('/invoice/message')
+          .send({ ...validMessagePayload, text: '1,223' });
+
+        expect(response.status).toBe(StatusCodes.OK);
+        expect(storeService.applyJobCorrection).not.toHaveBeenCalled();
+        expect(telegramService.sendMessage).toHaveBeenCalledWith(
+          -123456,
+          expect.stringContaining('סכום לא תקין')
+        );
+      });
+
+      it('should call sheetsService.updateRow when sheetRowId is present', async () => {
+        const jobWithSheet = { ...pendingJob, sheetRowId: 5 };
+        (storeService.getCorrectionPendingJob as jest.Mock).mockResolvedValue(jobWithSheet);
+        (storeService.applyJobCorrection as jest.Mock).mockResolvedValue(undefined);
+        (storeService.clearCorrectionPending as jest.Mock).mockResolvedValue(undefined);
+        (telegramService.formatSuccessMessage as jest.Mock).mockReturnValue('updated message');
+        (telegramService.editMessageText as jest.Mock).mockResolvedValue(undefined);
+        (telegramService.sendMessage as jest.Mock).mockResolvedValue({ message_id: 700 });
+        (sheetsService.updateRow as jest.Mock).mockResolvedValue(undefined);
+
+        await request(app)
+          .post('/invoice/message')
+          .send({ ...validMessagePayload, text: '250' });
+
+        expect(sheetsService.updateRow).toHaveBeenCalledWith(-123456, 5, { amount: '250' });
+      });
+
+      describe('Date correction', () => {
+        const datePendingJob = {
+          ...pendingJob,
+          correctionPending: {
+            field: 'invoiceDate' as const,
+            promptMessageId: 500,
+            successMessageId: 600,
+          },
+        };
+
+        it('should apply a valid date correction', async () => {
+          (storeService.getCorrectionPendingJob as jest.Mock).mockResolvedValue(datePendingJob);
+          (storeService.applyJobCorrection as jest.Mock).mockResolvedValue(undefined);
+          (storeService.clearCorrectionPending as jest.Mock).mockResolvedValue(undefined);
+          (telegramService.formatSuccessMessage as jest.Mock).mockReturnValue('updated message');
+          (telegramService.editMessageText as jest.Mock).mockResolvedValue(undefined);
+          (telegramService.sendMessage as jest.Mock).mockResolvedValue({ message_id: 700 });
+
+          const response = await request(app)
+            .post('/invoice/message')
+            .send({ ...validMessagePayload, text: '15/01/2026' });
+
+          expect(response.status).toBe(StatusCodes.OK);
+          expect(storeService.applyJobCorrection).toHaveBeenCalledWith('-123456_102', {
+            invoiceDate: '2026-01-15',
+          });
+          expect(storeService.clearCorrectionPending).toHaveBeenCalledWith('-123456_102');
+        });
+
+        it('should reject invalid date format', async () => {
+          (storeService.getCorrectionPendingJob as jest.Mock).mockResolvedValue(datePendingJob);
+          (telegramService.sendMessage as jest.Mock).mockResolvedValue({ message_id: 700 });
+
+          const response = await request(app)
+            .post('/invoice/message')
+            .send({ ...validMessagePayload, text: 'not-a-date' });
+
+          expect(response.status).toBe(StatusCodes.OK);
+          expect(storeService.applyJobCorrection).not.toHaveBeenCalled();
+          expect(telegramService.sendMessage).toHaveBeenCalledWith(
+            -123456,
+            expect.stringContaining('תאריך')
+          );
+        });
+
+        it('should reject impossible calendar date 31/02/2026', async () => {
+          (storeService.getCorrectionPendingJob as jest.Mock).mockResolvedValue(datePendingJob);
+          (telegramService.sendMessage as jest.Mock).mockResolvedValue({ message_id: 700 });
+
+          const response = await request(app)
+            .post('/invoice/message')
+            .send({ ...validMessagePayload, text: '31/02/2026' });
+
+          expect(response.status).toBe(StatusCodes.OK);
+          expect(storeService.applyJobCorrection).not.toHaveBeenCalled();
+        });
+      });
+
+      describe('Vendor correction', () => {
+        const vendorPendingJob = {
+          ...pendingJob,
+          correctionPending: {
+            field: 'vendorName' as const,
+            promptMessageId: 500,
+            successMessageId: 600,
+          },
+        };
+
+        it('should apply a valid vendor name correction', async () => {
+          (storeService.getCorrectionPendingJob as jest.Mock).mockResolvedValue(vendorPendingJob);
+          (storeService.applyJobCorrection as jest.Mock).mockResolvedValue(undefined);
+          (storeService.clearCorrectionPending as jest.Mock).mockResolvedValue(undefined);
+          (telegramService.formatSuccessMessage as jest.Mock).mockReturnValue('updated message');
+          (telegramService.editMessageText as jest.Mock).mockResolvedValue(undefined);
+          (telegramService.sendMessage as jest.Mock).mockResolvedValue({ message_id: 700 });
+
+          const response = await request(app)
+            .post('/invoice/message')
+            .send({ ...validMessagePayload, text: 'New Vendor Name' });
+
+          expect(response.status).toBe(StatusCodes.OK);
+          expect(storeService.applyJobCorrection).toHaveBeenCalledWith('-123456_102', {
+            vendorName: 'New Vendor Name',
+          });
+          expect(storeService.clearCorrectionPending).toHaveBeenCalledWith('-123456_102');
+        });
+
+        it('should reject empty vendor name', async () => {
+          (storeService.getCorrectionPendingJob as jest.Mock).mockResolvedValue(vendorPendingJob);
+          (telegramService.sendMessage as jest.Mock).mockResolvedValue({ message_id: 700 });
+
+          const response = await request(app)
+            .post('/invoice/message')
+            .send({ ...validMessagePayload, text: '   ' });
+
+          expect(response.status).toBe(StatusCodes.OK);
+          expect(storeService.applyJobCorrection).not.toHaveBeenCalled();
+        });
+      });
+
+      it('should fall through to normal flow when no correction pending', async () => {
+        (storeService.getCorrectionPendingJob as jest.Mock).mockResolvedValue(null);
+        (sessionService.getSession as jest.Mock).mockResolvedValue(null);
+
+        const response = await request(app).post('/invoice/message').send(validMessagePayload);
+
+        expect(response.status).toBe(StatusCodes.OK);
+        expect(response.body).toEqual({ ok: true, action: 'no_session' });
+        expect(storeService.applyJobCorrection).not.toHaveBeenCalled();
+      });
+    });
 
     describe('Message processing', () => {
       it('should process valid invoice details', async () => {

@@ -12,6 +12,10 @@ import type {
 import logger from '../logger';
 
 import { INVOICE_JOBS_COLLECTION } from '../../../../shared/collections';
+
+// Dedicated index collection: one doc per chatId → { jobId }
+// Provides O(1) lookup without requiring a composite Firestore index
+const CORRECTION_PENDING_INDEX_COLLECTION = 'invoice_correction_pending_index';
 const STALE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
 
 let firestore: Firestore | null = null;
@@ -231,6 +235,129 @@ export async function getJob(chatId: number, messageId: number): Promise<Invoice
 // ============================================================================
 // Duplicate Detection - Moved to duplicate-detection.service.ts
 // ============================================================================
+
+// ============================================================================
+// Correction Flow Helpers
+// ============================================================================
+
+/**
+ * Find the job with correctionPending for this chatId.
+ * Uses a dedicated index document for O(1) lookup (no composite index required).
+ */
+export async function getCorrectionPendingJob(
+  chatId: number
+): Promise<(InvoiceJob & { jobId: string }) | null> {
+  const db = getFirestore();
+
+  // Read the index doc to get the jobId directly
+  const indexDoc = await db
+    .collection(CORRECTION_PENDING_INDEX_COLLECTION)
+    .doc(String(chatId))
+    .get();
+
+  if (!indexDoc.exists) {
+    return null;
+  }
+
+  const { jobId } = indexDoc.data() as { jobId: string };
+  const jobDoc = await db.collection(INVOICE_JOBS_COLLECTION).doc(jobId).get();
+
+  if (!jobDoc.exists) {
+    // Index is stale — clean it up silently
+    await db
+      .collection(CORRECTION_PENDING_INDEX_COLLECTION)
+      .doc(String(chatId))
+      .delete()
+      .catch(() => {});
+    return null;
+  }
+
+  const job = jobDoc.data() as InvoiceJob;
+  if (!job.correctionPending) {
+    // Job no longer has correctionPending — clean up stale index
+    await db
+      .collection(CORRECTION_PENDING_INDEX_COLLECTION)
+      .doc(String(chatId))
+      .delete()
+      .catch(() => {});
+    return null;
+  }
+
+  return { ...job, jobId: jobDoc.id };
+}
+
+/**
+ * Set correctionPending on a job document and update the chatId index.
+ */
+export async function setCorrectionPending(
+  jobId: string,
+  field: 'totalAmount' | 'invoiceDate' | 'vendorName',
+  promptMessageId: number,
+  successMessageId: number
+): Promise<void> {
+  const db = getFirestore();
+  const docRef = db.collection(INVOICE_JOBS_COLLECTION).doc(jobId);
+
+  await docRef.update({
+    correctionPending: { field, promptMessageId, successMessageId },
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  // Write index: chatId → jobId for fast lookup
+  const chatId = parseInt(jobId.split('_')[0], 10);
+  if (!isNaN(chatId)) {
+    await db.collection(CORRECTION_PENDING_INDEX_COLLECTION).doc(String(chatId)).set({ jobId });
+  }
+}
+
+/**
+ * Remove correctionPending from a job document and delete the chatId index entry.
+ */
+export async function clearCorrectionPending(jobId: string): Promise<void> {
+  const db = getFirestore();
+  const docRef = db.collection(INVOICE_JOBS_COLLECTION).doc(jobId);
+
+  await docRef.update({
+    correctionPending: FieldValue.delete(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  // Remove index entry (fire-and-forget — non-critical)
+  const chatId = parseInt(jobId.split('_')[0], 10);
+  if (!isNaN(chatId)) {
+    db.collection(CORRECTION_PENDING_INDEX_COLLECTION)
+      .doc(String(chatId))
+      .delete()
+      .catch(() => {});
+  }
+}
+
+/**
+ * Apply a correction to extracted fields in a job document
+ */
+export async function applyJobCorrection(
+  jobId: string,
+  updates: { totalAmount?: number; invoiceDate?: string; vendorName?: string }
+): Promise<void> {
+  const db = getFirestore();
+  const docRef = db.collection(INVOICE_JOBS_COLLECTION).doc(jobId);
+
+  const data: Record<string, unknown> = {
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+
+  if (updates.totalAmount !== undefined) {
+    data.totalAmount = updates.totalAmount;
+  }
+  if (updates.invoiceDate !== undefined) {
+    data.invoiceDate = updates.invoiceDate;
+  }
+  if (updates.vendorName !== undefined) {
+    data.vendorName = updates.vendorName;
+  }
+
+  await docRef.update(data);
+}
 
 /**
  * Store extraction data for duplicate detection

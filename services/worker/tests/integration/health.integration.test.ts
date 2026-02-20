@@ -16,6 +16,7 @@ jest.mock('@google-cloud/firestore', () => {
         count: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnThis(),
+        onSnapshot: jest.fn().mockReturnValue(() => {}),
         get: jest.fn().mockResolvedValue({
           data: jest.fn().mockReturnValue({ count: 0 }),
           docs: [],

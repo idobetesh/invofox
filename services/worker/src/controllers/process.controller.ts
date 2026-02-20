@@ -8,14 +8,10 @@ import { getRetryCount, getMaxRetries } from '../middlewares/cloudTasks';
 import * as invoiceService from '../services/invoice.service';
 import * as storeService from '../services/firestore.service';
 import logger from '../logger';
-import type {
-  TaskPayload,
-  PipelineStep,
-  DuplicateDecision,
-  DuplicateAction,
-} from '../../../../shared/types';
+import type { TaskPayload, PipelineStep, DuplicateAction } from '../../../../shared/types';
 import * as telegramService from '../services/telegram.service';
 import { MESSAGES } from '../constants/messages';
+import { t } from '../services/i18n/languages';
 
 /**
  * Process an invoice image
@@ -157,9 +153,177 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
   log.info({ data, botMessageChatId, botMessageId }, 'Processing callback query');
 
   try {
-    // Parse callback data (contains DuplicateDecision)
-    const decision = JSON.parse(data) as DuplicateDecision;
-    const { action, chatId, messageId } = decision;
+    const parsed = JSON.parse(data) as Record<string, unknown>;
+
+    // Support both compact keys (a/j/f/s) and legacy full keys (action/jobId/field/successMessageId)
+    const COMPACT_ACTIONS: Record<string, string> = {
+      ei: 'edit_invoice',
+      ef: 'edit_field',
+      ec: 'edit_cancel',
+    };
+    const COMPACT_FIELDS: Record<string, string> = {
+      amt: 'totalAmount',
+      dat: 'invoiceDate',
+      vnd: 'vendorName',
+    };
+    const resolvedAction = COMPACT_ACTIONS[parsed.a as string] ?? (parsed.action as string);
+
+    if (!resolvedAction) {
+      throw new Error('Invalid callback payload: missing action');
+    }
+
+    // -----------------------------------------------------------------------
+    // Edit correction flow
+    // -----------------------------------------------------------------------
+    if (resolvedAction === 'edit_invoice') {
+      const jobId = (parsed.j ?? parsed.jobId) as string | undefined;
+      if (!jobId || typeof jobId !== 'string') {
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Missing jobId' });
+        return;
+      }
+
+      await telegramService.answerCallbackQuery(callbackQueryId);
+      await telegramService.editMessageText(
+        botMessageChatId,
+        botMessageId,
+        t('he', 'correction.whatToEdit'),
+        {
+          replyMarkup: {
+            inline_keyboard: [
+              [
+                {
+                  text: t('he', 'correction.btnAmount'),
+                  callback_data: JSON.stringify({ a: 'ef', j: jobId, f: 'amt', s: botMessageId }),
+                },
+                {
+                  text: t('he', 'correction.btnDate'),
+                  callback_data: JSON.stringify({ a: 'ef', j: jobId, f: 'dat', s: botMessageId }),
+                },
+                {
+                  text: t('he', 'correction.btnVendor'),
+                  callback_data: JSON.stringify({ a: 'ef', j: jobId, f: 'vnd', s: botMessageId }),
+                },
+              ],
+              [
+                {
+                  text: t('he', 'correction.btnCancel'),
+                  callback_data: JSON.stringify({ a: 'ec', j: jobId, s: botMessageId }),
+                },
+              ],
+            ],
+          },
+        }
+      );
+
+      log.info({ jobId }, 'Edit invoice: field selection shown');
+      res.status(StatusCodes.OK).json({ ok: true, action: 'edit_invoice' });
+      return;
+    }
+
+    if (resolvedAction === 'edit_field') {
+      const jobId = (parsed.j ?? parsed.jobId) as string | undefined;
+      const fieldAbbrev = parsed.f as string | undefined;
+      const field = (COMPACT_FIELDS[fieldAbbrev ?? ''] ?? parsed.field) as string | undefined;
+      const successMessageId = (parsed.s ?? parsed.successMessageId) as number | undefined;
+
+      if (!jobId || typeof jobId !== 'string') {
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Missing jobId' });
+        return;
+      }
+      if (!field || !['totalAmount', 'invoiceDate', 'vendorName'].includes(field)) {
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid or missing field' });
+        return;
+      }
+      if (successMessageId === undefined || typeof successMessageId !== 'number') {
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Missing successMessageId' });
+        return;
+      }
+
+      await telegramService.answerCallbackQuery(callbackQueryId);
+
+      const promptText =
+        field === 'totalAmount'
+          ? t('he', 'correction.promptAmount')
+          : field === 'invoiceDate'
+            ? t('he', 'correction.promptDate')
+            : t('he', 'correction.promptVendor');
+
+      // Use botMessageChatId from the request (not client-controlled chatId from callback_data)
+      const prompt = await telegramService.sendMessage(botMessageChatId, promptText);
+
+      await storeService.setCorrectionPending(
+        jobId,
+        field as 'totalAmount' | 'invoiceDate' | 'vendorName',
+        prompt.message_id,
+        successMessageId
+      );
+
+      log.info({ jobId, field }, 'Correction pending set, ForceReply sent');
+      res.status(StatusCodes.OK).json({ ok: true, action: 'edit_field' });
+      return;
+    }
+
+    if (resolvedAction === 'edit_cancel') {
+      const jobId = (parsed.j ?? parsed.jobId) as string | undefined;
+      const successMessageId = (parsed.s ?? parsed.successMessageId) as number | undefined;
+
+      if (!jobId || typeof jobId !== 'string') {
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Missing jobId' });
+        return;
+      }
+      if (successMessageId === undefined || typeof successMessageId !== 'number') {
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Missing successMessageId' });
+        return;
+      }
+
+      await telegramService.answerCallbackQuery(callbackQueryId);
+
+      // Derive chatId/messageId from jobId to look up the job
+      const jobParts = jobId.split('_');
+      const jobChatId = parseInt(jobParts[0]);
+      const jobMessageId = parseInt(jobParts[1]);
+      const job = await storeService.getJob(jobChatId, jobMessageId);
+
+      if (job) {
+        const originalText = telegramService.formatSuccessMessage(
+          job.invoiceDate || null,
+          job.totalAmount ?? null,
+          job.currency || null,
+          job.driveLink || ''
+        );
+        // Use botMessageChatId from the request (not client-controlled chatId from callback_data)
+        await telegramService.editMessageText(botMessageChatId, successMessageId, originalText, {
+          parseMode: 'Markdown',
+          disableWebPagePreview: true,
+          replyMarkup: {
+            inline_keyboard: [
+              [
+                {
+                  text: t('he', 'correction.editButton'),
+                  callback_data: JSON.stringify({ a: 'ei', j: jobId }),
+                },
+              ],
+            ],
+          },
+        });
+      } else {
+        log.warn({ jobId }, 'Job not found when cancelling edit');
+      }
+
+      await storeService.clearCorrectionPending(jobId);
+
+      log.info({ jobId }, 'Edit cancelled');
+      res.status(StatusCodes.OK).json({ ok: true, action: 'edit_cancel' });
+      return;
+    }
+
+    // -----------------------------------------------------------------------
+    // Duplicate decision flow
+    // Support both compact keys (a/c/m) and legacy full keys (action/chatId/messageId)
+    // -----------------------------------------------------------------------
+    const action = ((parsed.a ?? parsed.action) as DuplicateAction) || null;
+    const chatId = (parsed.c ?? parsed.chatId) as number | undefined;
+    const messageId = (parsed.m ?? parsed.messageId) as number | undefined;
 
     if (!action || !chatId || !messageId) {
       throw new Error('Invalid callback payload');
