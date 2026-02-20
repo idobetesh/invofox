@@ -25,10 +25,13 @@ describe('Duplicate Detection - ChatId Scoping', () => {
 
     // Setup mock chain
     mockGet = jest.fn();
-    mockWhere = jest.fn(() => ({
+    type MockQuery = { where: jest.Mock; limit: jest.Mock; get: jest.Mock };
+    const mockQueryObj = (): MockQuery => ({
       where: mockWhere,
+      limit: jest.fn((): MockQuery => mockQueryObj()),
       get: mockGet,
-    }));
+    });
+    mockWhere = jest.fn((): MockQuery => mockQueryObj());
     mockCollection = jest.fn(() => ({
       where: mockWhere,
     }));

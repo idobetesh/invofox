@@ -4,6 +4,11 @@ import {
   GENERATED_INVOICES_COLLECTION,
   GENERATED_RECEIPTS_COLLECTION,
   GENERATED_INVOICE_RECEIPTS_COLLECTION,
+  BUSINESS_CONFIG_COLLECTION,
+  INVOICE_COUNTERS_COLLECTION,
+  ONBOARDING_SESSIONS_COLLECTION,
+  USER_CUSTOMER_MAPPING_COLLECTION,
+  PROCESSING_JOBS_COLLECTION,
 } from '../../../../shared/collections';
 
 export interface Customer {
@@ -48,7 +53,7 @@ export class CustomerService {
    * List all customers from business_config collection
    */
   async listCustomers(): Promise<Customer[]> {
-    const snapshot = await this.firestore.collection('business_config').get();
+    const snapshot = await this.firestore.collection(BUSINESS_CONFIG_COLLECTION).get();
 
     const customers: Customer[] = [];
 
@@ -90,7 +95,7 @@ export class CustomerService {
 
     // Get customer name
     const docId = `chat_${chatId}`;
-    const configDoc = await this.firestore.collection('business_config').doc(docId).get();
+    const configDoc = await this.firestore.collection(BUSINESS_CONFIG_COLLECTION).doc(docId).get();
     const customerName = configDoc.exists ? configDoc.data()?.business?.name : 'Unknown';
 
     // Scan all data
@@ -185,7 +190,7 @@ export class CustomerService {
   // Check methods
   private async checkBusinessConfig(chatId: number): Promise<boolean> {
     const docId = `chat_${chatId}`;
-    const doc = await this.firestore.collection('business_config').doc(docId).get();
+    const doc = await this.firestore.collection(BUSINESS_CONFIG_COLLECTION).doc(docId).get();
     return doc.exists;
   }
 
@@ -210,13 +215,13 @@ export class CustomerService {
 
   private async checkOnboardingSession(chatId: number): Promise<boolean> {
     const docId = chatId.toString();
-    const doc = await this.firestore.collection('onboarding_sessions').doc(docId).get();
+    const doc = await this.firestore.collection(ONBOARDING_SESSIONS_COLLECTION).doc(docId).get();
     return doc.exists;
   }
 
   private async checkCounters(chatId: number): Promise<{ count: number; docIds: string[] }> {
     const prefix = `chat_${chatId}_`;
-    const snapshot = await this.firestore.collection('invoice_counters').get();
+    const snapshot = await this.firestore.collection(INVOICE_COUNTERS_COLLECTION).get();
 
     const docIds: string[] = [];
     for (const doc of snapshot.docs) {
@@ -298,7 +303,7 @@ export class CustomerService {
   }
 
   private async checkUserMappings(chatId: number): Promise<{ count: number; userIds: string[] }> {
-    const snapshot = await this.firestore.collection('user_customer_mapping').get();
+    const snapshot = await this.firestore.collection(USER_CUSTOMER_MAPPING_COLLECTION).get();
 
     const userIds: string[] = [];
     for (const doc of snapshot.docs) {
@@ -316,7 +321,7 @@ export class CustomerService {
 
   private async checkProcessingJobs(chatId: number): Promise<{ count: number; docIds: string[] }> {
     const prefix = `chat_${chatId}_`;
-    const snapshot = await this.firestore.collection('processing_jobs').get();
+    const snapshot = await this.firestore.collection(PROCESSING_JOBS_COLLECTION).get();
 
     const docIds: string[] = [];
     for (const doc of snapshot.docs) {
@@ -331,7 +336,7 @@ export class CustomerService {
   // Delete methods
   private async deleteBusinessConfig(chatId: number): Promise<boolean> {
     const docId = `chat_${chatId}`;
-    const docRef = this.firestore.collection('business_config').doc(docId);
+    const docRef = this.firestore.collection(BUSINESS_CONFIG_COLLECTION).doc(docId);
     const doc = await docRef.get();
 
     if (!doc.exists) {
@@ -361,7 +366,7 @@ export class CustomerService {
 
   private async deleteOnboardingSession(chatId: number): Promise<boolean> {
     const docId = chatId.toString();
-    const docRef = this.firestore.collection('onboarding_sessions').doc(docId);
+    const docRef = this.firestore.collection(ONBOARDING_SESSIONS_COLLECTION).doc(docId);
     const doc = await docRef.get();
 
     if (!doc.exists) {
@@ -374,7 +379,7 @@ export class CustomerService {
 
   private async deleteCounters(chatId: number): Promise<number> {
     const prefix = `chat_${chatId}_`;
-    const snapshot = await this.firestore.collection('invoice_counters').get();
+    const snapshot = await this.firestore.collection(INVOICE_COUNTERS_COLLECTION).get();
 
     let count = 0;
     for (const doc of snapshot.docs) {
@@ -456,7 +461,7 @@ export class CustomerService {
   }
 
   private async removeUserMappings(chatId: number): Promise<number> {
-    const snapshot = await this.firestore.collection('user_customer_mapping').get();
+    const snapshot = await this.firestore.collection(USER_CUSTOMER_MAPPING_COLLECTION).get();
 
     let count = 0;
     for (const doc of snapshot.docs) {
@@ -482,7 +487,7 @@ export class CustomerService {
 
   private async deleteProcessingJobs(chatId: number): Promise<number> {
     const prefix = `chat_${chatId}_`;
-    const snapshot = await this.firestore.collection('processing_jobs').get();
+    const snapshot = await this.firestore.collection(PROCESSING_JOBS_COLLECTION).get();
 
     let count = 0;
     for (const doc of snapshot.docs) {

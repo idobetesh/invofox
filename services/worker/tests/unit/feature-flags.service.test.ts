@@ -64,86 +64,86 @@ describe('FeatureFlagsService', () => {
   });
 
   // -------------------------------------------------------------------------
-  // isEnabled
+  // getValue
   // -------------------------------------------------------------------------
 
-  describe('isEnabled', () => {
+  describe('getValue', () => {
     it('returns false when flag does not exist in Firestore', async () => {
       mockDocGet.mockResolvedValue(makeFirestoreDoc(null));
       const svc = makeService();
 
-      expect(await svc.isEnabled('missing-flag', { chatId: 1 })).toBe(false);
+      expect(await svc.getValue('missing-flag', false, { chatId: 1 })).toBe(false);
     });
 
     it('returns false when flag.enabled is false', async () => {
       mockDocGet.mockResolvedValue(makeFirestoreDoc(makeFlag({ enabled: false })));
       const svc = makeService();
 
-      expect(await svc.isEnabled('test-flag', { chatId: 1 })).toBe(false);
+      expect(await svc.getValue('test-flag', false, { chatId: 1 })).toBe(false);
     });
 
     it('returns false when flag is archived', async () => {
       mockDocGet.mockResolvedValue(makeFirestoreDoc(makeFlag({ archived: true })));
       const svc = makeService();
 
-      expect(await svc.isEnabled('test-flag', { chatId: 1 })).toBe(false);
+      expect(await svc.getValue('test-flag', false, { chatId: 1 })).toBe(false);
     });
 
     it('returns defaultValue when enabled with no targeting rules', async () => {
       mockDocGet.mockResolvedValue(makeFirestoreDoc(makeFlag({ defaultValue: true })));
       const svc = makeService();
 
-      expect(await svc.isEnabled('test-flag', { chatId: 999 })).toBe(true);
+      expect(await svc.getValue('test-flag', false, { chatId: 999 })).toBe(true);
     });
 
     it('returns false when enabled but defaultValue is false and no targeting match', async () => {
       mockDocGet.mockResolvedValue(makeFirestoreDoc(makeFlag({ defaultValue: false })));
       const svc = makeService();
 
-      expect(await svc.isEnabled('test-flag', { chatId: 999 })).toBe(false);
+      expect(await svc.getValue('test-flag', false, { chatId: 999 })).toBe(false);
     });
 
     it('returns true when chatId is explicitly targeted', async () => {
       mockDocGet.mockResolvedValue(makeFirestoreDoc(makeFlag({ targets: { chats: [123, 456] } })));
       const svc = makeService();
 
-      expect(await svc.isEnabled('test-flag', { chatId: 123 })).toBe(true);
+      expect(await svc.getValue('test-flag', false, { chatId: 123 })).toBe(true);
     });
 
     it('returns false when chatId is NOT in the explicit list', async () => {
       mockDocGet.mockResolvedValue(makeFirestoreDoc(makeFlag({ targets: { chats: [123, 456] } })));
       const svc = makeService();
 
-      expect(await svc.isEnabled('test-flag', { chatId: 999 })).toBe(false);
+      expect(await svc.getValue('test-flag', false, { chatId: 999 })).toBe(false);
     });
 
     it('returns true when userId is explicitly targeted', async () => {
       mockDocGet.mockResolvedValue(makeFirestoreDoc(makeFlag({ targets: { users: [42] } })));
       const svc = makeService();
 
-      expect(await svc.isEnabled('test-flag', { userId: 42 })).toBe(true);
+      expect(await svc.getValue('test-flag', false, { userId: 42 })).toBe(true);
     });
 
     it('returns true for percentage: 100 (all users included)', async () => {
       mockDocGet.mockResolvedValue(makeFirestoreDoc(makeFlag({ targets: { percentage: 100 } })));
       const svc = makeService();
 
-      expect(await svc.isEnabled('test-flag', { chatId: 99999 })).toBe(true);
+      expect(await svc.getValue('test-flag', false, { chatId: 99999 })).toBe(true);
     });
 
     it('returns false for percentage: 0 (no users included)', async () => {
       mockDocGet.mockResolvedValue(makeFirestoreDoc(makeFlag({ targets: { percentage: 0 } })));
       const svc = makeService();
 
-      expect(await svc.isEnabled('test-flag', { chatId: 1 })).toBe(false);
+      expect(await svc.getValue('test-flag', false, { chatId: 1 })).toBe(false);
     });
 
     it('gives stable percentage result for same chatId across calls', async () => {
       mockDocGet.mockResolvedValue(makeFirestoreDoc(makeFlag({ targets: { percentage: 50 } })));
       const svc = makeService();
 
-      const first = await svc.isEnabled('test-flag', { chatId: 12345 });
-      const second = await svc.isEnabled('test-flag', { chatId: 12345 });
+      const first = await svc.getValue('test-flag', false, { chatId: 12345 });
+      const second = await svc.getValue('test-flag', false, { chatId: 12345 });
 
       expect(first).toBe(second);
     });
@@ -155,7 +155,7 @@ describe('FeatureFlagsService', () => {
       );
       const svc = makeService();
 
-      expect(await svc.isEnabled('test-flag', { chatId: 1 })).toBe(true);
+      expect(await svc.getValue('test-flag', false, { chatId: 1 })).toBe(true);
     });
 
     describe('prerequisites', () => {
@@ -173,7 +173,7 @@ describe('FeatureFlagsService', () => {
 
         const svc = makeService();
 
-        expect(await svc.isEnabled('main-flag', { chatId: 1 })).toBe(false);
+        expect(await svc.getValue('main-flag', false, { chatId: 1 })).toBe(false);
       });
 
       it('returns true when all prerequisites are met', async () => {
@@ -190,102 +190,8 @@ describe('FeatureFlagsService', () => {
 
         const svc = makeService();
 
-        expect(await svc.isEnabled('main-flag', { chatId: 1 })).toBe(true);
+        expect(await svc.getValue('main-flag', false, { chatId: 1 })).toBe(true);
       });
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // getVariant
-  // -------------------------------------------------------------------------
-
-  describe('getVariant', () => {
-    it('returns null when flag does not exist', async () => {
-      mockDocGet.mockResolvedValue(makeFirestoreDoc(null));
-      const svc = makeService();
-
-      expect(await svc.getVariant('missing-flag', { chatId: 1 })).toBeNull();
-    });
-
-    it('returns null when flag type is boolean (not multivariate)', async () => {
-      mockDocGet.mockResolvedValue(makeFirestoreDoc(makeFlag({ type: 'boolean' })));
-      const svc = makeService();
-
-      expect(await svc.getVariant('test-flag', { chatId: 1 })).toBeNull();
-    });
-
-    it('returns null when flag is disabled', async () => {
-      mockDocGet.mockResolvedValue(
-        makeFirestoreDoc(makeFlag({ type: 'multivariate', enabled: false }))
-      );
-      const svc = makeService();
-
-      expect(await svc.getVariant('test-flag', { chatId: 1 })).toBeNull();
-    });
-
-    it('returns a variant from the weighted list', async () => {
-      mockDocGet.mockResolvedValue(
-        makeFirestoreDoc(
-          makeFlag({
-            type: 'multivariate',
-            variants: {
-              control: { value: 'control', weight: 50 },
-              treatment: { value: 'treatment', weight: 50 },
-            },
-          })
-        )
-      );
-      const svc = makeService();
-
-      const variant = await svc.getVariant('test-flag', { chatId: 1 });
-
-      expect(['control', 'treatment']).toContain(variant);
-    });
-
-    it('returns the same variant for the same context on repeated calls (stable)', async () => {
-      mockDocGet.mockResolvedValue(
-        makeFirestoreDoc(
-          makeFlag({
-            type: 'multivariate',
-            variants: {
-              a: { value: 'a', weight: 50 },
-              b: { value: 'b', weight: 50 },
-            },
-          })
-        )
-      );
-      const svc = makeService();
-      const context = { chatId: 777 };
-
-      const first = await svc.getVariant('test-flag', context);
-      const second = await svc.getVariant('test-flag', context);
-
-      expect(first).toBe(second);
-    });
-
-    it('may return different variants for different chatIds', async () => {
-      const flag = makeFlag({
-        type: 'multivariate',
-        variants: {
-          a: { value: 'a', weight: 50 },
-          b: { value: 'b', weight: 50 },
-        },
-      });
-      // Use mockResolvedValue (not Once) so cache is populated per service instance
-      mockDocGet.mockResolvedValue(makeFirestoreDoc(flag));
-
-      const svc = makeService();
-
-      // Collect variants for many chatIds - with 50/50 split we should see both
-      const variants = new Set<string>();
-      for (let i = 0; i < 20; i++) {
-        const v = await svc.getVariant('test-flag', { chatId: i * 97 + 1 });
-        if (v) {
-          variants.add(v);
-        }
-      }
-
-      expect(variants.size).toBeGreaterThan(1);
     });
   });
 
@@ -355,9 +261,9 @@ describe('FeatureFlagsService', () => {
       mockDocGet.mockResolvedValue(makeFirestoreDoc(makeFlag({ defaultValue: true })));
       const svc = makeService();
 
-      await svc.isEnabled('test-flag', { chatId: 1 });
-      await svc.isEnabled('test-flag', { chatId: 2 });
-      await svc.isEnabled('test-flag', { chatId: 3 });
+      await svc.getValue('test-flag', false, { chatId: 1 });
+      await svc.getValue('test-flag', false, { chatId: 2 });
+      await svc.getValue('test-flag', false, { chatId: 3 });
 
       expect(mockDocGet).toHaveBeenCalledTimes(1);
     });
@@ -379,7 +285,7 @@ describe('FeatureFlagsService', () => {
       mockDocGet.mockResolvedValue(makeFirestoreDoc(makeFlag({ enabled: false })));
       const svc = makeService();
 
-      expect(await svc.isEnabled('test-flag', { chatId: 1 })).toBe(false);
+      expect(await svc.getValue('test-flag', false, { chatId: 1 })).toBe(false);
 
       // Simulate Firestore snapshot update: flag is now enabled
       const updatedFlag = makeFlag({ enabled: true, defaultValue: true });
@@ -388,7 +294,7 @@ describe('FeatureFlagsService', () => {
       });
 
       // Cache should now reflect the updated flag
-      expect(await svc.isEnabled('test-flag', { chatId: 1 })).toBe(true);
+      expect(await svc.getValue('test-flag', false, { chatId: 1 })).toBe(true);
       // Still only 1 Firestore read (cache was updated via snapshot, not refetched)
       expect(mockDocGet).toHaveBeenCalledTimes(1);
     });
@@ -404,7 +310,7 @@ describe('FeatureFlagsService', () => {
       const svc = makeService();
 
       // Populate cache
-      await svc.isEnabled('test-flag', { chatId: 1 });
+      await svc.getValue('test-flag', false, { chatId: 1 });
       expect(mockDocGet).toHaveBeenCalledTimes(1);
 
       // Simulate flag deletion
@@ -414,7 +320,7 @@ describe('FeatureFlagsService', () => {
 
       // Next call should miss cache and go to Firestore (returns null → false)
       mockDocGet.mockResolvedValue(makeFirestoreDoc(null));
-      expect(await svc.isEnabled('test-flag', { chatId: 1 })).toBe(false);
+      expect(await svc.getValue('test-flag', false, { chatId: 1 })).toBe(false);
       expect(mockDocGet).toHaveBeenCalledTimes(2);
     });
   });

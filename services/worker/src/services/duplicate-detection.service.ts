@@ -19,8 +19,7 @@ import { MESSAGES } from '../constants/messages';
 import { formatDateForDisplay } from './telegram.service';
 import { getFirestore } from './firestore.service';
 import logger from '../logger';
-
-const INVOICE_JOBS_COLLECTION = 'invoice_jobs';
+import { INVOICE_JOBS_COLLECTION } from '../../../../shared/collections';
 
 // Helper function to get job ID
 function getJobId(chatId: number, messageId: number): string {
@@ -94,6 +93,7 @@ export async function findDuplicateInvoice(
       .where('telegramChatId', '==', chatId)
       .where('status', 'in', ['processed', 'processing', 'pending_decision'])
       .where('createdAt', '>=', Timestamp.fromDate(startOfYear))
+      .limit(200)
       .get();
 
     log.info({ jobsFound: snapshot.docs.length }, 'Query completed');

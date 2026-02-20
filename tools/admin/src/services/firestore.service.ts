@@ -1,4 +1,21 @@
 import { Firestore, Timestamp } from '@google-cloud/firestore';
+import {
+  APPROVED_CHATS_COLLECTION,
+  BUSINESS_CONFIG_COLLECTION,
+  FLAG_AUDIT_LOG_COLLECTION,
+  GENERATED_INVOICE_RECEIPTS_COLLECTION,
+  GENERATED_INVOICES_COLLECTION,
+  GENERATED_RECEIPTS_COLLECTION,
+  INVITE_CODES_COLLECTION,
+  INVOICE_COUNTERS_COLLECTION,
+  INVOICE_JOBS_COLLECTION,
+  INVOICE_SESSIONS_COLLECTION,
+  ONBOARDING_SESSIONS_COLLECTION,
+  PROCESSING_JOBS_COLLECTION,
+  RATE_LIMITS_COLLECTION,
+  REPORT_SESSIONS_COLLECTION,
+  USER_CUSTOMER_MAPPING_COLLECTION,
+} from '../../../../shared/collections';
 
 export interface FirestoreDocument {
   id: string;
@@ -22,21 +39,21 @@ export class FirestoreService {
    */
   getKnownCollections(): string[] {
     return [
-      'approved_chats',
-      'business_config',
-      'generated_invoices',
-      'generated_invoice_receipts',
-      'generated_receipts',
-      'invite_codes',
-      'invoice_counters',
-      'invoice_jobs',
-      'invoice_sessions',
-      'onboarding_sessions',
-      'rate_limits',
-      'report_sessions',
-      'user_customer_mapping',
-      'feature_flags',
-      'flag_audit_log',
+      APPROVED_CHATS_COLLECTION,
+      BUSINESS_CONFIG_COLLECTION,
+      GENERATED_INVOICES_COLLECTION,
+      GENERATED_INVOICE_RECEIPTS_COLLECTION,
+      GENERATED_RECEIPTS_COLLECTION,
+      INVITE_CODES_COLLECTION,
+      INVOICE_COUNTERS_COLLECTION,
+      INVOICE_JOBS_COLLECTION,
+      INVOICE_SESSIONS_COLLECTION,
+      ONBOARDING_SESSIONS_COLLECTION,
+      PROCESSING_JOBS_COLLECTION,
+      RATE_LIMITS_COLLECTION,
+      REPORT_SESSIONS_COLLECTION,
+      USER_CUSTOMER_MAPPING_COLLECTION,
+      FLAG_AUDIT_LOG_COLLECTION,
     ];
   }
 
@@ -158,7 +175,7 @@ export class FirestoreService {
     age?: number; // hours
     step?: string;
   }> {
-    const docRef = this.firestore.collection('onboarding_sessions').doc(chatId.toString());
+    const docRef = this.firestore.collection(ONBOARDING_SESSIONS_COLLECTION).doc(chatId.toString());
     const doc = await docRef.get();
 
     if (!doc.exists) {
@@ -202,12 +219,14 @@ export class FirestoreService {
     const batch = this.firestore.batch();
 
     // Delete onboarding session
-    const sessionRef = this.firestore.collection('onboarding_sessions').doc(chatId.toString());
+    const sessionRef = this.firestore
+      .collection(ONBOARDING_SESSIONS_COLLECTION)
+      .doc(chatId.toString());
     batch.delete(sessionRef);
 
     // Delete invite code if provided
     if (inviteCode) {
-      const codeRef = this.firestore.collection('invite_codes').doc(inviteCode);
+      const codeRef = this.firestore.collection(INVITE_CODES_COLLECTION).doc(inviteCode);
       batch.delete(codeRef);
     }
 

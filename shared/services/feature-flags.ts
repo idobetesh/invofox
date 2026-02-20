@@ -9,84 +9,95 @@
  * Usage (per-service singleton):
  *   export const featureFlags = new FeatureFlagsService(getFirestore());
  *
- *   if (await featureFlags.isEnabled('new-receipt-flow', { chatId })) { ... }
+ *   if (await featureFlags.getValue('new-receipt-flow', false, { chatId })) { ... }
+ *   const limit = await featureFlags.getValue('max-invoices', 50);
  */
 
-import { Firestore } from '@google-cloud/firestore';
-import type { FlagConfig, FeatureFlagContext, FlagVariant } from '../feature-flags.types';
+import type { FlagConfig, FeatureFlagContext } from '../feature-flags.types';
 import { FEATURE_FLAGS_COLLECTION } from '../collections';
+
+// Minimal structural interface — avoids importing @google-cloud/firestore in the
+// shared package (which has no node_modules). Any Firestore instance satisfies this.
+interface FirestoreDoc {
+  exists: boolean;
+  data(): unknown;
+}
+interface FirestoreDocChange {
+  type: 'added' | 'modified' | 'removed';
+  doc: { id: string; data(): unknown };
+}
+interface FirestoreSnapshot {
+  docChanges(): FirestoreDocChange[];
+}
+interface FirestoreDb {
+  collection(name: string): {
+    doc(id: string): { get(): Promise<FirestoreDoc> };
+    onSnapshot(
+      onNext: (snapshot: FirestoreSnapshot) => void,
+      onError: (error: Error) => void
+    ): () => void;
+  };
+}
 
 export class FeatureFlagsService {
   private cache: Map<string, FlagConfig> = new Map();
   private unsubscribeSync?: () => void;
 
-  constructor(private db: Firestore) {
+  constructor(private db: FirestoreDb) {
     this.initializeRealTimeSync();
   }
 
   /**
-   * Check whether a flag is enabled for the given context.
-   * Evaluates targeting rules in order: explicit chat → explicit user → percentage rollout → defaultValue.
+   * Get the value of a flag.
+   *
+   * For boolean flags, pass context to evaluate targeting rules
+   * (explicit chat/user targets, percentage rollout, prerequisites).
+   * Returns defaultValue when flag is missing, disabled, archived, or prerequisites fail.
+   *
+   * For string/number flags, context is not used — the flag's defaultValue is returned.
+   *
+   * Examples:
+   *   getValue('invoice-correction', false, { chatId }) // boolean with targeting
+   *   getValue('max-invoices', 50)                      // number config value
    */
-  async isEnabled(flagKey: string, context: FeatureFlagContext): Promise<boolean> {
-    const flag = await this.getFlag(flagKey);
-
-    if (!flag || !flag.enabled || flag.archived) {
-      return false;
-    }
-
-    // Check prerequisites - all must be satisfied before evaluating this flag
-    if (flag.prerequisites) {
-      for (const [prereqKey, requiredValue] of Object.entries(flag.prerequisites)) {
-        const prereqResult = await this.isEnabled(prereqKey, context);
-        if (prereqResult !== requiredValue) {
-          return false;
-        }
-      }
-    }
-
-    return this.evaluateTargeting(flagKey, flag, context);
-  }
-
-  /**
-   * Get the variant key for a multivariate flag.
-   * Returns null if flag doesn't exist, is disabled, archived, or not multivariate.
-   * Variant assignment is stable: same flagKey + context always returns the same variant.
-   */
-  async getVariant(flagKey: string, context: FeatureFlagContext): Promise<string | null> {
-    const flag = await this.getFlag(flagKey);
-
-    if (!flag || !flag.enabled || flag.archived || flag.type !== 'multivariate' || !flag.variants) {
-      return null;
-    }
-
-    const hash = this.hashContext(flagKey, context);
-    return this.selectVariantByWeight(flag.variants, hash);
-  }
-
-  /**
-   * Get the raw value of a string/number flag.
-   * Returns defaultValue if flag doesn't exist, is disabled, or archived.
-   */
-  async getValue<T = unknown>(flagKey: string, defaultValue: T): Promise<T> {
+  async getValue<T = unknown>(
+    flagKey: string,
+    defaultValue: T,
+    context?: FeatureFlagContext
+  ): Promise<T> {
     const flag = await this.getFlag(flagKey);
 
     if (!flag || !flag.enabled || flag.archived) {
       return defaultValue;
     }
 
+    // Check prerequisites when context is provided
+    if (context && flag.prerequisites) {
+      for (const [prereqKey, requiredValue] of Object.entries(flag.prerequisites)) {
+        const prereqResult = await this.getValue(prereqKey, false, context);
+        if (prereqResult !== requiredValue) {
+          return defaultValue;
+        }
+      }
+    }
+
+    // Boolean flags with context: apply targeting rules
+    if (context && flag.type === 'boolean') {
+      return this.evaluateTargeting(flagKey, flag, context) as unknown as T;
+    }
+
     return (flag.defaultValue as T) ?? defaultValue;
   }
 
   /**
-   * Evaluate multiple flags in parallel. Useful for batch-loading all flags needed for a request.
+   * Evaluate multiple boolean flags in parallel. Useful for batch-loading all flags needed for a request.
    */
   async evaluateAll(
     flagKeys: string[],
     context: FeatureFlagContext
   ): Promise<Record<string, boolean>> {
     const entries = await Promise.all(
-      flagKeys.map(async (key) => [key, await this.isEnabled(key, context)] as const)
+      flagKeys.map(async (key) => [key, await this.getValue(key, false, context)] as const)
     );
     return Object.fromEntries(entries);
   }
@@ -156,20 +167,6 @@ export class FeatureFlagsService {
     return Math.abs(hash);
   }
 
-  private selectVariantByWeight(variants: Record<string, FlagVariant>, hash: number): string {
-    const bucket = hash % 100;
-    let cumulative = 0;
-
-    for (const [key, variant] of Object.entries(variants)) {
-      cumulative += variant.weight;
-      if (bucket < cumulative) {
-        return key;
-      }
-    }
-
-    return 'control'; // Fallback - should never happen if weights sum to 100
-  }
-
   /**
    * Subscribe to real-time Firestore updates.
    * Keeps the in-memory cache in sync without polling.
@@ -190,6 +187,7 @@ export class FeatureFlagsService {
       },
       (error) => {
         // Log but don't crash - cache still serves last-known values
+        // eslint-disable-next-line no-console
         console.error('[FeatureFlags] Real-time sync error:', error);
       }
     );

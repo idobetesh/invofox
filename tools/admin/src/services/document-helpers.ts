@@ -5,6 +5,7 @@
 
 import { Firestore } from '@google-cloud/firestore';
 import { Storage } from '@google-cloud/storage';
+import { BUSINESS_CONFIG_COLLECTION } from '../../../../shared/collections';
 
 const STORAGE_BUCKET =
   process.env.GENERATED_INVOICES_BUCKET || 'papertrail-invoice-generated-invoices';
@@ -30,7 +31,7 @@ export async function getBusinessConfig(
   chatId: number
 ): Promise<BusinessConfig> {
   const docId = `chat_${chatId}`;
-  const doc = await firestore.collection('business_config').doc(docId).get();
+  const doc = await firestore.collection(BUSINESS_CONFIG_COLLECTION).doc(docId).get();
 
   if (!doc.exists) {
     throw new Error(`Business config not found for chatId: ${chatId}`);

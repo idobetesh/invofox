@@ -8,11 +8,13 @@
  */
 
 import { Firestore, FieldValue } from '@google-cloud/firestore';
-import { formatDocumentNumber, type InvoiceDocumentType } from '../../../../shared/collections';
+import {
+  formatDocumentNumber,
+  type InvoiceDocumentType,
+  INVOICE_COUNTERS_COLLECTION,
+} from '../../../../shared/collections';
 
 export type { InvoiceDocumentType as DocumentType };
-
-const COLLECTION_NAME = 'invoice_counters';
 
 /**
  * Document counter structure
@@ -60,7 +62,7 @@ export class CounterService {
   async getNextDocumentNumber(chatId: number, documentType: InvoiceDocumentType): Promise<string> {
     const year = new Date().getFullYear();
     const counterDocId = `chat_${chatId}_${year}`;
-    const counterRef = this.firestore.collection(COLLECTION_NAME).doc(counterDocId);
+    const counterRef = this.firestore.collection(INVOICE_COUNTERS_COLLECTION).doc(counterDocId);
 
     const result = await this.firestore.runTransaction(async (transaction) => {
       const counterDoc = await transaction.get(counterRef);
@@ -108,7 +110,7 @@ export class CounterService {
   ): Promise<number> {
     const targetYear = year || new Date().getFullYear();
     const counterDocId = `chat_${chatId}_${targetYear}`;
-    const counterRef = this.firestore.collection(COLLECTION_NAME).doc(counterDocId);
+    const counterRef = this.firestore.collection(INVOICE_COUNTERS_COLLECTION).doc(counterDocId);
 
     const counterDoc = await counterRef.get();
 
@@ -132,7 +134,7 @@ export class CounterService {
   ): Promise<{ invoice: number; receipt: number; invoice_receipt: number }> {
     const targetYear = year || new Date().getFullYear();
     const counterDocId = `chat_${chatId}_${targetYear}`;
-    const counterRef = this.firestore.collection(COLLECTION_NAME).doc(counterDocId);
+    const counterRef = this.firestore.collection(INVOICE_COUNTERS_COLLECTION).doc(counterDocId);
 
     const counterDoc = await counterRef.get();
 

@@ -393,7 +393,7 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
     // If this fails, job won't retry because it's already marked complete
     let editEnabled = false;
     try {
-      editEnabled = await featureFlags.isEnabled('invoice-correction', { chatId });
+      editEnabled = await featureFlags.getValue('invoice-correction', false, { chatId });
     } catch (err) {
       logger.warn(
         { err, chatId },
@@ -582,7 +582,7 @@ export async function handleDuplicateDecision(
     const keepBothJobId = storeService.getJobId(chatId, messageId);
     let keepBothEditEnabled = false;
     try {
-      keepBothEditEnabled = await featureFlags.isEnabled('invoice-correction', { chatId });
+      keepBothEditEnabled = await featureFlags.getValue('invoice-correction', false, { chatId });
     } catch (err) {
       logger.warn(
         { err, chatId },
