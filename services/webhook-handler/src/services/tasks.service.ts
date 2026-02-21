@@ -12,6 +12,7 @@ import type {
   InvoiceCallbackPayload,
   ReportCommandPayload,
 } from '../../../../shared/types';
+import type { ReportCallbackPayload } from './telegram/telegram-report-extractors';
 import type { Config } from '../config';
 import logger from '../logger';
 
@@ -327,7 +328,10 @@ export async function enqueueReportCommandTask(
 /**
  * Enqueue report callback task for worker processing
  */
-export async function enqueueReportCallbackTask(payload: any, config: Config): Promise<string> {
+export async function enqueueReportCallbackTask(
+  payload: ReportCallbackPayload,
+  config: Config
+): Promise<string> {
   const endpoint = 'callback';
   const callbackQueryId = payload.callback_query.id;
   const client = getClient();

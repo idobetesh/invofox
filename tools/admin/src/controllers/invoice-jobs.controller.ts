@@ -21,7 +21,7 @@ export class InvoiceJobsController {
       const chatId = chatIdRaw ? parseInt(String(chatIdRaw), 10) : undefined;
       const limit = limitRaw ? Math.min(parseInt(String(limitRaw), 10), 200) : 50;
 
-      if (chatIdRaw && isNaN(chatId!)) {
+      if (chatIdRaw && isNaN(chatId as number)) {
         res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid chatId' });
         return;
       }

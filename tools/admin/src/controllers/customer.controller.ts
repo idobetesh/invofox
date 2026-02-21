@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { CustomerService } from '../services/customer.service';
 import { OffboardingService } from '../offboarding/offboarding.service';
+import type { OffboardingPreview } from '../offboarding/offboarding.service';
 import {
   INVOICE_COUNTERS_COLLECTION,
   GENERATED_INVOICES_COLLECTION,
@@ -66,7 +67,7 @@ export class CustomerController {
   /**
    * Transform new OffboardingService preview format to old UI-compatible format
    */
-  private transformPreviewForUI(chatId: number, preview: any) {
+  private transformPreviewForUI(chatId: number, preview: OffboardingPreview) {
     return {
       chatId,
       customerName: preview.name,

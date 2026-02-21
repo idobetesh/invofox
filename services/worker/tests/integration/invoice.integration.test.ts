@@ -122,19 +122,18 @@ describe('Invoice Generator Integration Tests', () => {
 
         const response = await request(app).post('/invoice/command').send(invalidPayload);
 
-        // Returns 403 (access denied) when validation fails
-        expect([StatusCodes.BAD_REQUEST, StatusCodes.FORBIDDEN]).toContain(response.status);
+        expect(response.status).toBe(StatusCodes.FORBIDDEN);
       });
 
-      it('should reject payload without userId', async () => {
+      it('should auto-add user when userId is missing in group chat', async () => {
         const invalidPayload = { ...validCommandPayload };
         delete (invalidPayload as Partial<typeof validCommandPayload>).userId;
         (userMappingService.getUserCustomers as jest.Mock).mockResolvedValue([]);
 
         const response = await request(app).post('/invoice/command').send(invalidPayload);
 
-        // Returns 200/400 depending on validation
-        expect([StatusCodes.OK, StatusCodes.BAD_REQUEST]).toContain(response.status);
+        // chatId is negative (group chat) — controller auto-adds the user and proceeds
+        expect(response.status).toBe(StatusCodes.OK);
       });
 
       it('should reject empty payload', async () => {
@@ -142,8 +141,7 @@ describe('Invoice Generator Integration Tests', () => {
 
         const response = await request(app).post('/invoice/command').send({});
 
-        // Returns 403 (access denied) when validation fails
-        expect([StatusCodes.BAD_REQUEST, StatusCodes.FORBIDDEN]).toContain(response.status);
+        expect(response.status).toBe(StatusCodes.FORBIDDEN);
       });
     });
   });

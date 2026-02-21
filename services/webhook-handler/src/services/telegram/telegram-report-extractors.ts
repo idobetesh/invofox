@@ -39,7 +39,19 @@ export function extractReportCommandPayload(update: TelegramUpdate): ReportComma
 /**
  * Extract report callback payload for button presses during report flow
  */
-export function extractReportCallbackPayload(update: TelegramUpdate): any | null {
+export interface ReportCallbackPayload {
+  update_id: number;
+  callback_query: {
+    id: string;
+    data: string;
+    message: {
+      message_id: number;
+      chat: { id: number };
+    };
+  };
+}
+
+export function extractReportCallbackPayload(update: TelegramUpdate): ReportCallbackPayload | null {
   const callback = update.callback_query;
   if (!callback || !callback.data || !callback.message) {
     return null;
