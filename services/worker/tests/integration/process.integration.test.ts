@@ -6,7 +6,7 @@
 import request from 'supertest';
 import { StatusCodes } from 'http-status-codes';
 import app from '../../src/app';
-import type { TaskPayload, DuplicateAction } from '../../../../shared/types';
+import type { TaskPayload } from '../../../../shared/types';
 
 // Mock external services
 jest.mock('../../src/services/invoice.service');
@@ -179,58 +179,85 @@ describe('Process Controller Integration Tests', () => {
   });
 
   describe('POST /callback', () => {
-    const validCallbackPayload = {
-      callbackQueryId: 'callback123',
-      data: JSON.stringify({
-        action: 'keep_both' as DuplicateAction,
-        chatId: 123456,
-        messageId: 789,
-      }),
-    };
-
-    it('should accept valid callback payload', async () => {
-      (storeService.getJob as jest.Mock).mockResolvedValue({
-        status: 'pending_decision',
-        duplicates: [{ invoiceNumber: '123' }],
+    describe('Duplicate decision flow — compact keys (real button format)', () => {
+      beforeEach(() => {
+        (telegramService.answerCallbackQuery as jest.Mock).mockResolvedValue(undefined);
+        (invoiceService.handleDuplicateDecision as jest.Mock).mockResolvedValue({ success: true });
       });
-      (invoiceService.handleDuplicateDecision as jest.Mock).mockResolvedValue(undefined);
-      (telegramService.answerCallbackQuery as jest.Mock).mockResolvedValue(undefined);
 
-      const response = await request(app).post('/callback').send(validCallbackPayload);
+      it('should handle keep_both with compact keys { a, c, m }', async () => {
+        const response = await request(app)
+          .post('/callback')
+          .send({
+            callbackQueryId: 'cb1',
+            data: JSON.stringify({ a: 'keep_both', c: 123456, m: 789 }),
+          });
 
-      // May return 200 or 500 depending on mocking completeness
-      expect([StatusCodes.OK, StatusCodes.INTERNAL_SERVER_ERROR]).toContain(response.status);
-    });
+        expect(response.status).toBe(StatusCodes.OK);
+        expect(response.body).toEqual({ ok: true, action: 'keep_both' });
+        expect(invoiceService.handleDuplicateDecision).toHaveBeenCalledWith(
+          123456,
+          789,
+          'keep_both',
+          undefined
+        );
+      });
 
-    it('should reject callback without chatId', async () => {
-      const invalidPayload = {
-        callbackQueryId: 'callback123',
-        data: JSON.stringify({ action: 'keep_both', messageId: 789 }), // Missing chatId
-      };
+      it('should handle delete_new with compact keys { a, c, m }', async () => {
+        const response = await request(app)
+          .post('/callback')
+          .send({
+            callbackQueryId: 'cb2',
+            data: JSON.stringify({ a: 'delete_new', c: 123456, m: 789 }),
+          });
 
-      const response = await request(app).post('/callback').send(invalidPayload);
+        expect(response.status).toBe(StatusCodes.OK);
+        expect(response.body).toEqual({ ok: true, action: 'delete_new' });
+        expect(invoiceService.handleDuplicateDecision).toHaveBeenCalledWith(
+          123456,
+          789,
+          'delete_new',
+          undefined
+        );
+      });
 
-      // May return 400 or 500 for invalid payload
-      expect([StatusCodes.BAD_REQUEST, StatusCodes.INTERNAL_SERVER_ERROR]).toContain(
-        response.status
-      );
-    });
+      it('should handle keep_both with legacy full keys { action, chatId, messageId }', async () => {
+        const response = await request(app)
+          .post('/callback')
+          .send({
+            callbackQueryId: 'cb3',
+            data: JSON.stringify({ action: 'keep_both', chatId: 123456, messageId: 789 }),
+          });
 
-    it('should reject callback with invalid action', async () => {
-      const invalidPayload = {
-        ...validCallbackPayload,
-        data: JSON.stringify({ action: 'invalid_action', chatId: 123456, messageId: 789 }),
-      };
-      (telegramService.answerCallbackQuery as jest.Mock).mockResolvedValue(undefined);
+        expect(response.status).toBe(StatusCodes.OK);
+        expect(response.body).toEqual({ ok: true, action: 'keep_both' });
+      });
 
-      const response = await request(app).post('/callback').send(invalidPayload);
+      it('should reject duplicate callback missing chatId', async () => {
+        (telegramService.answerCallbackQuery as jest.Mock).mockResolvedValue(undefined);
 
-      // Invalid action may return 200, 400, or 500
-      expect([
-        StatusCodes.OK,
-        StatusCodes.BAD_REQUEST,
-        StatusCodes.INTERNAL_SERVER_ERROR,
-      ]).toContain(response.status);
+        const response = await request(app)
+          .post('/callback')
+          .send({
+            callbackQueryId: 'cb4',
+            data: JSON.stringify({ a: 'keep_both', m: 789 }), // missing c
+          });
+
+        expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+      });
+
+      it('should reject duplicate callback missing messageId', async () => {
+        (telegramService.answerCallbackQuery as jest.Mock).mockResolvedValue(undefined);
+
+        const response = await request(app)
+          .post('/callback')
+          .send({
+            callbackQueryId: 'cb5',
+            data: JSON.stringify({ a: 'keep_both', c: 123456 }), // missing m
+          });
+
+        expect(response.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+      });
     });
 
     it('should not accept GET requests', async () => {
