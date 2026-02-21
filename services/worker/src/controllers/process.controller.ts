@@ -166,7 +166,8 @@ export async function handleCallback(req: Request, res: Response): Promise<void>
       dat: 'invoiceDate',
       vnd: 'vendorName',
     };
-    const resolvedAction = COMPACT_ACTIONS[parsed.a as string] ?? (parsed.action as string);
+    const resolvedAction =
+      COMPACT_ACTIONS[parsed.a as string] ?? (parsed.action as string) ?? (parsed.a as string);
 
     if (!resolvedAction) {
       throw new Error('Invalid callback payload: missing action');
