@@ -43,4 +43,23 @@ module.exports = [
       ],
     },
   },
+  // Test files: ban loose multi-status assertions like expect([200, 500]).toContain(res.status)
+  {
+    files: ['**/*.test.ts', '**/*.spec.ts', '**/tests/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ImportExpression',
+          message: 'Dynamic imports are not allowed. All imports must be at the top of the file.',
+        },
+        {
+          selector:
+            "CallExpression[callee.type='MemberExpression'][callee.property.name='toContain'][callee.object.type='CallExpression'][callee.object.callee.name='expect'][callee.object.arguments.0.type='ArrayExpression'][arguments.0.type='MemberExpression'][arguments.0.property.name='status'][arguments.0.object.type='Identifier']",
+          message:
+            "Do not use expect([...]).toContain(response.status). Assert a single exact status code, e.g. expect(response.status).toBe(200).",
+        },
+      ],
+    },
+  },
 ];

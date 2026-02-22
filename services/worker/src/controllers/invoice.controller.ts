@@ -12,6 +12,7 @@ import type {
   InvoiceCallbackPayload,
 } from '../../../../shared/task.types';
 import type { InvoiceCallbackAction } from '../../../../shared/invoice.types';
+import type { InvoiceSession } from '../../../../shared/types';
 import * as sessionService from '../services/document-generator/session.service';
 import { getGeneratedInvoice } from '../services/document-generator';
 import * as storeService from '../services/firestore.service';
@@ -41,6 +42,11 @@ export async function handleInvoiceCommand(req: Request, res: Response): Promise
   });
 
   log.info('Processing /new command');
+
+  if (typeof payload.userId !== 'number' || typeof payload.chatId !== 'number') {
+    res.status(StatusCodes.BAD_REQUEST).json({ error: 'Missing required fields: chatId, userId' });
+    return;
+  }
 
   try {
     const userCustomers = await userMappingService.getUserCustomers(payload.userId);
@@ -309,7 +315,7 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
           payload.messageId,
           payload.callbackQueryId,
           action.invoiceNumber,
-          session!
+          session as InvoiceSession
         );
         res.status(StatusCodes.OK).json({ ok: true, action: resultAction });
         break;
@@ -333,7 +339,7 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
           payload.messageId,
           payload.callbackQueryId,
           action.offset,
-          session!
+          session as InvoiceSession
         );
         res.status(StatusCodes.OK).json({ ok: true, action: resultAction });
         break;

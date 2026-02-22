@@ -21,7 +21,7 @@ export type { InvoiceDocumentType as DocumentType };
  */
 interface DocumentCounter {
   counter: number;
-  lastUpdated: any;
+  lastUpdated: FieldValue | Date;
 }
 
 /**

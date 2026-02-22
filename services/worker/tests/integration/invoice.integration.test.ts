@@ -118,32 +118,25 @@ describe('Invoice Generator Integration Tests', () => {
       it('should reject payload without chatId', async () => {
         const invalidPayload = { ...validCommandPayload };
         delete (invalidPayload as Partial<typeof validCommandPayload>).chatId;
-        (userMappingService.getUserCustomers as jest.Mock).mockResolvedValue([]);
 
         const response = await request(app).post('/invoice/command').send(invalidPayload);
 
-        // Returns 403 (access denied) when validation fails
-        expect([StatusCodes.BAD_REQUEST, StatusCodes.FORBIDDEN]).toContain(response.status);
+        expect(response.status).toBe(StatusCodes.BAD_REQUEST);
       });
 
       it('should reject payload without userId', async () => {
         const invalidPayload = { ...validCommandPayload };
         delete (invalidPayload as Partial<typeof validCommandPayload>).userId;
-        (userMappingService.getUserCustomers as jest.Mock).mockResolvedValue([]);
 
         const response = await request(app).post('/invoice/command').send(invalidPayload);
 
-        // Returns 200/400 depending on validation
-        expect([StatusCodes.OK, StatusCodes.BAD_REQUEST]).toContain(response.status);
+        expect(response.status).toBe(StatusCodes.BAD_REQUEST);
       });
 
       it('should reject empty payload', async () => {
-        (userMappingService.getUserCustomers as jest.Mock).mockResolvedValue([]);
-
         const response = await request(app).post('/invoice/command').send({});
 
-        // Returns 403 (access denied) when validation fails
-        expect([StatusCodes.BAD_REQUEST, StatusCodes.FORBIDDEN]).toContain(response.status);
+        expect(response.status).toBe(StatusCodes.BAD_REQUEST);
       });
     });
   });

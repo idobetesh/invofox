@@ -39,9 +39,9 @@ export async function handleTypeSelection(
 
     // Update session with report type
     await reportSessionService.updateReportSession(sessionId, {
-      reportType: reportType,
-      currentStep: 'date',
-    } as any);
+      reportType: reportType as 'revenue' | 'expenses',
+      currentStep: 'date' as const,
+    });
 
     // Answer callback query with popup feedback
     const typeName = REPORT_TYPE_NAMES[reportType];
