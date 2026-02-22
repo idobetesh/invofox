@@ -43,6 +43,11 @@ export async function handleInvoiceCommand(req: Request, res: Response): Promise
 
   log.info('Processing /new command');
 
+  if (typeof payload.userId !== 'number' || typeof payload.chatId !== 'number') {
+    res.status(StatusCodes.BAD_REQUEST).json({ error: 'Missing required fields: chatId, userId' });
+    return;
+  }
+
   try {
     const userCustomers = await userMappingService.getUserCustomers(payload.userId);
     const hasAccess = userCustomers.some((c) => c.chatId === payload.chatId);

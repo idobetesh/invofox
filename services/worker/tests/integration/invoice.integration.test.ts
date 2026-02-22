@@ -118,30 +118,25 @@ describe('Invoice Generator Integration Tests', () => {
       it('should reject payload without chatId', async () => {
         const invalidPayload = { ...validCommandPayload };
         delete (invalidPayload as Partial<typeof validCommandPayload>).chatId;
-        (userMappingService.getUserCustomers as jest.Mock).mockResolvedValue([]);
 
         const response = await request(app).post('/invoice/command').send(invalidPayload);
 
-        expect(response.status).toBe(StatusCodes.FORBIDDEN);
+        expect(response.status).toBe(StatusCodes.BAD_REQUEST);
       });
 
-      it('should auto-add user when userId is missing in group chat', async () => {
+      it('should reject payload without userId', async () => {
         const invalidPayload = { ...validCommandPayload };
         delete (invalidPayload as Partial<typeof validCommandPayload>).userId;
-        (userMappingService.getUserCustomers as jest.Mock).mockResolvedValue([]);
 
         const response = await request(app).post('/invoice/command').send(invalidPayload);
 
-        // chatId is negative (group chat) — controller auto-adds the user and proceeds
-        expect(response.status).toBe(StatusCodes.OK);
+        expect(response.status).toBe(StatusCodes.BAD_REQUEST);
       });
 
       it('should reject empty payload', async () => {
-        (userMappingService.getUserCustomers as jest.Mock).mockResolvedValue([]);
-
         const response = await request(app).post('/invoice/command').send({});
 
-        expect(response.status).toBe(StatusCodes.FORBIDDEN);
+        expect(response.status).toBe(StatusCodes.BAD_REQUEST);
       });
     });
   });
