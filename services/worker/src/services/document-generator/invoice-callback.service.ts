@@ -7,11 +7,7 @@
 import * as sessionService from './session.service';
 import { generateInvoice, getGeneratedInvoice } from '.';
 import * as telegramService from '../telegram.service';
-import {
-  buildPaymentMethodKeyboard,
-  buildConfirmationKeyboard,
-  buildInvoiceSelectionKeyboard,
-} from './keyboards.service';
+import { buildConfirmationKeyboard, buildInvoiceSelectionKeyboard } from './keyboards.service';
 import { getOpenInvoices, countOpenInvoices } from './open-invoices.service';
 import {
   buildConfirmationMessage,
@@ -243,15 +239,17 @@ export async function handleConfirmSelection(
   const summaryText = `✅ נבחרו ${selectedCount} חשבוניות\nסה״כ לתשלום: ${currencySymbol}${totalAmount.toFixed(2)}\n\nעבור לקוח: ${confirmedSession.customerName}`;
   await telegramService.editMessageText(chatId, messageId, summaryText);
 
-  await telegramService.sendMessage(chatId, t('he', 'invoice.selectPaymentMethod'), {
-    replyMarkup: buildPaymentMethodKeyboard(),
-  });
+  const exampleAmount = Math.floor(totalAmount / 2);
+  await telegramService.sendMessage(
+    chatId,
+    t('he', 'invoice.selectAmountPrompt', { example: exampleAmount.toLocaleString() })
+  );
 
   log.info(
     { chatId, selectedCount, totalAmount, customerName: confirmedSession.customerName },
-    'Multi-invoice selection confirmed'
+    'Invoice selection confirmed, awaiting amount'
   );
-  return 'selection_confirmed';
+  return 'awaiting_amount';
 }
 
 export async function handleShowMore(

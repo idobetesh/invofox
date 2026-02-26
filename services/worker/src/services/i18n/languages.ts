@@ -147,6 +147,7 @@ You're ready to go! Try these commands:
       multiInvoiceCurrencyError: '⚠️ All invoices must be in the same currency',
       multiInvoiceHelper: '💡 Select at least 2 invoices',
       multiInvoiceDescription: 'Receipt for invoices: {invoiceNumbers}',
+      selectAmountPrompt: '💰 Enter amount\n(Example: {example})',
     },
 
     correction: {
@@ -329,6 +330,7 @@ docs.google.com/spreadsheets/d/[זה_השדה]/edit`,
       multiInvoiceCurrencyError: '⚠️ כל החשבוניות חייבות להיות באותו מטבע',
       multiInvoiceHelper: '💡 בחר לפחות 2 חשבוניות',
       multiInvoiceDescription: 'קבלה עבור חשבוניות: {invoiceNumbers}',
+      selectAmountPrompt: '💰 הכנס סכום\n(לדוגמה: {example})',
     },
 
     correction: {

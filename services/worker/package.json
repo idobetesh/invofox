@@ -9,6 +9,8 @@
     "start": "node dist/index.js",
     "dev": "NODE_ENV=development node -r dotenv/config -r ts-node/register src/index.ts",
     "test": "npm run test:unit && npm run test:integration",
+    "test:flow": "jest --config jest.config.flow.js --runInBand",
+    "test:all": "npm run test:unit && npm run test:integration && npm run test:flow",
     "test:unit": "jest --config jest.config.js",
     "test:integration": "jest --config jest.config.integration.js --forceExit --runInBand",
     "test:watch": "jest --watch --config jest.config.js",
