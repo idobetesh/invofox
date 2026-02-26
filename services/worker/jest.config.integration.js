@@ -16,7 +16,7 @@ module.exports = {
   coverageDirectory: 'coverage/integration',
   verbose: true,
   testTimeout: 10000, // Integration tests may take longer
-  maxWorkers: '50%',
+  maxWorkers: 1, // Run integration tests serially to avoid port conflicts and ECONNRESET
   forceExit: true, // Force exit after tests complete (integration tests may have open handles)
   cache: true,
   cacheDirectory: '<rootDir>/.jest-cache-integration',
