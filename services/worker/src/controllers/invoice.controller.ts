@@ -220,6 +220,25 @@ export async function handleInvoiceMessage(req: Request, res: Response): Promise
             });
 
         await telegramService.sendMessage(payload.chatId, feedbackMsg);
+      } else if (session.selectedInvoiceData && session.selectedInvoiceData.length > 0) {
+        const totalRemainingBalance = session.selectedInvoiceData.reduce(
+          (sum, d) => sum + d.remainingBalance,
+          0
+        );
+
+        if (amount > totalRemainingBalance) {
+          const errorMsg = t('he', 'invoice.amountTooHigh', {
+            amount: amount.toLocaleString(),
+            remainingBalance: totalRemainingBalance.toLocaleString(),
+          });
+          await telegramService.sendMessage(payload.chatId, errorMsg);
+          log.info(
+            { amount, totalRemainingBalance },
+            'Amount exceeds total remaining balance for multi-invoice receipt'
+          );
+          res.status(StatusCodes.OK).json({ ok: true, action: 'amount_too_high' });
+          return;
+        }
       }
 
       await sessionService.updateSession(payload.chatId, payload.userId, { amount });

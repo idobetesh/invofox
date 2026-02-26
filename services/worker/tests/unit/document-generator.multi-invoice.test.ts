@@ -4,6 +4,18 @@
  */
 
 import { GeneratedInvoice } from '../../../../shared/invoice.types';
+import { validateAndConfirmSelection } from '../../src/services/document-generator/session.service';
+import { getFirestore } from '../../src/services/firestore.service';
+
+// ─── Type helpers for mock internals ─────────────────────────────────────────
+
+type MockDocRef = { _docId: string };
+type MockInvoiceUpdate = Partial<GeneratedInvoice> & {
+  relatedReceiptIds?: { _arrayUnion: string };
+};
+type MockTransaction = { get: jest.Mock; update: jest.Mock };
+
+// ─── Module mocks ─────────────────────────────────────────────────────────────
 
 // Mock Firestore
 const mockRunTransaction = jest.fn();
@@ -53,7 +65,7 @@ jest.mock('@google-cloud/firestore', () => {
       increment: jest.fn((val) => ({ _increment: val })),
     },
     Timestamp: {
-      fromDate: jest.fn((date) => ({
+      fromDate: jest.fn((date: Date) => ({
         toMillis: () => date.getTime(),
         toDate: () => date,
       })),
@@ -64,6 +76,11 @@ jest.mock('@google-cloud/firestore', () => {
     },
   };
 });
+
+// Mocks firestore.service so session.service picks it up at import time
+jest.mock('../../src/services/firestore.service', () => ({
+  getFirestore: jest.fn(),
+}));
 
 describe('Document Generator - Multi-Invoice', () => {
   const chatId = -5175500469;
@@ -104,31 +121,33 @@ describe('Document Generator - Multi-Invoice', () => {
           paymentStatus: 'unpaid',
           relatedReceiptIds: [],
         },
-      ] as any;
+      ];
 
       const updatedInvoicesData: Record<string, Partial<GeneratedInvoice>> = {};
 
       // Mock transaction
-      mockRunTransaction.mockImplementation(async (callback) => {
-        const mockTransaction = {
-          get: jest.fn((ref: any) => {
-            const docId = ref._docId;
-            const invoice = parentInvoices.find(
-              (inv) => `chat_${chatId}_${inv.invoiceNumber}` === docId
-            );
-            return Promise.resolve({
-              exists: true,
-              data: () => invoice,
-              ref: { id: docId },
-            });
-          }),
-          update: jest.fn((ref: any, data: any) => {
-            updatedInvoicesData[ref._docId] = data;
-          }),
-        };
+      mockRunTransaction.mockImplementation(
+        async (callback: (t: MockTransaction) => Promise<unknown>) => {
+          const mockTransaction: MockTransaction = {
+            get: jest.fn((ref: MockDocRef) => {
+              const docId = ref._docId;
+              const invoice = parentInvoices.find(
+                (inv) => `chat_${chatId}_${inv.invoiceNumber}` === docId
+              );
+              return Promise.resolve({
+                exists: true,
+                data: () => invoice,
+                ref: { id: docId },
+              });
+            }),
+            update: jest.fn((ref: MockDocRef, data: MockInvoiceUpdate) => {
+              updatedInvoicesData[ref._docId] = data;
+            }),
+          };
 
-        return callback(mockTransaction);
-      });
+          return callback(mockTransaction);
+        }
+      );
 
       // Import the function (this would be from the actual service)
       // For testing purposes, we'll mock the expected behavior
@@ -137,10 +156,10 @@ describe('Document Generator - Multi-Invoice', () => {
         parentInvoices: GeneratedInvoice[],
         receiptNumber: string
       ) => {
-        await mockRunTransaction(async (transaction: any) => {
+        await mockRunTransaction(async (transaction: MockTransaction) => {
           for (const invoice of parentInvoices) {
             const docId = `chat_${chatId}_${invoice.invoiceNumber}`;
-            const docRef = { _docId: docId };
+            const docRef: MockDocRef = { _docId: docId };
 
             const doc = await transaction.get(docRef);
             if (!doc.exists) {
@@ -162,7 +181,11 @@ describe('Document Generator - Multi-Invoice', () => {
         });
       };
 
-      await updateMultipleInvoicesPayment(chatId, parentInvoices as any, receiptNumber);
+      await updateMultipleInvoicesPayment(
+        chatId,
+        parentInvoices as unknown as GeneratedInvoice[],
+        receiptNumber
+      );
 
       expect(mockRunTransaction).toHaveBeenCalled();
 
@@ -209,34 +232,36 @@ describe('Document Generator - Multi-Invoice', () => {
       ];
 
       // Mock transaction that detects already-paid invoice
-      mockRunTransaction.mockImplementation(async (callback) => {
-        const mockTransaction = {
-          get: jest.fn((ref: any) => {
-            const docId = ref._docId;
-            const invoice = parentInvoices.find(
-              (inv) => `chat_${chatId}_${inv.invoiceNumber}` === docId
-            );
-            return Promise.resolve({
-              exists: true,
-              data: () => invoice,
-              ref: { id: docId },
-            });
-          }),
-          update: jest.fn(),
-        };
+      mockRunTransaction.mockImplementation(
+        async (callback: (t: MockTransaction) => Promise<unknown>) => {
+          const mockTransaction: MockTransaction = {
+            get: jest.fn((ref: MockDocRef) => {
+              const docId = ref._docId;
+              const invoice = parentInvoices.find(
+                (inv) => `chat_${chatId}_${inv.invoiceNumber}` === docId
+              );
+              return Promise.resolve({
+                exists: true,
+                data: () => invoice,
+                ref: { id: docId },
+              });
+            }),
+            update: jest.fn(),
+          };
 
-        return callback(mockTransaction);
-      });
+          return callback(mockTransaction);
+        }
+      );
 
       const updateMultipleInvoicesPayment = async (
         chatId: number,
         parentInvoices: GeneratedInvoice[],
         _receiptNumber: string
       ) => {
-        await mockRunTransaction(async (transaction: any) => {
+        await mockRunTransaction(async (transaction: MockTransaction) => {
           for (const invoice of parentInvoices) {
             const docId = `chat_${chatId}_${invoice.invoiceNumber}`;
-            const docRef = { _docId: docId };
+            const docRef: MockDocRef = { _docId: docId };
 
             const doc = await transaction.get(docRef);
             if (!doc.exists) {
@@ -258,7 +283,11 @@ describe('Document Generator - Multi-Invoice', () => {
       };
 
       await expect(
-        updateMultipleInvoicesPayment(chatId, parentInvoices as any, receiptNumber)
+        updateMultipleInvoicesPayment(
+          chatId,
+          parentInvoices as unknown as GeneratedInvoice[],
+          receiptNumber
+        )
       ).rejects.toThrow('Invoice I-2026-101 already paid');
     });
 
@@ -279,36 +308,38 @@ describe('Document Generator - Multi-Invoice', () => {
 
       const updatedInvoicesData: Record<string, Partial<GeneratedInvoice>> = {};
 
-      mockRunTransaction.mockImplementation(async (callback) => {
-        const mockTransaction = {
-          get: jest.fn((ref: any) => {
-            const docId = ref._docId;
-            const invoice = parentInvoices.find(
-              (inv) => `chat_${chatId}_${inv.invoiceNumber}` === docId
-            );
-            return Promise.resolve({
-              exists: true,
-              data: () => invoice,
-              ref: { id: docId },
-            });
-          }),
-          update: jest.fn((ref: any, data: any) => {
-            updatedInvoicesData[ref._docId] = data;
-          }),
-        };
+      mockRunTransaction.mockImplementation(
+        async (callback: (t: MockTransaction) => Promise<unknown>) => {
+          const mockTransaction: MockTransaction = {
+            get: jest.fn((ref: MockDocRef) => {
+              const docId = ref._docId;
+              const invoice = parentInvoices.find(
+                (inv) => `chat_${chatId}_${inv.invoiceNumber}` === docId
+              );
+              return Promise.resolve({
+                exists: true,
+                data: () => invoice,
+                ref: { id: docId },
+              });
+            }),
+            update: jest.fn((ref: MockDocRef, data: MockInvoiceUpdate) => {
+              updatedInvoicesData[ref._docId] = data;
+            }),
+          };
 
-        return callback(mockTransaction);
-      });
+          return callback(mockTransaction);
+        }
+      );
 
       const updateMultipleInvoicesPayment = async (
         chatId: number,
         parentInvoices: GeneratedInvoice[],
         receiptNumber: string
       ) => {
-        await mockRunTransaction(async (transaction: any) => {
+        await mockRunTransaction(async (transaction: MockTransaction) => {
           for (const invoice of parentInvoices) {
             const docId = `chat_${chatId}_${invoice.invoiceNumber}`;
-            const docRef = { _docId: docId };
+            const docRef: MockDocRef = { _docId: docId };
 
             const doc = await transaction.get(docRef);
             if (!doc.exists) {
@@ -326,7 +357,11 @@ describe('Document Generator - Multi-Invoice', () => {
         });
       };
 
-      await updateMultipleInvoicesPayment(chatId, parentInvoices as any, receiptNumber);
+      await updateMultipleInvoicesPayment(
+        chatId,
+        parentInvoices as unknown as GeneratedInvoice[],
+        receiptNumber
+      );
 
       // Verify all 10 invoices were updated
       expect(Object.keys(updatedInvoicesData)).toHaveLength(10);
@@ -371,7 +406,7 @@ describe('Document Generator - Multi-Invoice', () => {
       };
 
       expect(receiptData.relatedInvoiceNumber).toBe('I-2026-100');
-      expect(receiptData.relatedInvoiceNumbers![0]).toBe(receiptData.relatedInvoiceNumber);
+      expect(receiptData.relatedInvoiceNumbers?.[0]).toBe(receiptData.relatedInvoiceNumber);
     });
   });
 
@@ -412,7 +447,7 @@ describe('Document Generator - Multi-Invoice', () => {
         } as GeneratedInvoice,
       ];
 
-      const allHaveBalance = invoices.every((inv) => inv.remainingBalance! > 0);
+      const allHaveBalance = invoices.every((inv) => (inv.remainingBalance ?? 0) > 0);
       expect(allHaveBalance).toBe(false);
     });
 
@@ -423,7 +458,7 @@ describe('Document Generator - Multi-Invoice', () => {
         { invoiceNumber: 'I-2026-102', remainingBalance: 1500 },
       ];
 
-      const calculatedTotal = invoices.reduce((sum, inv) => sum + inv.remainingBalance!, 0);
+      const calculatedTotal = invoices.reduce((sum, inv) => sum + (inv.remainingBalance ?? 0), 0);
       const expectedTotal = 7000;
 
       expect(calculatedTotal).toBe(expectedTotal);
@@ -436,39 +471,30 @@ describe('Document Generator - Multi-Invoice', () => {
      * by calling validateAndConfirmSelection() with different invoice counts
      */
 
-    let mockCollection: jest.Mock;
-    let mockDoc: jest.Mock;
-    let mockGet: jest.Mock;
-    let mockUpdate: jest.Mock;
-    let mockDelete: jest.Mock;
+    let mockCountCollection: jest.Mock;
+    let mockCountDoc: jest.Mock;
+    let mockCountGet: jest.Mock;
+    let mockCountUpdate: jest.Mock;
+    let mockCountDelete: jest.Mock;
 
     beforeEach(() => {
       jest.clearAllMocks();
 
-      // Mock Firestore
-      mockGet = jest.fn();
-      mockUpdate = jest.fn().mockResolvedValue(undefined);
-      mockDelete = jest.fn().mockResolvedValue(undefined);
-      mockDoc = jest.fn(() => ({
-        get: mockGet,
-        update: mockUpdate,
-        delete: mockDelete,
+      mockCountGet = jest.fn();
+      mockCountUpdate = jest.fn().mockResolvedValue(undefined);
+      mockCountDelete = jest.fn().mockResolvedValue(undefined);
+      mockCountDoc = jest.fn(() => ({
+        get: mockCountGet,
+        update: mockCountUpdate,
+        delete: mockCountDelete,
       }));
-      mockCollection = jest.fn(() => ({
-        doc: mockDoc,
+      mockCountCollection = jest.fn(() => ({
+        doc: mockCountDoc,
       }));
 
-      // Mock getFirestore to return our mock
-      jest.resetModules();
-      jest.doMock('../../src/services/firestore.service', () => ({
-        getFirestore: jest.fn(() => ({
-          collection: mockCollection,
-        })),
-      }));
-    });
-
-    afterEach(() => {
-      jest.resetModules();
+      (getFirestore as jest.Mock).mockReturnValue({
+        collection: mockCountCollection,
+      });
     });
 
     it('should ACCEPT 1 invoice (single-invoice receipt)', async () => {
@@ -495,27 +521,26 @@ describe('Document Generator - Multi-Invoice', () => {
         },
       };
 
-      mockGet.mockResolvedValue({
+      mockCountGet.mockResolvedValue({
         exists: true,
         data: () => sessionData,
       });
 
-      // eslint-disable-next-line no-restricted-syntax
-      const { validateAndConfirmSelection } =
-        await import('../../src/services/document-generator/session.service');
       const result = await validateAndConfirmSelection(chatId, 123);
 
       expect(result.success).toBe(true);
-      expect(mockUpdate).toHaveBeenCalledWith(
+      expect(mockCountUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           status: 'awaiting_payment',
-          amount: 3000,
         })
+      );
+      // amount is NOT stored here — it is reserved for the user-entered payment amount
+      expect(mockCountUpdate).toHaveBeenCalledWith(
+        expect.not.objectContaining({ amount: expect.anything() })
       );
     });
 
     it('should ACCEPT 10 invoices (max limit)', async () => {
-      // Mock session with 10 invoices selected
       const tenInvoices = Array.from({ length: 10 }, (_, i) => ({
         invoiceNumber: `I-2026-${100 + i}`,
         customerName: 'רבקה לוי',
@@ -539,22 +564,22 @@ describe('Document Generator - Multi-Invoice', () => {
         },
       };
 
-      mockGet.mockResolvedValue({
+      mockCountGet.mockResolvedValue({
         exists: true,
         data: () => sessionData,
       });
 
-      // eslint-disable-next-line no-restricted-syntax
-      const { validateAndConfirmSelection } =
-        await import('../../src/services/document-generator/session.service');
       const result = await validateAndConfirmSelection(chatId, 123);
 
       expect(result.success).toBe(true);
-      expect(mockUpdate).toHaveBeenCalledWith(
+      expect(mockCountUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           status: 'awaiting_payment',
-          amount: 10000, // 10 * 1000
         })
+      );
+      // amount is NOT stored here — it is reserved for the user-entered payment amount
+      expect(mockCountUpdate).toHaveBeenCalledWith(
+        expect.not.objectContaining({ amount: expect.anything() })
       );
     });
 
@@ -574,25 +599,21 @@ describe('Document Generator - Multi-Invoice', () => {
         },
       };
 
-      mockGet.mockResolvedValue({
+      mockCountGet.mockResolvedValue({
         exists: true,
         data: () => sessionData,
       });
 
-      // eslint-disable-next-line no-restricted-syntax
-      const { validateAndConfirmSelection } =
-        await import('../../src/services/document-generator/session.service');
       const result = await validateAndConfirmSelection(chatId, 123);
 
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error).toContain('חשבונית אחת לפחות'); // "at least one invoice"
       }
-      expect(mockUpdate).not.toHaveBeenCalled();
+      expect(mockCountUpdate).not.toHaveBeenCalled();
     });
 
     it('should REJECT 11 invoices (max limit validation)', async () => {
-      // Mock session with 11 invoices selected
       const elevenInvoices = Array.from({ length: 11 }, (_, i) => ({
         invoiceNumber: `I-2026-${100 + i}`,
         customerName: 'רבקה לוי',
@@ -616,21 +637,18 @@ describe('Document Generator - Multi-Invoice', () => {
         },
       };
 
-      mockGet.mockResolvedValue({
+      mockCountGet.mockResolvedValue({
         exists: true,
         data: () => sessionData,
       });
 
-      // eslint-disable-next-line no-restricted-syntax
-      const { validateAndConfirmSelection } =
-        await import('../../src/services/document-generator/session.service');
       const result = await validateAndConfirmSelection(chatId, 123);
 
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error).toContain('10'); // Should mention max limit
       }
-      expect(mockUpdate).not.toHaveBeenCalled();
+      expect(mockCountUpdate).not.toHaveBeenCalled();
     });
   });
 });
