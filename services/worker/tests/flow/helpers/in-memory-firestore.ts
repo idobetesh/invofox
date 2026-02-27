@@ -290,10 +290,14 @@ function deepClone(obj: DocData): DocData {
  * Creates intermediate objects as needed.
  */
 function setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): void {
+  const FORBIDDEN = new Set(['__proto__', 'constructor', 'prototype']);
   const parts = path.split('.');
   let current: Record<string, unknown> = obj;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
+    if (FORBIDDEN.has(part)) {
+      return;
+    }
     if (
       current[part] === undefined ||
       current[part] === null ||
@@ -304,6 +308,9 @@ function setNestedValue(obj: Record<string, unknown>, path: string, value: unkno
     current = current[part] as Record<string, unknown>;
   }
   const lastPart = parts[parts.length - 1];
+  if (FORBIDDEN.has(lastPart)) {
+    return;
+  }
   if (value === undefined) {
     delete current[lastPart];
   } else {
@@ -423,10 +430,12 @@ export class InMemoryFirestore {
   private store: Map<string, Map<string, DocData>> = new Map();
 
   collection(name: string): MockCollectionReference {
-    if (!this.store.has(name)) {
-      this.store.set(name, new Map());
+    let col = this.store.get(name);
+    if (!col) {
+      col = new Map();
+      this.store.set(name, col);
     }
-    return new MockCollectionReference(this.store.get(name)!, name);
+    return new MockCollectionReference(col, name);
   }
 
   async runTransaction<T>(callback: (transaction: MockTransaction) => Promise<T>): Promise<T> {
@@ -445,10 +454,12 @@ export class InMemoryFirestore {
    * The data is stored as-is (no FieldValue resolution).
    */
   seed(collectionName: string, docId: string, data: DocData): void {
-    if (!this.store.has(collectionName)) {
-      this.store.set(collectionName, new Map());
+    let col = this.store.get(collectionName);
+    if (!col) {
+      col = new Map();
+      this.store.set(collectionName, col);
     }
-    this.store.get(collectionName)!.set(docId, { ...data });
+    col.set(docId, { ...data });
   }
 
   /**

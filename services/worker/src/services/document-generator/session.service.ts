@@ -399,13 +399,15 @@ export async function validateAndConfirmSelection(
         ? `קבלה עבור חשבונית: ${selectedNumbers[0]}`
         : `קבלה עבור חשבוניות: ${selectedNumbers.join(', ')}`;
 
-    // Update session with validated data
+    // Update session with validated data.
     // For single-invoice: set relatedInvoiceNumber so the message handler can
-    // validate the entered amount against the invoice's remaining balance
+    // validate the entered amount against the invoice's remaining balance.
+    // NOTE: `amount` is intentionally NOT set here — it is reserved for the
+    // user-entered payment amount that comes in the next step. The total can
+    // always be derived from selectedInvoiceData[].remainingBalance.
     const updatedSession = await updateSession(chatId, userId, {
       status: 'awaiting_payment',
       customerName: firstCustomer,
-      amount: totalAmount,
       currency: firstCurrency,
       description,
       ...(selectedNumbers.length === 1 ? { relatedInvoiceNumber: selectedNumbers[0] } : {}),

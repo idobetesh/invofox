@@ -229,7 +229,6 @@ it('callback with expired session — session_expired response', async () => {
       data: JSON.stringify({ action: 'cancel' }),
       receivedAt: new Date().toISOString(),
     });
-  // Cancel action is handled even without a session (action !== 'cancel' check is reversed)
-  // The controller only checks for session if action !== 'cancel'
+  // Cancel action is handled even without a session; the controller only looks up a session for non-cancel actions
   expect(directRes.status).toBe(200);
 });

@@ -5,9 +5,9 @@
  * record every Telegram call, and click buttons from the ACTUAL keyboard the
  * bot sends — not hard-coded callback data.
  *
- * The partial-payment test DELIBERATELY FAILS on the current code, proving
- * the bug exists. It will PASS after handleConfirmSelection is fixed to ask
- * for the payment amount before showing the payment-method keyboard.
+ * The partial-payment test verifies that handleConfirmSelection asks for the
+ * payment amount before showing the payment-method keyboard, and that the
+ * receipt is created correctly based on that amount.
  */
 
 // ─── Module mocks (must be before imports) ──────────────────────────────────
