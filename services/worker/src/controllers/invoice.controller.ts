@@ -198,7 +198,7 @@ export async function handleInvoiceMessage(req: Request, res: Response): Promise
           return;
         }
 
-        const remainingBalance = invoice.remainingBalance || invoice.amount;
+        const remainingBalance = invoice.remainingBalance ?? invoice.amount;
 
         if (amount > remainingBalance) {
           const errorMsg = t('he', 'invoice.amountTooHigh', {

@@ -100,7 +100,7 @@ export async function handleSelectInvoice(
     description: t('he', 'invoice.receiptDescription', { invoiceNumber }),
   });
 
-  const remainingBalance = invoice.remainingBalance || invoice.amount;
+  const remainingBalance = invoice.remainingBalance ?? invoice.amount;
   const paidAmount = invoice.paidAmount || 0;
 
   await telegramService.answerCallbackQuery(callbackQueryId);
@@ -174,7 +174,7 @@ export async function handleToggleInvoice(
     }
   }
 
-  const remainingBalance = invoice.remainingBalance || invoice.amount;
+  const remainingBalance = invoice.remainingBalance ?? invoice.amount;
   const updatedSession = await sessionService.toggleInvoiceSelection(
     chatId,
     userId,
