@@ -6,6 +6,7 @@
 import { GeneratedInvoice } from '../../../../shared/invoice.types';
 import { validateAndConfirmSelection } from '../../src/services/document-generator/session.service';
 import { updateMultipleInvoicesPayment } from '../../src/services/document-generator/invoice-store.service';
+import { validatePaymentAmount } from '../../src/services/document-generator/invoice-validator.service';
 import { getFirestore } from '../../src/services/firestore.service';
 
 // ─── Type helpers for mock internals ─────────────────────────────────────────
@@ -357,22 +358,27 @@ describe('Document Generator - Multi-Invoice', () => {
     });
 
     it('should allow partial payment (amount less than total remaining balance)', () => {
-      const invoices = [{ invoiceNumber: 'I-2026-8', remainingBalance: 500 }];
-      const expectedTotal = invoices.reduce((sum, inv) => sum + (inv.remainingBalance ?? 0), 0);
-      const partialPaymentAmount = 200;
+      const invoices = [
+        { invoiceNumber: 'I-2026-8', remainingBalance: 500, amount: 500 },
+      ] as GeneratedInvoice[];
 
-      // Partial payment: amount < total is valid (not an overpayment)
-      const isOverpayment = partialPaymentAmount - expectedTotal > 0.01;
-      expect(isOverpayment).toBe(false);
+      // validatePaymentAmount must not throw for a partial payment
+      expect(() => validatePaymentAmount(200, invoices)).not.toThrow();
     });
 
     it('should reject payment that exceeds total remaining balance', () => {
-      const invoices = [{ invoiceNumber: 'I-2026-8', remainingBalance: 500 }];
-      const expectedTotal = invoices.reduce((sum, inv) => sum + (inv.remainingBalance ?? 0), 0);
-      const overpaymentAmount = 600;
+      const invoices = [
+        { invoiceNumber: 'I-2026-8', remainingBalance: 500, amount: 500 },
+      ] as GeneratedInvoice[];
 
-      const isOverpayment = overpaymentAmount - expectedTotal > 0.01;
-      expect(isOverpayment).toBe(true);
+      // validatePaymentAmount must throw for an overpayment (including 0.01 tolerance)
+      expect(() => validatePaymentAmount(600, invoices)).toThrow(
+        'Payment amount exceeds total remaining balance'
+      );
+      // Just within tolerance must pass
+      expect(() => validatePaymentAmount(500.01, invoices)).not.toThrow();
+      // Just over tolerance must throw
+      expect(() => validatePaymentAmount(500.02, invoices)).toThrow();
     });
   });
 

@@ -297,6 +297,11 @@ export async function updateMultipleInvoicesPayment(
       const paymentForThisInvoice = Math.min(remainingPayment, currentRemaining);
       remainingPayment -= paymentForThisInvoice;
 
+      // Payment pool exhausted — skip this invoice entirely (no mutation, no receipt link)
+      if (paymentForThisInvoice <= 0) {
+        break;
+      }
+
       const newPaidAmount = currentPaid + paymentForThisInvoice;
       const newRemainingBalance = currentRemaining - paymentForThisInvoice;
 

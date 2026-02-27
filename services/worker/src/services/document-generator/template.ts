@@ -87,7 +87,9 @@ export function buildInvoiceHTML(
 
       // For multi-invoice receipts, all invoices are paid in full
       // For single-invoice receipts, payment may be full or partial
-      const isPartialPayment = isSingleInvoice && data.amount < parentInvoices[0].amount;
+      const isPartialPayment =
+        isSingleInvoice &&
+        data.amount < (parentInvoices[0].remainingBalance ?? parentInvoices[0].amount);
       const remainingBalance = isSingleInvoice
         ? Math.max(
             0,

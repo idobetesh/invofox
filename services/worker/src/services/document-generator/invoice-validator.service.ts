@@ -79,7 +79,9 @@ export async function validateParentInvoices(
     }
 
     // Validate all have remaining balance > 0
-    const invalidInvoices = parentInvoices.filter((inv) => (inv.remainingBalance || 0) <= 0);
+    const invalidInvoices = parentInvoices.filter(
+      (inv) => (inv.remainingBalance ?? inv.amount) <= 0
+    );
     if (invalidInvoices.length > 0) {
       throw new Error(
         `Invoices already paid: ${invalidInvoices.map((i) => i.invoiceNumber).join(', ')}`
