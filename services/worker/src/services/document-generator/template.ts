@@ -91,7 +91,7 @@ export function buildInvoiceHTML(
       const remainingBalance = isSingleInvoice
         ? Math.max(
             0,
-            (parentInvoices[0].remainingBalance || parentInvoices[0].amount) - data.amount
+            (parentInvoices[0].remainingBalance ?? parentInvoices[0].amount) - data.amount
           )
         : 0;
 
@@ -126,7 +126,7 @@ export function buildInvoiceHTML(
       // LEGACY: Old receipts created before multi-select (for backward compatibility)
       // Calculate payment tracking info
       const newRemainingBalance =
-        (parentInvoice.remainingBalance || parentInvoice.amount) - data.amount;
+        (parentInvoice.remainingBalance ?? parentInvoice.amount) - data.amount;
       const isPartialPayment = newRemainingBalance > 0;
 
       const params: ReceiptTemplateParams = {

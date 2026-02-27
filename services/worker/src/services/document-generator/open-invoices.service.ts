@@ -55,8 +55,8 @@ export async function getOpenInvoices(
     for (const doc of snapshot.docs) {
       const data = doc.data();
 
-      // Double-check that remaining balance > 0
-      if (data.remainingBalance && data.remainingBalance > 0) {
+      // Double-check: guard against corrupted docs where status is partial/unpaid but balance is 0
+      if (data.remainingBalance > 0) {
         openInvoices.push({
           invoiceNumber: data.invoiceNumber || doc.id,
           customerName: data.customerName || 'Unknown',

@@ -5,6 +5,7 @@
 
 import { GeneratedInvoice } from '../../../../shared/invoice.types';
 import { validateAndConfirmSelection } from '../../src/services/document-generator/session.service';
+import { updateMultipleInvoicesPayment } from '../../src/services/document-generator/invoice-store.service';
 import { getFirestore } from '../../src/services/firestore.service';
 
 // ─── Type helpers for mock internals ─────────────────────────────────────────
@@ -94,280 +95,171 @@ describe('Document Generator - Multi-Invoice', () => {
   });
 
   describe('Multi-Invoice Payment Update', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      (getFirestore as jest.Mock).mockReturnValue({
+        collection: jest.fn(() => ({
+          doc: jest.fn((docId: string) => ({ _docId: docId })),
+        })),
+        runTransaction: mockRunTransaction,
+      });
+    });
+
     it('should update all parent invoices atomically', async () => {
       const receiptNumber = 'R-2026-999';
       const parentInvoices: Partial<GeneratedInvoice>[] = [
         {
           chatId,
-          documentType: 'invoice',
           invoiceNumber: 'I-2026-100',
-          customerName: 'רבקה לוי',
           amount: 3000,
-          currency: 'ILS',
           remainingBalance: 3000,
           paidAmount: 0,
           paymentStatus: 'unpaid',
-          relatedReceiptIds: [],
         },
         {
           chatId,
-          documentType: 'invoice',
           invoiceNumber: 'I-2026-101',
-          customerName: 'רבקה לוי',
           amount: 2500,
-          currency: 'ILS',
           remainingBalance: 2500,
           paidAmount: 0,
           paymentStatus: 'unpaid',
-          relatedReceiptIds: [],
         },
       ];
 
-      const updatedInvoicesData: Record<string, Partial<GeneratedInvoice>> = {};
+      const updatedData: Record<string, Partial<GeneratedInvoice>> = {};
 
-      // Mock transaction
       mockRunTransaction.mockImplementation(
         async (callback: (t: MockTransaction) => Promise<unknown>) => {
-          const mockTransaction: MockTransaction = {
-            get: jest.fn((ref: MockDocRef) => {
-              const docId = ref._docId;
-              const invoice = parentInvoices.find(
-                (inv) => `chat_${chatId}_${inv.invoiceNumber}` === docId
-              );
-              return Promise.resolve({
+          const t: MockTransaction = {
+            get: jest.fn((ref: MockDocRef) =>
+              Promise.resolve({
                 exists: true,
-                data: () => invoice,
-                ref: { id: docId },
-              });
-            }),
+                data: () =>
+                  parentInvoices.find(
+                    (inv) => `chat_${chatId}_${inv.invoiceNumber}` === ref._docId
+                  ),
+              })
+            ),
             update: jest.fn((ref: MockDocRef, data: MockInvoiceUpdate) => {
-              updatedInvoicesData[ref._docId] = data;
+              updatedData[ref._docId] = data;
             }),
           };
-
-          return callback(mockTransaction);
+          return callback(t);
         }
       );
 
-      // Import the function (this would be from the actual service)
-      // For testing purposes, we'll mock the expected behavior
-      const updateMultipleInvoicesPayment = async (
-        chatId: number,
-        parentInvoices: GeneratedInvoice[],
-        receiptNumber: string
-      ) => {
-        await mockRunTransaction(async (transaction: MockTransaction) => {
-          for (const invoice of parentInvoices) {
-            const docId = `chat_${chatId}_${invoice.invoiceNumber}`;
-            const docRef: MockDocRef = { _docId: docId };
-
-            const doc = await transaction.get(docRef);
-            if (!doc.exists) {
-              throw new Error(`Invoice ${invoice.invoiceNumber} not found`);
-            }
-
-            const currentInvoice = doc.data();
-            if (currentInvoice.remainingBalance === 0) {
-              throw new Error(`Invoice ${invoice.invoiceNumber} already paid`);
-            }
-
-            transaction.update(docRef, {
-              paidAmount: currentInvoice.amount,
-              remainingBalance: 0,
-              paymentStatus: 'paid',
-              relatedReceiptIds: { _arrayUnion: receiptNumber },
-            });
-          }
-        });
-      };
-
+      const totalAmount = 3000 + 2500;
       await updateMultipleInvoicesPayment(
         chatId,
-        parentInvoices as unknown as GeneratedInvoice[],
-        receiptNumber
+        parentInvoices as GeneratedInvoice[],
+        receiptNumber,
+        totalAmount
       );
 
       expect(mockRunTransaction).toHaveBeenCalled();
 
-      // Verify updates for both invoices
-      const invoice1Key = `chat_${chatId}_I-2026-100`;
-      const invoice2Key = `chat_${chatId}_I-2026-101`;
+      const r1 = updatedData[`chat_${chatId}_I-2026-100`];
+      const r2 = updatedData[`chat_${chatId}_I-2026-101`];
 
-      expect(updatedInvoicesData[invoice1Key]).toBeDefined();
-      expect(updatedInvoicesData[invoice1Key].paymentStatus).toBe('paid');
-      expect(updatedInvoicesData[invoice1Key].remainingBalance).toBe(0);
-      expect(updatedInvoicesData[invoice1Key].paidAmount).toBe(3000);
+      expect(r1.paymentStatus).toBe('paid');
+      expect(r1.remainingBalance).toBe(0);
+      expect(r1.paidAmount).toBe(3000);
 
-      expect(updatedInvoicesData[invoice2Key]).toBeDefined();
-      expect(updatedInvoicesData[invoice2Key].paymentStatus).toBe('paid');
-      expect(updatedInvoicesData[invoice2Key].remainingBalance).toBe(0);
-      expect(updatedInvoicesData[invoice2Key].paidAmount).toBe(2500);
+      expect(r2.paymentStatus).toBe('paid');
+      expect(r2.remainingBalance).toBe(0);
+      expect(r2.paidAmount).toBe(2500);
     });
 
     it('should rollback transaction if any invoice is already paid (race condition)', async () => {
-      const receiptNumber = 'R-2026-999';
-      const parentInvoices = [
+      const parentInvoices: Partial<GeneratedInvoice>[] = [
         {
           chatId,
-          documentType: 'invoice' as const,
           invoiceNumber: 'I-2026-100',
-          customerName: 'רבקה לוי',
           amount: 3000,
-          currency: 'ILS',
           remainingBalance: 3000,
           paidAmount: 0,
-          paymentStatus: 'unpaid' as const,
+          paymentStatus: 'unpaid',
         },
         {
           chatId,
-          documentType: 'invoice' as const,
           invoiceNumber: 'I-2026-101',
-          customerName: 'רבקה לוי',
           amount: 2500,
-          currency: 'ILS',
-          remainingBalance: 0, // Already paid!
+          remainingBalance: 0,
           paidAmount: 2500,
-          paymentStatus: 'paid' as const,
-        },
+          paymentStatus: 'paid',
+        }, // already paid
       ];
 
-      // Mock transaction that detects already-paid invoice
       mockRunTransaction.mockImplementation(
         async (callback: (t: MockTransaction) => Promise<unknown>) => {
-          const mockTransaction: MockTransaction = {
-            get: jest.fn((ref: MockDocRef) => {
-              const docId = ref._docId;
-              const invoice = parentInvoices.find(
-                (inv) => `chat_${chatId}_${inv.invoiceNumber}` === docId
-              );
-              return Promise.resolve({
+          const t: MockTransaction = {
+            get: jest.fn((ref: MockDocRef) =>
+              Promise.resolve({
                 exists: true,
-                data: () => invoice,
-                ref: { id: docId },
-              });
-            }),
+                data: () =>
+                  parentInvoices.find(
+                    (inv) => `chat_${chatId}_${inv.invoiceNumber}` === ref._docId
+                  ),
+              })
+            ),
             update: jest.fn(),
           };
-
-          return callback(mockTransaction);
+          return callback(t);
         }
       );
-
-      const updateMultipleInvoicesPayment = async (
-        chatId: number,
-        parentInvoices: GeneratedInvoice[],
-        _receiptNumber: string
-      ) => {
-        await mockRunTransaction(async (transaction: MockTransaction) => {
-          for (const invoice of parentInvoices) {
-            const docId = `chat_${chatId}_${invoice.invoiceNumber}`;
-            const docRef: MockDocRef = { _docId: docId };
-
-            const doc = await transaction.get(docRef);
-            if (!doc.exists) {
-              throw new Error(`Invoice ${invoice.invoiceNumber} not found`);
-            }
-
-            const currentInvoice = doc.data();
-            if (currentInvoice.remainingBalance === 0) {
-              throw new Error(`Invoice ${invoice.invoiceNumber} already paid`);
-            }
-
-            transaction.update(docRef, {
-              paidAmount: currentInvoice.amount,
-              remainingBalance: 0,
-              paymentStatus: 'paid',
-            });
-          }
-        });
-      };
 
       await expect(
         updateMultipleInvoicesPayment(
           chatId,
-          parentInvoices as unknown as GeneratedInvoice[],
-          receiptNumber
+          parentInvoices as GeneratedInvoice[],
+          'R-2026-999',
+          5500
         )
-      ).rejects.toThrow('Invoice I-2026-101 already paid');
+      ).rejects.toThrow('Invoice I-2026-101 is already paid');
     });
 
     it('should handle 10 invoices correctly', async () => {
-      const receiptNumber = 'R-2026-999';
       const parentInvoices = Array.from({ length: 10 }, (_, i) => ({
         chatId,
-        documentType: 'invoice' as const,
         invoiceNumber: `I-2026-${100 + i}`,
-        customerName: 'רבקה לוי',
         amount: 2000 + i * 100,
-        currency: 'ILS',
         remainingBalance: 2000 + i * 100,
         paidAmount: 0,
         paymentStatus: 'unpaid' as const,
-        relatedReceiptIds: [],
       }));
+      const totalAmount = parentInvoices.reduce((s, inv) => s + inv.amount, 0);
 
-      const updatedInvoicesData: Record<string, Partial<GeneratedInvoice>> = {};
+      const updatedData: Record<string, Partial<GeneratedInvoice>> = {};
 
       mockRunTransaction.mockImplementation(
         async (callback: (t: MockTransaction) => Promise<unknown>) => {
-          const mockTransaction: MockTransaction = {
-            get: jest.fn((ref: MockDocRef) => {
-              const docId = ref._docId;
-              const invoice = parentInvoices.find(
-                (inv) => `chat_${chatId}_${inv.invoiceNumber}` === docId
-              );
-              return Promise.resolve({
+          const t: MockTransaction = {
+            get: jest.fn((ref: MockDocRef) =>
+              Promise.resolve({
                 exists: true,
-                data: () => invoice,
-                ref: { id: docId },
-              });
-            }),
+                data: () =>
+                  parentInvoices.find(
+                    (inv) => `chat_${chatId}_${inv.invoiceNumber}` === ref._docId
+                  ),
+              })
+            ),
             update: jest.fn((ref: MockDocRef, data: MockInvoiceUpdate) => {
-              updatedInvoicesData[ref._docId] = data;
+              updatedData[ref._docId] = data;
             }),
           };
-
-          return callback(mockTransaction);
+          return callback(t);
         }
       );
-
-      const updateMultipleInvoicesPayment = async (
-        chatId: number,
-        parentInvoices: GeneratedInvoice[],
-        receiptNumber: string
-      ) => {
-        await mockRunTransaction(async (transaction: MockTransaction) => {
-          for (const invoice of parentInvoices) {
-            const docId = `chat_${chatId}_${invoice.invoiceNumber}`;
-            const docRef: MockDocRef = { _docId: docId };
-
-            const doc = await transaction.get(docRef);
-            if (!doc.exists) {
-              throw new Error(`Invoice ${invoice.invoiceNumber} not found`);
-            }
-
-            const currentInvoice = doc.data();
-            transaction.update(docRef, {
-              paidAmount: currentInvoice.amount,
-              remainingBalance: 0,
-              paymentStatus: 'paid',
-              relatedReceiptIds: { _arrayUnion: receiptNumber },
-            });
-          }
-        });
-      };
 
       await updateMultipleInvoicesPayment(
         chatId,
         parentInvoices as unknown as GeneratedInvoice[],
-        receiptNumber
+        'R-2026-999',
+        totalAmount
       );
 
-      // Verify all 10 invoices were updated
-      expect(Object.keys(updatedInvoicesData)).toHaveLength(10);
-
-      // Verify each invoice is marked as paid
-      Object.values(updatedInvoicesData).forEach((data) => {
+      expect(Object.keys(updatedData)).toHaveLength(10);
+      Object.values(updatedData).forEach((data) => {
         expect(data.paymentStatus).toBe('paid');
         expect(data.remainingBalance).toBe(0);
       });
@@ -462,6 +354,204 @@ describe('Document Generator - Multi-Invoice', () => {
       const expectedTotal = 7000;
 
       expect(calculatedTotal).toBe(expectedTotal);
+    });
+
+    it('should allow partial payment (amount less than total remaining balance)', () => {
+      const invoices = [{ invoiceNumber: 'I-2026-8', remainingBalance: 500 }];
+      const expectedTotal = invoices.reduce((sum, inv) => sum + (inv.remainingBalance ?? 0), 0);
+      const partialPaymentAmount = 200;
+
+      // Partial payment: amount < total is valid (not an overpayment)
+      const isOverpayment = partialPaymentAmount - expectedTotal > 0.01;
+      expect(isOverpayment).toBe(false);
+    });
+
+    it('should reject payment that exceeds total remaining balance', () => {
+      const invoices = [{ invoiceNumber: 'I-2026-8', remainingBalance: 500 }];
+      const expectedTotal = invoices.reduce((sum, inv) => sum + (inv.remainingBalance ?? 0), 0);
+      const overpaymentAmount = 600;
+
+      const isOverpayment = overpaymentAmount - expectedTotal > 0.01;
+      expect(isOverpayment).toBe(true);
+    });
+  });
+
+  describe('Firestore Payment Update — actual distribution logic', () => {
+    /**
+     * These tests call the REAL updateMultipleInvoicesPayment function to verify
+     * that totalPaymentAmount is distributed correctly across invoices.
+     */
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      // Wire getFirestore with a doc mock that preserves the docId in the ref
+      // so transaction.get(ref) can route to the right invoice in tests
+      (getFirestore as jest.Mock).mockReturnValue({
+        collection: jest.fn(() => ({
+          doc: jest.fn((docId: string) => ({ _docId: docId })),
+        })),
+        runTransaction: mockRunTransaction,
+      });
+    });
+
+    it('single invoice — partial payment → status partial, remaining updated', async () => {
+      const invoice: Partial<GeneratedInvoice> = {
+        chatId,
+        invoiceNumber: 'I-2026-200',
+        amount: 500,
+        remainingBalance: 500,
+        paidAmount: 0,
+        paymentStatus: 'unpaid',
+      };
+
+      const updatedData: Record<string, unknown> = {};
+
+      mockRunTransaction.mockImplementation(
+        async (callback: (t: MockTransaction) => Promise<unknown>) => {
+          const mockTransaction: MockTransaction = {
+            get: jest.fn(() => Promise.resolve({ exists: true, data: () => invoice })),
+            update: jest.fn((ref: MockDocRef, data: MockInvoiceUpdate) => {
+              updatedData[ref._docId] = data;
+            }),
+          };
+          return callback(mockTransaction);
+        }
+      );
+
+      await updateMultipleInvoicesPayment(chatId, [invoice as GeneratedInvoice], 'R-2026-1', 250);
+
+      const result = updatedData[`chat_${chatId}_I-2026-200`] as Partial<GeneratedInvoice>;
+      expect(result.paidAmount).toBe(250);
+      expect(result.remainingBalance).toBe(250);
+      expect(result.paymentStatus).toBe('partial');
+    });
+
+    it('single invoice — full payment → status paid, remaining = 0', async () => {
+      const invoice: Partial<GeneratedInvoice> = {
+        chatId,
+        invoiceNumber: 'I-2026-201',
+        amount: 500,
+        remainingBalance: 500,
+        paidAmount: 0,
+        paymentStatus: 'unpaid',
+      };
+
+      const updatedData: Record<string, unknown> = {};
+
+      mockRunTransaction.mockImplementation(
+        async (callback: (t: MockTransaction) => Promise<unknown>) => {
+          const mockTransaction: MockTransaction = {
+            get: jest.fn(() => Promise.resolve({ exists: true, data: () => invoice })),
+            update: jest.fn((ref: MockDocRef, data: MockInvoiceUpdate) => {
+              updatedData[ref._docId] = data;
+            }),
+          };
+          return callback(mockTransaction);
+        }
+      );
+
+      await updateMultipleInvoicesPayment(chatId, [invoice as GeneratedInvoice], 'R-2026-2', 500);
+
+      const result = updatedData[`chat_${chatId}_I-2026-201`] as Partial<GeneratedInvoice>;
+      expect(result.paidAmount).toBe(500);
+      expect(result.remainingBalance).toBe(0);
+      expect(result.paymentStatus).toBe('paid');
+    });
+
+    it('multi-invoice — payment covers all → both paid', async () => {
+      const invoices: Partial<GeneratedInvoice>[] = [
+        {
+          chatId,
+          invoiceNumber: 'I-2026-210',
+          amount: 300,
+          remainingBalance: 300,
+          paidAmount: 0,
+          paymentStatus: 'unpaid',
+        },
+        {
+          chatId,
+          invoiceNumber: 'I-2026-211',
+          amount: 400,
+          remainingBalance: 400,
+          paidAmount: 0,
+          paymentStatus: 'unpaid',
+        },
+      ];
+
+      const updatedData: Record<string, unknown> = {};
+
+      mockRunTransaction.mockImplementation(
+        async (callback: (t: MockTransaction) => Promise<unknown>) => {
+          const mockTransaction: MockTransaction = {
+            get: jest.fn((ref: MockDocRef) => {
+              const inv = invoices.find((i) => `chat_${chatId}_${i.invoiceNumber}` === ref._docId);
+              return Promise.resolve({ exists: true, data: () => inv });
+            }),
+            update: jest.fn((ref: MockDocRef, data: MockInvoiceUpdate) => {
+              updatedData[ref._docId] = data;
+            }),
+          };
+          return callback(mockTransaction);
+        }
+      );
+
+      await updateMultipleInvoicesPayment(chatId, invoices as GeneratedInvoice[], 'R-2026-3', 700);
+
+      const r1 = updatedData[`chat_${chatId}_I-2026-210`] as Partial<GeneratedInvoice>;
+      const r2 = updatedData[`chat_${chatId}_I-2026-211`] as Partial<GeneratedInvoice>;
+      expect(r1.remainingBalance).toBe(0);
+      expect(r1.paymentStatus).toBe('paid');
+      expect(r2.remainingBalance).toBe(0);
+      expect(r2.paymentStatus).toBe('paid');
+    });
+
+    it('multi-invoice — partial total → first paid, second partial', async () => {
+      const invoices: Partial<GeneratedInvoice>[] = [
+        {
+          chatId,
+          invoiceNumber: 'I-2026-220',
+          amount: 300,
+          remainingBalance: 300,
+          paidAmount: 0,
+          paymentStatus: 'unpaid',
+        },
+        {
+          chatId,
+          invoiceNumber: 'I-2026-221',
+          amount: 400,
+          remainingBalance: 400,
+          paidAmount: 0,
+          paymentStatus: 'unpaid',
+        },
+      ];
+
+      const updatedData: Record<string, unknown> = {};
+
+      mockRunTransaction.mockImplementation(
+        async (callback: (t: MockTransaction) => Promise<unknown>) => {
+          const mockTransaction: MockTransaction = {
+            get: jest.fn((ref: MockDocRef) => {
+              const inv = invoices.find((i) => `chat_${chatId}_${i.invoiceNumber}` === ref._docId);
+              return Promise.resolve({ exists: true, data: () => inv });
+            }),
+            update: jest.fn((ref: MockDocRef, data: MockInvoiceUpdate) => {
+              updatedData[ref._docId] = data;
+            }),
+          };
+          return callback(mockTransaction);
+        }
+      );
+
+      // 500 out of 700 total — should fully pay first (300), partially pay second (200)
+      await updateMultipleInvoicesPayment(chatId, invoices as GeneratedInvoice[], 'R-2026-4', 500);
+
+      const r1 = updatedData[`chat_${chatId}_I-2026-220`] as Partial<GeneratedInvoice>;
+      const r2 = updatedData[`chat_${chatId}_I-2026-221`] as Partial<GeneratedInvoice>;
+      expect(r1.remainingBalance).toBe(0);
+      expect(r1.paymentStatus).toBe('paid');
+      expect(r2.paidAmount).toBe(200);
+      expect(r2.remainingBalance).toBe(200);
+      expect(r2.paymentStatus).toBe('partial');
     });
   });
 
