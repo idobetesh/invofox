@@ -350,9 +350,9 @@ docs.google.com/spreadsheets/d/[זה_השדה]/edit`,
       amountCorrected: '✏️ _סכום תוקן_',
       dateCorrected: '✏️ _תאריך תוקן_',
       vendorCorrected: '✏️ _ספק תוקן_',
-      amountUpdated: '✅ הסכום עודכן: {new} ← {old}',
-      dateUpdated: '✅ התאריך עודכן: {new} ← {old}',
-      vendorUpdated: '✅ הספק עודכן: {new} ← {old}',
+      amountUpdated: '✅ הסכום עודכן: {old} ← {new}',
+      dateUpdated: '✅ התאריך עודכן: {old} ← {new}',
+      vendorUpdated: '✅ הספק עודכן: {old} ← {new}',
     },
 
     validation: {
