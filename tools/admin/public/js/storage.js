@@ -19,6 +19,9 @@ import {
 export let currentBucket = null;
 export let selectedStorageObjects = new Set();
 export let storagePageToken = null;
+let storageSortColumn = 'created'; // default sort
+let storageSortDirection = 'desc'; // newest first
+let currentStorageObjects = [];
 
 /**
  * Load Cloud Storage buckets
@@ -77,7 +80,8 @@ export async function loadBucketObjects() {
       throw new Error('Invalid response format: objects array not found');
     }
 
-    displayStorageObjects(data.objects);
+    currentStorageObjects = data.objects;
+    displayStorageObjects(currentStorageObjects);
     storagePageToken = data.nextPageToken || null;
     updateStoragePagination(data.hasMore || false);
 
@@ -88,6 +92,25 @@ export async function loadBucketObjects() {
   } finally {
     hideLoading();
   }
+}
+
+/**
+ * Sort storage objects by current sort state
+ */
+function sortStorageObjects(objects) {
+  return [...objects].sort((a, b) => {
+    let aVal, bVal;
+    if (storageSortColumn === 'name') {
+      aVal = a.name.toLowerCase();
+      bVal = b.name.toLowerCase();
+    } else {
+      aVal = new Date(a.timeCreated).getTime();
+      bVal = new Date(b.timeCreated).getTime();
+    }
+    if (aVal < bVal) return storageSortDirection === 'asc' ? -1 : 1;
+    if (aVal > bVal) return storageSortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
 }
 
 /**
@@ -108,15 +131,26 @@ export function displayStorageObjects(objects) {
     return;
   }
 
+  const sorted = sortStorageObjects(objects);
+
+  const sortIndicator = (col) => {
+    if (storageSortColumn !== col) return ' <span style="color:#475569;font-size:11px;">⇅</span>';
+    return storageSortDirection === 'asc'
+      ? ' <span style="color:#818cf8;font-size:11px;">↑</span>'
+      : ' <span style="color:#818cf8;font-size:11px;">↓</span>';
+  };
+
+  const thStyle = 'cursor:pointer;user-select:none;white-space:nowrap;';
+
   const table = document.createElement('table');
   table.innerHTML = `
     <thead>
       <tr>
         <th class="checkbox-cell"><input type="checkbox" id="select-all-storage"></th>
-        <th>Name</th>
+        <th id="sort-name" style="${thStyle}">Name${sortIndicator('name')}</th>
         <th>Size</th>
         <th>Type</th>
-        <th>Created</th>
+        <th id="sort-created" style="${thStyle}">Created${sortIndicator('created')}</th>
         <th class="action-cell">Actions</th>
       </tr>
     </thead>
@@ -124,7 +158,7 @@ export function displayStorageObjects(objects) {
   `;
 
   const tbody = table.querySelector('tbody');
-  objects.forEach((obj) => {
+  sorted.forEach((obj) => {
     const row = document.createElement('tr');
     const size = formatBytes(obj.size);
     const created = formatDate(obj.timeCreated);
@@ -138,7 +172,7 @@ export function displayStorageObjects(objects) {
       <td>${obj.contentType || '-'}</td>
       <td>${created}</td>
       <td class="action-cell">
-        <button class="action-btn" onclick="window.viewStorageObject('${currentBucket}', '${obj.name}')">
+        <button class="action-btn" onclick="window.viewStorageObject('${currentBucket}', '${obj.name}', this)">
           <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
             <circle cx="12" cy="12" r="3"/>
@@ -159,6 +193,27 @@ export function displayStorageObjects(objects) {
 
   container.innerHTML = '';
   container.appendChild(table);
+
+  // Sort header clicks
+  table.querySelector('#sort-name').addEventListener('click', () => {
+    if (storageSortColumn === 'name') {
+      storageSortDirection = storageSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      storageSortColumn = 'name';
+      storageSortDirection = 'asc';
+    }
+    displayStorageObjects(currentStorageObjects);
+  });
+
+  table.querySelector('#sort-created').addEventListener('click', () => {
+    if (storageSortColumn === 'created') {
+      storageSortDirection = storageSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      storageSortColumn = 'created';
+      storageSortDirection = 'desc';
+    }
+    displayStorageObjects(currentStorageObjects);
+  });
 
   // Select all checkbox
   document.getElementById('select-all-storage').addEventListener('change', (e) => {
@@ -188,99 +243,90 @@ export function displayStorageObjects(objects) {
 }
 
 /**
- * View Storage object details
+ * View Storage object details — expands inline below the row
  */
-export async function viewStorageObject(bucketName, objectPath) {
+export async function viewStorageObject(bucketName, objectPath, triggerBtn) {
+  const clickedRow = triggerBtn ? triggerBtn.closest('tr') : null;
+  const existingExpand = document.getElementById('storage-expand-row');
+
+  // Toggle off if clicking the same row again
+  if (existingExpand) {
+    const isSame = existingExpand.dataset.objPath === objectPath;
+    existingExpand.remove();
+    if (isSame) return;
+  }
+
   showLoading();
   try {
-    // Encode each path segment separately to preserve slashes
     const pathSegments = objectPath.split('/');
-    const encodedSegments = pathSegments.map((segment) => encodeURIComponent(segment));
-    const encodedPath = encodedSegments.join('/');
+    const encodedPath = pathSegments.map((s) => encodeURIComponent(s)).join('/');
     const url = `${API_BASE}/storage/buckets/${bucketName}/objects/${encodedPath}`;
 
     const response = await fetch(url, getAuthHeaders());
-
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: response.statusText }));
-      throw new Error(
-        errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`
-      );
+      throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
     }
 
     const data = await response.json();
+    if (!data || !data.publicUrl) throw new Error('Invalid response: missing publicUrl');
 
-    if (!data || !data.publicUrl) {
-      throw new Error('Invalid response: missing publicUrl');
-    }
-
-    const detailsSection = document.getElementById('object-details-section');
-    const detailsDiv = document.getElementById('object-details');
-
-    // Escape the URL for use in HTML attributes
     const escapedUrl = data.publicUrl.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
     let preview = '';
     if (data.contentType?.startsWith('image/')) {
       preview = `<div class="object-preview"><img src="${escapedUrl}" alt="Preview"></div>`;
     } else if (data.contentType === 'application/pdf') {
-      preview = `<div class="object-preview"><iframe src="${escapedUrl}" width="100%" height="600px"></iframe></div>`;
+      preview = `<div class="object-preview"><iframe src="${escapedUrl}" width="100%" height="500px"></iframe></div>`;
     }
 
-    detailsDiv.innerHTML = `
-      <div style="margin-bottom: 20px; padding: 16px; background: #0f172a; border-radius: 8px; border: 1px solid #334155; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
-        <div><strong style="color: #94a3b8; display: block; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Bucket:</strong> <code>${bucketName}</code></div>
-        <div><strong style="color: #94a3b8; display: block; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Size:</strong> ${formatBytes(
-          data.size
-        )}</div>
-        <div><strong style="color: #94a3b8; display: block; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Type:</strong> ${
-          data.contentType || 'Unknown'
-        }</div>
-        <div><strong style="color: #94a3b8; display: block; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Created:</strong> ${formatDate(
-          data.timeCreated
-        )}</div>
-        <div><strong style="color: #94a3b8; display: block; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Updated:</strong> ${formatDate(
-          data.updated
-        )}</div>
-        <div style="grid-column: 1 / -1;"><strong style="color: #94a3b8; display: block; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Path:</strong> <code style="word-break: break-all;">${objectPath}</code></div>
+    const expandRow = document.createElement('tr');
+    expandRow.id = 'storage-expand-row';
+    expandRow.dataset.objPath = objectPath;
+    expandRow.style.cssText = 'background:#0f172a;';
+
+    const expandCell = document.createElement('td');
+    expandCell.colSpan = 6;
+    expandCell.style.cssText = 'padding:16px;border-top:1px solid #1e293b;';
+
+    expandCell.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;flex:1;margin-right:16px;">
+          <div><span style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:2px;">Path</span><code style="word-break:break-all;font-size:12px;">${objectPath}</code></div>
+          <div><span style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:2px;">Size</span>${formatBytes(data.size)}</div>
+          <div><span style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:2px;">Type</span>${data.contentType || 'Unknown'}</div>
+          <div><span style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:2px;">Created</span>${formatDate(data.timeCreated)}</div>
+          <div><span style="color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:2px;">Updated</span>${formatDate(data.updated)}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-start;flex-shrink:0;">
+          <button class="action-btn" onclick="window.open('${escapedUrl}','_blank','noopener,noreferrer')">
+            <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            <span>Open</span>
+          </button>
+          <button id="close-storage-expand-btn" class="btn btn-ghost" style="padding:6px 10px;">✕</button>
+        </div>
       </div>
       ${preview}
-      <div style="text-align: center; margin: 20px 0;">
-        <button
-          class="action-btn"
-          onclick="window.open('${escapedUrl}', '_blank', 'noopener,noreferrer')"
-          style="display: inline-flex; align-items: center; gap: 8px;"
-        >
-          <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-            <polyline points="15 3 21 3 21 9"/>
-            <line x1="10" y1="14" x2="21" y2="3"/>
-          </svg>
-          <span>Open in New Tab</span>
-        </button>
-        <a
-          href="${escapedUrl}"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="object-link"
-          style="margin-left: 12px; display: inline-flex; align-items: center; gap: 8px; color: #60a5fa; text-decoration: none;"
-        >
-          <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-            <polyline points="15 3 21 3 21 9"/>
-            <line x1="10" y1="14" x2="21" y2="3"/>
-          </svg>
-          <span>Direct Link</span>
-        </a>
-      </div>
-      <div style="margin-top: 24px;">
-        <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #94a3b8;">Metadata</h3>
-        <div class="json-viewer">${JSON.stringify(data.metadata || {}, null, 2)}</div>
-      </div>
+      ${Object.keys(data.metadata || {}).length ? `
+        <div style="margin-top:16px;">
+          <h3 style="font-size:13px;font-weight:600;margin-bottom:8px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Metadata</h3>
+          <div class="json-viewer" style="font-size:12px;">${JSON.stringify(data.metadata, null, 2)}</div>
+        </div>` : ''}
     `;
 
-    detailsSection.style.display = 'block';
-    detailsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    expandRow.appendChild(expandCell);
+
+    if (clickedRow) {
+      clickedRow.after(expandRow);
+    } else {
+      document.querySelector('#objects-container tbody')?.appendChild(expandRow);
+    }
+
+    document.getElementById('close-storage-expand-btn').addEventListener('click', () => expandRow.remove());
   } catch (error) {
     showError('Failed to load object: ' + error.message);
     console.error('Error loading object:', error);
@@ -323,8 +369,9 @@ export function deleteStorageObject(bucketName, objectPath) {
     {
       count: 1,
       details: `Object: <code>${objectPath}</code><br>Bucket: <code>${bucketName}</code>`,
-      warning: 'This action cannot be undone!',
+      warning: 'This action cannot be undone! To fully remove this expense, also delete the matching document from the <strong>invoice_jobs</strong> Firestore collection and remove the row from the <strong>Google Sheet</strong>.',
       confirmText: 'Delete Object',
+      requireTyping: 'delete',
     }
   );
 }

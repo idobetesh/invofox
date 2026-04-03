@@ -1220,9 +1220,8 @@ code {
 
 .modal-content p strong {
   color: var(--text-primary);
-  font-size: 18px;
-  display: block;
-  margin-bottom: 8px;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .modal-content p small {
@@ -1237,6 +1236,12 @@ code {
   border-radius: 4px;
   font-size: 13px;
   color: var(--primary-light);
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 
 .modal-content p div {

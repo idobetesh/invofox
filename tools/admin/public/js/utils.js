@@ -105,6 +105,31 @@ export function showConfirmModal(message, onConfirm, options = {}) {
     fullMessage += `<br><br><div style="color: var(--danger); font-weight: 600; margin-top: 8px;">⚠️ ${options.warning}</div>`;
   }
 
+  // Typing confirmation input
+  let confirmInput = document.getElementById('confirm-type-input');
+  if (options.requireTyping) {
+    if (!confirmInput) {
+      const wrapper = document.createElement('div');
+      wrapper.id = 'confirm-type-wrapper';
+      wrapper.style.cssText = 'margin: 12px 0 4px; text-align: left;';
+      wrapper.innerHTML = `
+        <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:6px;">
+          Type <strong style="color:var(--text-primary);font-size:12px;">${options.requireTyping}</strong> to confirm
+        </label>
+        <input id="confirm-type-input" type="text" autocomplete="off" spellcheck="false"
+          placeholder="${options.requireTyping}"
+          style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:14px;outline:none;" />
+      `;
+      messageEl.after(wrapper);
+    } else {
+      confirmInput.value = '';
+      document.getElementById('confirm-type-wrapper').querySelector('label').innerHTML =
+        `Type <strong style="color:var(--text-primary);font-size:12px;">${options.requireTyping}</strong> to confirm`;
+    }
+  } else {
+    document.getElementById('confirm-type-wrapper')?.remove();
+  }
+
   messageEl.innerHTML = fullMessage;
   modal.classList.add('show');
 
@@ -127,19 +152,35 @@ export function showConfirmModal(message, onConfirm, options = {}) {
   yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
   noBtn.parentNode.replaceChild(newNoBtn, noBtn);
 
-  newYesBtn.onclick = () => {
+  if (options.requireTyping) {
+    newYesBtn.disabled = true;
+    newYesBtn.style.opacity = '0.5';
+    // Re-query after clone
+    const typeInput = document.getElementById('confirm-type-input');
+    typeInput.value = '';
+    typeInput.oninput = () => {
+      const match = typeInput.value === options.requireTyping;
+      newYesBtn.disabled = !match;
+      newYesBtn.style.opacity = match ? '1' : '0.5';
+    };
+    setTimeout(() => typeInput.focus(), 50);
+  }
+
+  const closeModal = () => {
     modal.classList.remove('show');
+    document.getElementById('confirm-type-wrapper')?.remove();
+  };
+
+  newYesBtn.onclick = () => {
+    if (options.requireTyping && document.getElementById('confirm-type-input')?.value !== options.requireTyping) return;
+    closeModal();
     onConfirm();
   };
 
-  newNoBtn.onclick = () => {
-    modal.classList.remove('show');
-  };
+  newNoBtn.onclick = closeModal;
 
   if (backdrop) {
-    backdrop.onclick = () => {
-      modal.classList.remove('show');
-    };
+    backdrop.onclick = closeModal;
   }
 }
 
@@ -148,10 +189,25 @@ export function showConfirmModal(message, onConfirm, options = {}) {
  */
 export function formatDate(dateValue) {
   if (!dateValue) return '-';
-  if (typeof dateValue === 'string') return new Date(dateValue).toLocaleString();
-  if (dateValue.toMillis) return new Date(dateValue.toMillis()).toLocaleString();
-  if (dateValue.toDate) return dateValue.toDate().toLocaleString();
-  return new Date(dateValue).toLocaleString();
+  let date;
+  if (typeof dateValue === 'string') {
+    date = new Date(dateValue);
+  } else if (dateValue.toMillis) {
+    date = new Date(dateValue.toMillis());
+  } else if (dateValue.toDate) {
+    date = dateValue.toDate();
+  } else {
+    // Firestore Timestamp serialized as { _seconds, _nanoseconds } or { seconds, nanoseconds }
+    const secs = dateValue._seconds ?? dateValue.seconds;
+    date = typeof secs === 'number' ? new Date(secs * 1000) : new Date(dateValue);
+  }
+  if (isNaN(date.getTime())) return '-';
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
 }
 
 /**
