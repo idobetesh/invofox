@@ -20,6 +20,9 @@ export let selectedFirestoreDocs = new Set();
 export let firestoreCursor = null;
 let currentEditingDocument = null;
 let originalDocumentData = null;
+let firestoreSortColumn = 'createdAt'; // default sort
+let firestoreSortDirection = 'desc';
+let currentFirestoreDocs = [];
 
 /**
  * Load Firestore collections
@@ -67,7 +70,8 @@ export async function loadCollectionDocuments() {
     );
     const data = await response.json();
 
-    displayFirestoreDocuments(data.documents);
+    currentFirestoreDocs = data.documents;
+    displayFirestoreDocuments(currentFirestoreDocs);
     firestoreCursor = data.nextCursor;
     updateFirestorePagination(data.hasMore);
 
@@ -77,6 +81,42 @@ export async function loadCollectionDocuments() {
   } finally {
     hideLoading();
   }
+}
+
+/**
+ * Extract a sortable timestamp (ms) from a Firestore date field
+ */
+function toSortableMs(val) {
+  if (!val) return 0;
+  if (typeof val === 'string') return new Date(val).getTime();
+  if (val.toMillis) return val.toMillis();
+  if (val.toDate) return val.toDate().getTime();
+  const secs = val._seconds ?? val.seconds;
+  if (typeof secs === 'number') return secs * 1000;
+  return new Date(val).getTime() || 0;
+}
+
+/**
+ * Sort firestore documents by current sort state
+ */
+function sortFirestoreDocs(docs) {
+  return [...docs].sort((a, b) => {
+    let aVal, bVal;
+    if (firestoreSortColumn === 'status') {
+      aVal = (a.data.status || a.data.documentType || '').toLowerCase();
+      bVal = (b.data.status || b.data.documentType || '').toLowerCase();
+    } else if (firestoreSortColumn === 'updatedAt') {
+      aVal = toSortableMs(a.data.updatedAt);
+      bVal = toSortableMs(b.data.updatedAt);
+    } else {
+      // createdAt
+      aVal = toSortableMs(a.data.createdAt);
+      bVal = toSortableMs(b.data.createdAt);
+    }
+    if (aVal < bVal) return firestoreSortDirection === 'asc' ? -1 : 1;
+    if (aVal > bVal) return firestoreSortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
 }
 
 /**
@@ -98,15 +138,26 @@ export function displayFirestoreDocuments(documents) {
     return;
   }
 
+  const sorted = sortFirestoreDocs(documents);
+
+  const sortIndicator = (col) => {
+    if (firestoreSortColumn !== col) return ' <span style="color:#475569;font-size:11px;">⇅</span>';
+    return firestoreSortDirection === 'asc'
+      ? ' <span style="color:#818cf8;font-size:11px;">↑</span>'
+      : ' <span style="color:#818cf8;font-size:11px;">↓</span>';
+  };
+
+  const thStyle = 'cursor:pointer;user-select:none;white-space:nowrap;';
+
   const table = document.createElement('table');
   table.innerHTML = `
     <thead>
       <tr>
         <th class="checkbox-cell"><input type="checkbox" id="select-all-firestore"></th>
         <th>ID</th>
-        <th>Status/Type</th>
-        <th>Created</th>
-        <th>Updated</th>
+        <th id="sort-status" style="${thStyle}">Status/Type${sortIndicator('status')}</th>
+        <th id="sort-createdAt" style="${thStyle}">Created${sortIndicator('createdAt')}</th>
+        <th id="sort-updatedAt" style="${thStyle}">Updated${sortIndicator('updatedAt')}</th>
         <th class="action-cell">Actions</th>
       </tr>
     </thead>
@@ -114,7 +165,7 @@ export function displayFirestoreDocuments(documents) {
   `;
 
   const tbody = table.querySelector('tbody');
-  documents.forEach((doc) => {
+  sorted.forEach((doc) => {
     const row = document.createElement('tr');
     const status = doc.data.status || doc.data.documentType || '-';
     const createdAt = formatDate(doc.data.createdAt);
@@ -129,7 +180,7 @@ export function displayFirestoreDocuments(documents) {
       <td>${createdAt}</td>
       <td>${updatedAt}</td>
       <td class="action-cell">
-        <button class="action-btn" onclick="window.viewFirestoreDocument('${currentCollection}', '${doc.id}')">
+        <button class="action-btn" onclick="window.viewFirestoreDocument('${currentCollection}', '${doc.id}', this)">
           <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
             <circle cx="12" cy="12" r="3"/>
@@ -150,6 +201,20 @@ export function displayFirestoreDocuments(documents) {
 
   container.innerHTML = '';
   container.appendChild(table);
+
+  // Sort header clicks
+  const makeToggle = (col, defaultDir) => () => {
+    if (firestoreSortColumn === col) {
+      firestoreSortDirection = firestoreSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      firestoreSortColumn = col;
+      firestoreSortDirection = defaultDir;
+    }
+    displayFirestoreDocuments(currentFirestoreDocs);
+  };
+  table.querySelector('#sort-status').addEventListener('click', makeToggle('status', 'asc'));
+  table.querySelector('#sort-createdAt').addEventListener('click', makeToggle('createdAt', 'desc'));
+  table.querySelector('#sort-updatedAt').addEventListener('click', makeToggle('updatedAt', 'desc'));
 
   // Select all checkbox
   document.getElementById('select-all-firestore').addEventListener('change', (e) => {
@@ -179,9 +244,19 @@ export function displayFirestoreDocuments(documents) {
 }
 
 /**
- * View Firestore document details
+ * View Firestore document details — expands inline below the row
  */
-export async function viewFirestoreDocument(collectionName, documentId) {
+export async function viewFirestoreDocument(collectionName, documentId, triggerBtn) {
+  const clickedRow = triggerBtn ? triggerBtn.closest('tr') : null;
+  const existingExpand = document.getElementById('firestore-expand-row');
+
+  // Toggle off if clicking the same row again
+  if (existingExpand) {
+    const isSame = existingExpand.dataset.docId === documentId;
+    existingExpand.remove();
+    if (isSame) return;
+  }
+
   showLoading();
   try {
     const response = await fetch(
@@ -193,16 +268,23 @@ export async function viewFirestoreDocument(collectionName, documentId) {
     currentEditingDocument = { collectionName, documentId };
     originalDocumentData = JSON.stringify(data.data, null, 2);
 
-    const detailsSection = document.getElementById('document-details-section');
-    const detailsDiv = document.getElementById('document-details');
+    const colCount = 6;
+    const expandRow = document.createElement('tr');
+    expandRow.id = 'firestore-expand-row';
+    expandRow.dataset.docId = documentId;
+    expandRow.style.cssText = 'background:#0f172a;';
 
-    detailsDiv.innerHTML = `
-      <div style="margin-bottom: 20px; padding: 16px; background: #0f172a; border-radius: 8px; border: 1px solid #334155;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-          <div>
-            <p style="margin-bottom: 8px;"><strong style="color: #94a3b8; display: inline-block; min-width: 120px;">Collection:</strong> <code>${collectionName}</code></p>
-            <p><strong style="color: #94a3b8; display: inline-block; min-width: 120px;">Document ID:</strong> <code>${documentId}</code></p>
-          </div>
+    const expandCell = document.createElement('td');
+    expandCell.colSpan = colCount;
+    expandCell.style.cssText = 'padding:16px;border-top:1px solid #1e293b;';
+
+    expandCell.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="display:flex;gap:16px;align-items:center;">
+          <span style="color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Document ID:</span>
+          <code>${documentId}</code>
+        </div>
+        <div style="display:flex;gap:8px;">
           <button id="edit-document-btn" class="btn btn-primary">
             <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -210,13 +292,14 @@ export async function viewFirestoreDocument(collectionName, documentId) {
             </svg>
             <span>Edit</span>
           </button>
+          <button id="close-expand-btn" class="btn btn-ghost" style="padding:6px 10px;">✕</button>
         </div>
       </div>
       <div id="json-viewer-container">
         <div class="json-viewer" id="json-viewer">${originalDocumentData}</div>
       </div>
-      <div id="json-editor-container" style="display: none;">
-        <div style="margin-bottom: 12px; display: flex; gap: 8px; justify-content: flex-end;">
+      <div id="json-editor-container" style="display:none;">
+        <div style="margin-bottom:12px;display:flex;gap:8px;justify-content:flex-end;">
           <button id="cancel-edit-btn" class="btn btn-ghost">Cancel</button>
           <button id="save-document-btn" class="btn btn-primary">
             <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -228,17 +311,20 @@ export async function viewFirestoreDocument(collectionName, documentId) {
           </button>
         </div>
         <textarea id="json-editor" class="json-editor" spellcheck="false">${originalDocumentData}</textarea>
-        <div id="json-error" class="json-error" style="display: none;"></div>
+        <div id="json-error" class="json-error" style="display:none;"></div>
       </div>
     `;
 
-    // Setup edit button
-    document.getElementById('edit-document-btn').addEventListener('click', () => {
-      enableDocumentEditing();
-    });
+    expandRow.appendChild(expandCell);
 
-    detailsSection.style.display = 'block';
-    detailsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (clickedRow) {
+      clickedRow.after(expandRow);
+    } else {
+      document.querySelector('#documents-container tbody')?.appendChild(expandRow);
+    }
+
+    document.getElementById('edit-document-btn').addEventListener('click', enableDocumentEditing);
+    document.getElementById('close-expand-btn').addEventListener('click', () => expandRow.remove());
   } catch (error) {
     showError('Failed to load document: ' + error.message);
   } finally {
