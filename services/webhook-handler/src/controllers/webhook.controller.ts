@@ -61,9 +61,9 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
     return;
   }
 
-  // Handle /invoice command
+  // Handle /new command
   if (telegramService.isInvoiceCommand(update)) {
-    logger.info('Processing /invoice command');
+    logger.info('Processing /new command');
     await handleInvoiceCommand(update, config, res);
     return;
   }

@@ -11,7 +11,7 @@ import type {
 import type { TelegramUpdate } from './telegram-types';
 
 /**
- * Extract invoice command payload for /invoice command
+ * Extract invoice command payload for /new command
  */
 export function extractInvoiceCommandPayload(update: TelegramUpdate): InvoiceCommandPayload | null {
   const message = update.message || update.channel_post;

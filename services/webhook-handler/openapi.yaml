@@ -60,7 +60,7 @@ paths:
         Supported update types:
         - **Photo messages**: Queued for invoice processing
         - **Document messages (PDF)**: Queued for invoice processing
-        - **Commands**: /invoice triggers invoice generation flow
+        - **Commands**: /new triggers invoice generation flow
         - **Callback queries**: Forwarded to worker for handling
       operationId: handleWebhook
       parameters:

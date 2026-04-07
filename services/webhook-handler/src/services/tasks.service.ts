@@ -155,7 +155,7 @@ async function enqueueInvoiceTask(
 }
 
 /**
- * Enqueue /invoice command for processing
+ * Enqueue /new command for processing
  */
 export async function enqueueInvoiceCommandTask(
   payload: InvoiceCommandPayload,

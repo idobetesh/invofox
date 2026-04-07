@@ -1,6 +1,6 @@
 /**
  * Invoice Command Handler
- * Handles /invoice command from Telegram
+ * Handles /new command from Telegram
  */
 
 import { Response } from 'express';

@@ -54,7 +54,7 @@ describe('Invoice Generator Integration Tests', () => {
       username: 'testuser',
       firstName: 'Test',
       chatTitle: 'Test Chat',
-      text: '/invoice',
+      text: '/new',
       receivedAt: new Date().toISOString(),
     };
 
@@ -954,7 +954,7 @@ describe('Invoice Generator Integration Tests', () => {
           userId: 789,
           messageId: 101,
           username: 'testuser',
-          text: '/invoice',
+          text: '/new',
         });
 
       expect(response.status).toBe(StatusCodes.OK);
@@ -972,7 +972,7 @@ describe('Invoice Generator Integration Tests', () => {
         userId: 789,
         messageId: 101,
         username: 'testuser',
-        text: '/invoice',
+        text: '/new',
       });
 
       expect(response.headers['content-type']).toMatch(/application\/json/);

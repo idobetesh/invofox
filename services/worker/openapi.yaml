@@ -207,7 +207,7 @@ paths:
     post:
       tags:
         - Invoice Generation
-      summary: Handle /invoice command
+      summary: Handle /new command
       description: Starts a new invoice generation session
       operationId: handleInvoiceCommand
       requestBody:
