@@ -691,10 +691,12 @@
       tgTime.textContent = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
       if (imgUrl) {
-        // Use a DOM img element so we can attach onerror without innerHTML injection
+        // Use a DOM img element so we can attach onerror without innerHTML injection.
+        // Re-validate URL scheme here to prevent javascript: URIs reaching img.src
+        // (updateSendBtn already blocks non-https, but renderPreview runs on every keystroke).
         const img = document.createElement('img');
         img.alt = 'preview';
-        img.src = imgUrl;
+        if (isValidHttpUrl(imgUrl)) { img.src = imgUrl; }
         img.onerror = () => { img.style.display = 'none'; };
 
         const caption = document.createElement('div');
@@ -875,7 +877,7 @@
         renderHistory(data.broadcasts || []);
       } catch (err) {
         document.getElementById('history-container').innerHTML =
-          `<div class="history-empty" style="color:var(--danger)">Failed to load history: ${err.message}</div>`;
+          `<div class="history-empty" style="color:var(--danger)">Failed to load history: ${escapeHtml(err.message)}</div>`;
       } finally {
         loadingEl.style.display = 'none';
         refreshBtn.classList.remove('spinning');
@@ -1002,7 +1004,7 @@
       if (b.imageUrl) {
         const img = document.createElement('img');
         img.alt = 'preview';
-        img.src = b.imageUrl;
+        if (isValidHttpUrl(b.imageUrl)) { img.src = b.imageUrl; }
         img.onerror = () => { img.style.display = 'none'; };
         const caption = document.createElement('div');
         caption.className = 'caption-text';
