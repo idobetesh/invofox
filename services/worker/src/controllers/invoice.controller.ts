@@ -1,5 +1,5 @@
 /**
- * Document generation controller
+ * Invoice generation controller
  * Handles /new command, conversation messages, and button callbacks.
  * Thin HTTP layer — all business logic lives in service files.
  */
@@ -33,12 +33,12 @@ import logger from '../logger';
 /**
  * Handle /new command for creating documents (invoices, receipts, invoice-receipts)
  */
-export async function handleInvoiceCommand(req: Request, res: Response): Promise<void> {
+export async function handleNewCommand(req: Request, res: Response): Promise<void> {
   const payload = req.body as InvoiceCommandPayload;
   const log = logger.child({
     chatId: payload.chatId,
     userId: payload.userId,
-    handler: 'handleInvoiceCommand',
+    handler: 'handleNewCommand',
   });
 
   log.info('Processing /new command');

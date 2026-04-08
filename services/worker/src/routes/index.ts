@@ -28,7 +28,7 @@ router.post('/callback', processController.handleCallback);
 router.post('/notify-failure', processController.notifyFailure);
 
 // Invoice generation endpoints
-router.post('/invoice/command', invoiceController.handleInvoiceCommand);
+router.post('/invoice/command', invoiceController.handleNewCommand);
 router.post('/invoice/message', invoiceController.handleInvoiceMessage);
 router.post('/invoice/callback', invoiceController.handleInvoiceCallback);
 

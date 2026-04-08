@@ -209,7 +209,7 @@ paths:
         - Invoice Generation
       summary: Handle /new command
       description: Starts a new invoice generation session
-      operationId: handleInvoiceCommand
+      operationId: handleNewCommand
       requestBody:
         required: true
         content:

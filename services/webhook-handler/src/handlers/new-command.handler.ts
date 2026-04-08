@@ -1,5 +1,5 @@
 /**
- * Invoice Command Handler
+ * New Command Handler
  * Handles /new command from Telegram
  */
 
@@ -10,7 +10,7 @@ import * as tasksService from '../services/tasks.service';
 import type { Config } from '../config';
 import logger from '../logger';
 
-export async function handleInvoiceCommand(
+export async function handleNewCommand(
   update: ReturnType<typeof telegramService.parseUpdate>,
   config: Config,
   res: Response
@@ -20,7 +20,7 @@ export async function handleInvoiceCommand(
     return;
   }
 
-  const payload = telegramService.extractInvoiceCommandPayload(update);
+  const payload = telegramService.extractNewCommandPayload(update);
   if (!payload) {
     logger.error('Failed to extract invoice command payload');
     res
@@ -35,7 +35,7 @@ export async function handleInvoiceCommand(
   );
 
   try {
-    const taskName = await tasksService.enqueueInvoiceCommandTask(payload, config);
+    const taskName = await tasksService.enqueueNewCommandTask(payload, config);
     logger.info({ taskName }, 'Invoice command task enqueued successfully');
 
     res.status(StatusCodes.OK).json({
