@@ -189,10 +189,10 @@ describe('Webhook Endpoint Integration Tests', () => {
     });
 
     describe('Message types handling', () => {
-      it('should handle /invoice command', async () => {
+      it('should handle /new command', async () => {
         const response = await request(app)
           .post(`/webhook/${VALID_SECRET}`)
-          .send(createTextMessage('/invoice'));
+          .send(createTextMessage('/new'));
 
         expect(response.status).toBe(StatusCodes.OK);
         expect(response.body).toHaveProperty('ok', true);

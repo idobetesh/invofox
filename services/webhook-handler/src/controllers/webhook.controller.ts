@@ -14,7 +14,7 @@ import logger from '../logger';
 // Import specialized handlers
 import {
   handleCallbackQuery,
-  handleInvoiceCommand,
+  handleNewCommand,
   handleTextMessage,
   handleOnboardCommand,
   handleReportCommand,
@@ -61,10 +61,10 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
     return;
   }
 
-  // Handle /invoice command
-  if (telegramService.isInvoiceCommand(update)) {
-    logger.info('Processing /invoice command');
-    await handleInvoiceCommand(update, config, res);
+  // Handle /new command
+  if (telegramService.isNewCommand(update)) {
+    logger.info('Processing /new command');
+    await handleNewCommand(update, config, res);
     return;
   }
 

@@ -60,7 +60,7 @@ paths:
         Supported update types:
         - **Photo messages**: Queued for invoice processing
         - **Document messages (PDF)**: Queued for invoice processing
-        - **Commands**: /invoice triggers invoice generation flow
+        - **Commands**: /new triggers invoice generation flow
         - **Callback queries**: Forwarded to worker for handling
       operationId: handleWebhook
       parameters:
@@ -96,7 +96,7 @@ paths:
                   value:
                     ok: true
                     action: ignored
-        "401":
+        "404":
           description: Invalid secret path
           content:
             application/json:
@@ -127,8 +127,7 @@ components:
           description: Whether the webhook was processed
         action:
           type: string
-          enum: [enqueued, ignored, forwarded]
-          description: Action taken for this update
+          description: Action taken for this update (e.g. photo_enqueued, document_enqueued, invoice_command_enqueued, onboarding_photo_enqueued, report_command_enqueued, ignored, ignored_command)
         taskName:
           type: string
           description: Cloud Tasks task name (if enqueued)

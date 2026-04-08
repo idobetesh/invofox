@@ -207,9 +207,9 @@ paths:
     post:
       tags:
         - Invoice Generation
-      summary: Handle /invoice command
+      summary: Handle /new command
       description: Starts a new invoice generation session
-      operationId: handleInvoiceCommand
+      operationId: handleNewCommand
       requestBody:
         required: true
         content:
@@ -521,8 +521,6 @@ paths:
         - Checks session ownership before processing callbacks
         - Prevents expired session usage
       operationId: handleReportCommand
-      security:
-        - cloudTasks: []
       requestBody:
         required: true
         content:
@@ -540,18 +538,18 @@ paths:
               receivedAt: "2026-01-26T10:30:00Z"
       responses:
         "200":
-          description: Report generated and sent to user
+          description: Report session created, user is prompted to select type/date/format via Telegram
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReportResponse"
               examples:
                 success:
-                  summary: Report generated successfully
+                  summary: Session created successfully
                   value:
                     ok: true
-                    action: report_generated
-                    invoiceCount: 15
+                    action: session_created
+                    sessionId: abc123xyz
         "403":
           description: User does not have access to this chat
           content:
@@ -1040,21 +1038,18 @@ components:
       properties:
         ok:
           type: boolean
-          description: Indicates if report was generated successfully
+          description: Whether the command was handled successfully
         action:
           type: string
-          enum: [report_generated, ignored, error]
-          description: Action taken by the worker
-        invoiceCount:
-          type: integer
-          description: Number of invoices included in the report
-          example: 15
-        task:
+          enum: [session_created]
+          description: Action taken (present on successful session creation)
+        sessionId:
           type: string
-          description: Cloud Task name (if applicable)
-        error:
-          type: string
-          description: Error message if generation failed
+          description: The created session ID (present when action is session_created)
+          example: abc123xyz
+        duplicate:
+          type: boolean
+          description: True if this update was already processed (deduplication guard)
 
     ErrorResponse:
       type: object

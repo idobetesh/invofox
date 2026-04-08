@@ -38,7 +38,7 @@ export function isCommand(update: TelegramUpdate): boolean {
 /**
  * Check if the update is a /new command
  */
-export function isInvoiceCommand(update: TelegramUpdate): boolean {
+export function isNewCommand(update: TelegramUpdate): boolean {
   if (isFromBot(update)) {
     return false;
   }

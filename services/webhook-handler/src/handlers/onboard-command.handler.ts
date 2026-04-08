@@ -21,7 +21,7 @@ export async function handleOnboardCommand(
     return;
   }
 
-  const payload = telegramService.extractInvoiceCommandPayload(update);
+  const payload = telegramService.extractNewCommandPayload(update);
   if (!payload) {
     logger.error('Failed to extract onboard command payload');
     res

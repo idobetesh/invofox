@@ -155,9 +155,9 @@ async function enqueueInvoiceTask(
 }
 
 /**
- * Enqueue /invoice command for processing
+ * Enqueue /new command for processing
  */
-export async function enqueueInvoiceCommandTask(
+export async function enqueueNewCommandTask(
   payload: InvoiceCommandPayload,
   config: Config
 ): Promise<string> {
