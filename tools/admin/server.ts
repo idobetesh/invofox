@@ -20,29 +20,36 @@ import express from 'express';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 
-import { getFirestoreClient, getStorageClient } from './src/services/gcp-clients.service';
-import { FirestoreService } from './src/services/firestore.service';
-import { StorageService } from './src/services/storage.service';
-import { HealthService } from './src/services/health.service';
-import { CustomerService } from './src/services/customer.service';
-import { InviteCodeService } from './src/services/invite-code.service';
-import { ReceiptService } from './src/services/receipt.service';
-import { InvoiceService } from './src/services/invoice.service';
-import { InvoiceReceiptService } from './src/services/invoice-receipt.service';
+import {
+  getFirestoreClient,
+  getStorageClient,
+  FirestoreService,
+  StorageService,
+  HealthService,
+  CustomerService,
+  InviteCodeService,
+  ReceiptService,
+  InvoiceService,
+  InvoiceReceiptService,
+  FeatureFlagsService,
+  InvoiceJobsService,
+  BroadcastService,
+} from './src/services';
+import {
+  FirestoreController,
+  StorageController,
+  HealthController,
+  CustomerController,
+  InviteCodeController,
+  ReceiptController,
+  InvoiceController,
+  InvoiceReceiptController,
+  FeatureFlagsController,
+  InvoiceJobsController,
+  BroadcastController,
+} from './src/controllers';
 import { OffboardingService } from './src/offboarding/offboarding.service';
-import { FirestoreController } from './src/controllers/firestore.controller';
-import { StorageController } from './src/controllers/storage.controller';
-import { HealthController } from './src/controllers/health.controller';
-import { CustomerController } from './src/controllers/customer.controller';
-import { InviteCodeController } from './src/controllers/invite-code.controller';
-import { ReceiptController } from './src/controllers/receipt.controller';
-import { InvoiceController } from './src/controllers/invoice.controller';
-import { InvoiceReceiptController } from './src/controllers/invoice-receipt.controller';
 import { OffboardingController } from './src/offboarding/offboarding.controller';
-import { FeatureFlagsService } from './src/services/feature-flags.service';
-import { FeatureFlagsController } from './src/controllers/feature-flags.controller';
-import { InvoiceJobsService } from './src/services/invoice-jobs.service';
-import { InvoiceJobsController } from './src/controllers/invoice-jobs.controller';
 import { requireAuth } from './src/middlewares/auth.middleware';
 import { createRoutes } from './src/routes/index';
 
@@ -54,6 +61,7 @@ const PORT = process.env.ADMIN_PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD; // Optional password protection
 const ADMIN_TELEGRAM_USER_ID = process.env.ADMIN_TELEGRAM_USER_ID;
 const ADMIN_TELEGRAM_USERNAME = process.env.ADMIN_TELEGRAM_USERNAME;
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 
 // Initialize GCP clients
 const firestore = getFirestoreClient();
@@ -81,6 +89,7 @@ const offboardingService = new OffboardingService(
 );
 const featureFlagsService = new FeatureFlagsService(firestore);
 const invoiceJobsService = new InvoiceJobsService(firestore);
+const broadcastService = new BroadcastService(firestore, TELEGRAM_BOT_TOKEN);
 
 // Initialize controllers
 const firestoreController = new FirestoreController(firestoreService);
@@ -94,6 +103,7 @@ const invoiceReceiptController = new InvoiceReceiptController(invoiceReceiptServ
 const offboardingController = new OffboardingController(offboardingService);
 const featureFlagsController = new FeatureFlagsController(featureFlagsService);
 const invoiceJobsController = new InvoiceJobsController(invoiceJobsService);
+const broadcastController = new BroadcastController(broadcastService, customerService);
 
 // Middleware
 app.use(express.json());
@@ -137,7 +147,8 @@ app.use(
     invoiceReceiptController,
     offboardingController,
     featureFlagsController,
-    invoiceJobsController
+    invoiceJobsController,
+    broadcastController
   )
 );
 

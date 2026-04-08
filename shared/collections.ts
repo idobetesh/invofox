@@ -38,6 +38,9 @@ export const PROCESSED_CALLBACKS_COLLECTION = 'processed_callbacks';
 export const FEATURE_FLAGS_COLLECTION = 'feature_flags';
 export const FLAG_AUDIT_LOG_COLLECTION = 'flag_audit_log';
 
+// Broadcast notifications collection
+export const BROADCAST_NOTIFICATIONS_COLLECTION = 'broadcast_notifications';
+
 /**
  * Import document type from invoice.types
  * Re-export for convenience
