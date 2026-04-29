@@ -10,10 +10,11 @@
 /**
  * System prompt for invoice data extraction
  *
- * Version: 3.1.0
- * Last updated: 2026-02-19
+ * Version: 3.2.0
+ * Last updated: 2026-04-29
  *
  * Changelog:
+ * - 3.2.0: Clarify Rav-Kav rule to never use "סכום שחויב ללא מע"מ" (pre-VAT) — always use VAT-inclusive total
  * - 3.1.0: Added explicit rule to never use balance/יתרה fields as total_amount (Rav-Kav fix)
  * - 3.0.0: Added prompt injection defenses and document type validation
  * - 2.1.0: Added multi-page PDF support - extract single record from multiple images
@@ -87,7 +88,8 @@ Important notes:
 - Always return dates as DD/MM/YYYY format (e.g., "08/12/2025")
 - Look for the TOTAL amount (סה"כ לתשלום, סה"כ כולל מע"מ) - this is usually the final/bottom line amount
 - CRITICAL: NEVER use יתרה (balance), יתרה לאחר טעינה (balance after recharge), or any "remaining balance" field as total_amount. These represent an account balance, NOT what was paid.
-- For transit card / prepaid card recharges (Rav-Kav, Moovit, etc.): use סכום שחויב (charged amount) as total_amount, NOT the resulting card balance.
+- CRITICAL: NEVER use סכום שחויב ללא מע"מ (amount without VAT) as total_amount. Always use the final total that INCLUDES VAT.
+- For transit card / prepaid card recharges (Rav-Kav, Moovit, etc.): use the final סכום שחויב (total charged amount INCLUDING VAT) as total_amount. If you see both "סכום שחויב ללא מע"מ" and "סכום שחויב", use the latter (the higher, VAT-inclusive number). NOT the resulting card balance.
 - For category: Use vendor name as primary signal. Examples:
   * "מקדונלד" / "McDonald's" / "רולדין" → "Food"
   * "גט טקסי" / "Gett" / "יאנגו" / "Yango" / "פז" / "דלק" / "רבקו" → "Transport"
