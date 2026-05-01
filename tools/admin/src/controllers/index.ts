@@ -9,3 +9,4 @@ export { InvoiceReceiptController } from './invoice-receipt.controller';
 export { FeatureFlagsController } from './feature-flags.controller';
 export { InvoiceJobsController } from './invoice-jobs.controller';
 export { BroadcastController } from './broadcast.controller';
+export { ReportController } from './report.controller';

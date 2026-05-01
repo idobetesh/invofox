@@ -16,6 +16,14 @@
  * Then open http://localhost:3000 in your browser
  */
 
+// Note on logging: the reused worker code does `import pino from 'pino'`
+// (see services/worker/src/logger.ts). Admin does NOT bundle pino — the
+// `pino` import is redirected to `src/shims/pino.ts` via tsconfig `paths`
+// (registered at runtime by `tsconfig-paths/register` in the start script).
+// The shim returns a no-op logger, so any worker-side `logger.info(...)`
+// calls are silently swallowed; admin code uses console.log/console.error
+// directly (see report.service.ts / report.controller.ts).
+
 import express from 'express';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
@@ -34,6 +42,7 @@ import {
   FeatureFlagsService,
   InvoiceJobsService,
   BroadcastService,
+  ReportService,
 } from './src/services';
 import {
   FirestoreController,
@@ -47,11 +56,15 @@ import {
   FeatureFlagsController,
   InvoiceJobsController,
   BroadcastController,
+  ReportController,
 } from './src/controllers';
 import { OffboardingService } from './src/offboarding/offboarding.service';
 import { OffboardingController } from './src/offboarding/offboarding.controller';
 import { requireAuth } from './src/middlewares/auth.middleware';
 import { createRoutes } from './src/routes/index';
+// Reused worker singleton: initialize once at startup so the report core's
+// `getFirestore()` calls hit the same ADC project as the rest of admin.
+import { getFirestore as initWorkerFirestore } from '../../services/worker/src/services/firestore.service';
 
 // Load environment variables
 dotenv.config();
@@ -66,6 +79,10 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 // Initialize GCP clients
 const firestore = getFirestoreClient();
 const storage = getStorageClient();
+
+// Eagerly initialize the worker's Firestore singleton so the reused report
+// code reads from the same project as the admin (uses ADC under the hood).
+initWorkerFirestore();
 
 // Get bucket names from environment
 const INVOICES_BUCKET = process.env.STORAGE_BUCKET || 'papertrail-invoice-invoices';
@@ -90,6 +107,7 @@ const offboardingService = new OffboardingService(
 const featureFlagsService = new FeatureFlagsService(firestore);
 const invoiceJobsService = new InvoiceJobsService(firestore);
 const broadcastService = new BroadcastService(firestore, TELEGRAM_BOT_TOKEN);
+const reportService = new ReportService(firestore);
 
 // Initialize controllers
 const firestoreController = new FirestoreController(firestoreService);
@@ -104,6 +122,7 @@ const offboardingController = new OffboardingController(offboardingService);
 const featureFlagsController = new FeatureFlagsController(featureFlagsService);
 const invoiceJobsController = new InvoiceJobsController(invoiceJobsService);
 const broadcastController = new BroadcastController(broadcastService, customerService);
+const reportController = new ReportController(reportService);
 
 // Middleware
 app.use(express.json());
@@ -148,7 +167,8 @@ app.use(
     offboardingController,
     featureFlagsController,
     invoiceJobsController,
-    broadcastController
+    broadcastController,
+    reportController
   )
 );
 
