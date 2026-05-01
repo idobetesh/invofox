@@ -10,3 +10,4 @@ export { InvoiceReceiptService } from './invoice-receipt.service';
 export { FeatureFlagsService } from './feature-flags.service';
 export { InvoiceJobsService } from './invoice-jobs.service';
 export { BroadcastService } from './broadcast.service';
+export { ReportService } from './report.service';

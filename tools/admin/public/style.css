@@ -677,6 +677,16 @@ body {
   letter-spacing: 0.5px;
 }
 
+.form-group label .form-hint {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-tertiary, var(--text-secondary));
+  text-transform: none;
+  letter-spacing: normal;
+  margin-left: 6px;
+  opacity: 0.75;
+}
+
 .form-group:last-of-type {
   margin-bottom: 24px;
 }

@@ -45,6 +45,13 @@
           </svg>
           <span>Feature Flags</span>
         </a>
+        <button class="tab-button" data-tab="reports">
+          <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 3v18h18"/>
+            <path d="M7 14l4-4 4 4 5-6"/>
+          </svg>
+          <span>Reports</span>
+        </button>
         <a href="/notifications.html" class="tab-button" style="text-decoration:none">
           <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>
@@ -426,7 +433,6 @@
     <div id="receipts-tab" class="tab-content active">
       <iframe src="/document-generator.html" style="width: 100%; height: calc(100vh - 200px); border: none; border-radius: 8px;"></iframe>
     </div>
-  </div>
 
   <!-- Confirmation Modal -->
   <div id="confirm-modal" class="modal">
@@ -489,6 +495,110 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Reports Tab -->
+  <div id="reports-tab" class="tab-content">
+    <div class="card">
+      <div class="card-header">
+        <h2>
+          <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 3v18h18"/>
+            <path d="M7 14l4-4 4 4 5-6"/>
+          </svg>
+          Generate Report
+        </h2>
+        <span class="badge badge-secondary" title="Live production data via ADC — read only">Live data · read-only</span>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label for="report-customer-select">Customer (Chat) *</label>
+          <select id="report-customer-select" class="modern-select">
+            <option value="">Loading customers...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Report Types * <span class="form-hint">(pick one or more)</span></label>
+          <div class="tab-buttons" id="report-type-group" data-multi-select="true">
+            <button type="button" class="filter-button active" data-report-type="revenue">Revenue</button>
+            <button type="button" class="filter-button" data-report-type="expenses">Expenses</button>
+            <button type="button" class="filter-button" data-report-type="balance">Balance</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Date Range *</label>
+          <div class="tab-buttons" id="report-date-mode-group">
+            <button type="button" class="filter-button active" data-date-mode="preset">Preset</button>
+            <button type="button" class="filter-button" data-date-mode="custom">Custom</button>
+          </div>
+        </div>
+
+        <div class="form-group" id="report-preset-group">
+          <label for="report-preset-select">Preset</label>
+          <select id="report-preset-select" class="modern-select">
+            <option value="this_month">This Month</option>
+            <option value="last_month">Last Month</option>
+            <option value="ytd">Year to Date</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="report-custom-group" style="display: none;">
+          <div class="controls" style="margin-bottom: 0;">
+            <div class="input-group">
+              <label for="report-custom-start">Start Date</label>
+              <input type="date" id="report-custom-start" class="modern-input">
+            </div>
+            <div class="input-group">
+              <label for="report-custom-end">End Date</label>
+              <input type="date" id="report-custom-end" class="modern-input">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Sort Order <span class="form-hint">(by date)</span></label>
+          <div class="tab-buttons" id="report-sort-order-group">
+            <button type="button" class="filter-button active" data-sort-order="asc">Ascending (oldest first)</button>
+            <button type="button" class="filter-button" data-sort-order="desc">Descending (newest first)</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Formats * <span class="form-hint">(pick one or more — multiple selections download as a .zip)</span></label>
+          <div class="tab-buttons" id="report-format-group" data-multi-select="true">
+            <button type="button" class="filter-button active" data-report-format="pdf">PDF</button>
+            <button type="button" class="filter-button" data-report-format="excel">Excel</button>
+            <button type="button" class="filter-button" data-report-format="csv">CSV</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="report-business-name">Business Name (optional override)</label>
+          <input type="text" id="report-business-name" class="modern-input" placeholder="Defaults to business_config name">
+        </div>
+
+        <div class="form-group">
+          <label style="display: inline-flex; align-items: center; gap: 8px; font-weight: normal;">
+            <input type="checkbox" id="report-include-logo" checked>
+            Include logo in PDF header
+          </label>
+        </div>
+
+        <button id="generate-report-btn" class="btn btn-primary">
+          <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span>Generate &amp; Download</span>
+        </button>
+
+        <div id="report-status" class="empty-state" style="margin-top: 1rem; display: none;"></div>
+      </div>
+    </div>
+  </div>
   </div>
 
   <!-- Invoice Edit Modal -->

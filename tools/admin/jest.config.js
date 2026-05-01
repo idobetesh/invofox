@@ -6,6 +6,9 @@ module.exports = {
   testMatch: ['**/*.test.ts'],
   moduleFileExtensions: ['ts', 'js', 'json'],
   verbose: true,
+  moduleNameMapper: {
+    '^pino$': '<rootDir>/src/shims/pino.ts',
+  },
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
       tsconfig: {

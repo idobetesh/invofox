@@ -9,8 +9,23 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "pino": ["src/shims/pino.ts"]
+    }
   },
-  "include": ["server.ts", "src/**/*", "../../shared/**/*"],
+  "include": [
+    "server.ts",
+    "src/**/*",
+    "../../shared/**/*",
+    "../../services/worker/src/services/report/core/**/*",
+    "../../services/worker/src/services/report/generators/**/*",
+    "../../services/worker/src/services/report/report-template.ts",
+    "../../services/worker/src/services/firestore.service.ts",
+    "../../services/worker/src/models/generated-invoice.model.ts",
+    "../../services/worker/src/models/invoice-job.model.ts",
+    "../../services/worker/src/logger.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }
