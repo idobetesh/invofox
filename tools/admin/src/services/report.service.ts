@@ -214,12 +214,12 @@ export class ReportService {
 
   private renderToBuffer(reportData: ReportData, format: ReportFormat): Promise<Buffer> {
     if (format === 'pdf') {
-      return generatePDFReport(reportData) as Promise<Buffer>;
+      return generatePDFReport(reportData);
     }
     if (format === 'excel') {
-      return generateExcelReport(reportData) as Promise<Buffer>;
+      return generateExcelReport(reportData);
     }
-    return generateCSVReport(reportData) as Promise<Buffer>;
+    return generateCSVReport(reportData);
   }
 
   private buildFilename(
@@ -232,33 +232,48 @@ export class ReportService {
   }
 }
 
+const LOGO_FETCH_TIMEOUT_MS = 5_000;
+const LOGO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+const ALLOWED_LOGO_CONTENT_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+
 /**
  * Fetch a logo URL and return as a base64 data URL the report template can embed.
- * Mirrors the worker's behavior for `data:`, `https://` and `gs://` URLs but
- * skips the circular-mask processing (we don't pull in `sharp` for the admin tool).
+ * Mirrors the worker's behavior for `data:` and `https://` URLs but skips the
+ * circular-mask processing (we don't pull in `sharp` for the admin tool).
  */
 async function fetchLogoAsBase64(logoUrl: string): Promise<string | undefined> {
   if (logoUrl.startsWith('data:')) {
     return logoUrl;
   }
 
-  if (logoUrl.startsWith('http')) {
-    // Validate URL scheme to avoid SSRF surprises (rule: avoid insecure HTTP defaults).
-    const parsed = new URL(logoUrl);
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-      return undefined;
+  if (logoUrl.startsWith('https://')) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), LOGO_FETCH_TIMEOUT_MS);
+    try {
+      const response = await fetch(logoUrl, { signal: controller.signal });
+      if (!response.ok) {
+        return undefined;
+      }
+
+      const rawContentType = response.headers.get('content-type') ?? '';
+      const contentType = rawContentType.split(';')[0].trim();
+      if (!ALLOWED_LOGO_CONTENT_TYPES.has(contentType)) {
+        return undefined;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      if (buffer.length > LOGO_MAX_BYTES) {
+        return undefined;
+      }
+
+      return `data:${contentType};base64,${buffer.toString('base64')}`;
+    } finally {
+      clearTimeout(timer);
     }
-    const response = await fetch(logoUrl);
-    if (!response.ok) {
-      return undefined;
-    }
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const contentType = response.headers.get('content-type') || 'image/png';
-    return `data:${contentType};base64,${buffer.toString('base64')}`;
   }
 
-  // gs:// and other schemes: skip in the admin tool — we don't want to drag in
-  // the worker's storage client just for logos. PDFs render fine without it.
+  // gs://, http://, and other schemes: skip — gs:// would need the worker's
+  // storage client, and plain http:// is rejected to avoid SSRF over cleartext.
   return undefined;
 }
 
