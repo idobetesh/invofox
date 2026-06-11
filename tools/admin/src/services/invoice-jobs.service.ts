@@ -5,6 +5,7 @@
 
 import { Firestore, FieldValue } from '@google-cloud/firestore';
 import { INVOICE_JOBS_COLLECTION } from '../../../../shared/collections';
+import { toMillis } from '../utils/timestamp';
 
 export interface InvoiceJobRecord {
   jobId: string;
@@ -34,18 +35,14 @@ export class InvoiceJobsService {
   constructor(private firestore: Firestore) {}
 
   async listInvoiceJobs(chatId?: number, limit = 50): Promise<InvoiceJobRecord[]> {
-    // Use simple queries to avoid requiring composite Firestore indexes.
-    // Sort in memory after fetching.
-    let baseQuery = this.firestore.collection(INVOICE_JOBS_COLLECTION).limit(limit * 3);
+    const collection = this.firestore.collection(INVOICE_JOBS_COLLECTION);
 
-    if (chatId !== undefined) {
-      baseQuery = this.firestore
-        .collection(INVOICE_JOBS_COLLECTION)
-        .where('telegramChatId', '==', chatId)
-        .limit(limit * 3) as typeof baseQuery;
-    }
-
-    const snapshot = await baseQuery.get();
+    // Prefer server-side ordering when no chat filter (single-field index).
+    // With chat filter, fetch matching docs and sort by createdAt in memory.
+    const snapshot =
+      chatId === undefined
+        ? await collection.orderBy('createdAt', 'desc').limit(limit).get()
+        : await collection.where('telegramChatId', '==', chatId).get();
 
     const records = snapshot.docs.map((doc) => {
       const d = doc.data();
@@ -68,12 +65,7 @@ export class InvoiceJobsService {
       };
     });
 
-    // Sort by receivedAt descending (most recent first), then trim to limit
-    records.sort((a, b) => {
-      const ta = a.receivedAt ? new Date(a.receivedAt).getTime() : 0;
-      const tb = b.receivedAt ? new Date(b.receivedAt).getTime() : 0;
-      return tb - ta;
-    });
+    records.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
 
     return records.slice(0, limit);
   }

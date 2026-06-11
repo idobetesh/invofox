@@ -62,6 +62,7 @@ import { OffboardingService } from './src/offboarding/offboarding.service';
 import { OffboardingController } from './src/offboarding/offboarding.controller';
 import { requireAuth } from './src/middlewares/auth.middleware';
 import { createRoutes } from './src/routes/index';
+import { getDefaultSheetUrlFromEnv } from './src/utils/sheet-url';
 // Reused worker singleton: initialize once at startup so the report core's
 // `getFirestore()` calls hit the same ADC project as the rest of admin.
 import { getFirestore as initWorkerFirestore } from '../../services/worker/src/services/firestore.service';
@@ -70,7 +71,7 @@ import { getFirestore as initWorkerFirestore } from '../../services/worker/src/s
 dotenv.config();
 
 const app = express();
-const PORT = process.env.ADMIN_PORT || 3000;
+const PORT = Number(process.env.ADMIN_PORT) || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD; // Optional password protection
 const ADMIN_TELEGRAM_USER_ID = process.env.ADMIN_TELEGRAM_USER_ID;
 const ADMIN_TELEGRAM_USERNAME = process.env.ADMIN_TELEGRAM_USERNAME;
@@ -88,6 +89,15 @@ initWorkerFirestore();
 const INVOICES_BUCKET = process.env.STORAGE_BUCKET || 'papertrail-invoice-invoices';
 const GENERATED_INVOICES_BUCKET =
   process.env.GENERATED_INVOICES_BUCKET || 'papertrail-invoice-generated-invoices';
+const DEFAULT_SHEET_URL = getDefaultSheetUrlFromEnv();
+
+function buildAdminClientConfig() {
+  return {
+    defaultSheetUrl: DEFAULT_SHEET_URL,
+    adminUserId: ADMIN_TELEGRAM_USER_ID || null,
+    adminUsername: ADMIN_TELEGRAM_USERNAME || null,
+  };
+}
 
 // Initialize services
 const firestoreService = new FirestoreService(firestore);
@@ -139,14 +149,17 @@ app.use((req, res, next) => {
   next();
 });
 
+// Server-side env → browser bootstrap
+app.get('/admin-config.js', (_req, res) => {
+  res.type('application/javascript');
+  res.send(`window.__ADMIN_CONFIG__=${JSON.stringify(buildAdminClientConfig())};`);
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Serve admin config (no auth required for config endpoint)
-app.get('/api/config', (req, res) => {
-  res.json({
-    adminUserId: ADMIN_TELEGRAM_USER_ID || null,
-    adminUsername: ADMIN_TELEGRAM_USERNAME || null,
-  });
+// Legacy JSON config for pages that still fetch it (invite form autofill)
+app.get('/api/config', (_req, res) => {
+  res.json(buildAdminClientConfig());
 });
 
 // Apply auth to API routes only (not static files)
@@ -172,7 +185,7 @@ app.use(
   )
 );
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running at: http://localhost:${PORT} 🚀`);
+// Start server (localhost only — not exposed on the LAN)
+app.listen(PORT, '127.0.0.1', () => {
+  console.log(`Server running at: http://127.0.0.1:${PORT} 🚀`);
 });

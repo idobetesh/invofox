@@ -12,7 +12,11 @@ import {
   showSuccess,
   showConfirmModal,
   formatDate,
+  escapeHtml,
 } from './utils.js';
+import { promptAndSaveInvoiceJobAmount } from './invoice-amount-update.js';
+
+const INVOICE_JOBS_COLLECTION = 'invoice_jobs';
 
 // State
 export let currentCollection = null;
@@ -23,6 +27,154 @@ let originalDocumentData = null;
 let firestoreSortColumn = 'createdAt'; // default sort
 let firestoreSortDirection = 'desc';
 let currentFirestoreDocs = [];
+
+function isInvoiceJobsView() {
+  return currentCollection === INVOICE_JOBS_COLLECTION;
+}
+
+function isSafeFileUrl(url) {
+  return typeof url === 'string' && /^https?:\/\//i.test(url);
+}
+
+function showFirestoreToast(message, type = 'success') {
+  const bg =
+    type === 'warning' ? '#d97706' : type === 'error' ? '#dc2626' : 'var(--success,#22c55e)';
+  const toast = document.createElement('div');
+  toast.textContent = message;
+  toast.style.cssText = `position:fixed;bottom:2rem;right:2rem;background:${bg};color:#fff;padding:0.75rem 1.25rem;border-radius:8px;z-index:9999;font-size:0.875rem;box-shadow:0 4px 12px rgba(0,0,0,.15);max-width:420px;`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), type === 'warning' ? 6000 : 3000);
+}
+
+async function saveInvoiceJobAmount(docId, amountRaw, inputEl) {
+  const doc = currentFirestoreDocs.find((d) => d.id === docId);
+
+  await promptAndSaveInvoiceJobAmount({
+    jobId: docId,
+    newAmountRaw: amountRaw,
+    previousAmount: doc?.data?.totalAmount,
+    chatId: doc?.data?.telegramChatId,
+    sheetRowId: doc?.data?.sheetRowId,
+    currency: doc?.data?.currency || 'ILS',
+    inputEl,
+    inputLookup: { kind: 'firestore', id: docId },
+    onSaved: (n) => {
+      if (doc) {
+        doc.data.totalAmount = n;
+      }
+      const liveInput = document.querySelector(
+        `.firestore-amount-input[data-doc-id="${CSS.escape(docId)}"]`
+      );
+      if (liveInput) {
+        liveInput.dataset.savedAmount = String(n);
+      }
+    },
+    showToast: showFirestoreToast,
+  });
+}
+
+function renderInvoiceJobAmountCell(doc) {
+  const value =
+    doc.data.totalAmount !== null && doc.data.totalAmount !== undefined
+      ? doc.data.totalAmount
+      : '';
+  const currency = doc.data.currency ? escapeHtml(String(doc.data.currency)) : '';
+  return `
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap;">
+      <input
+        type="number"
+        class="modern-input firestore-amount-input"
+        data-doc-id="${escapeHtml(doc.id)}"
+        data-saved-amount="${escapeHtml(String(value))}"
+        value="${value}"
+        step="0.01"
+        min="0.01"
+        placeholder="?"
+        style="width:80px;padding:4px 8px;font-size:0.8rem;"
+        title="Edit amount — Enter or ✓ to save"
+      />
+      <button type="button" class="btn btn-ghost firestore-save-amount-btn" data-doc-id="${escapeHtml(doc.id)}" title="Save amount" style="padding:4px 8px;font-size:0.75rem;">✓</button>
+      ${currency ? `<span style="font-size:0.75rem;color:var(--muted);">${currency}</span>` : ''}
+    </div>
+  `;
+}
+
+function renderInvoiceJobFileCell(doc) {
+  const link = doc.data.driveLink;
+  if (!isSafeFileUrl(link)) {
+    return '<span style="color:var(--muted);font-size:0.75rem;">—</span>';
+  }
+  const safeUrl = escapeHtml(link);
+  return `
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap;">
+      <a href="${safeUrl}" class="action-btn" target="_blank" rel="noopener noreferrer" title="Open invoice file" style="padding:4px 8px;font-size:0.75rem;">
+        <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+          <polyline points="15 3 21 3 21 9"/>
+          <line x1="10" y1="14" x2="21" y2="3"/>
+        </svg>
+        <span>Open</span>
+      </a>
+      <button type="button" class="action-btn firestore-copy-file-btn" data-url="${safeUrl}" title="Copy file URL" style="padding:4px 8px;font-size:0.75rem;">
+        <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+        <span>Copy</span>
+      </button>
+    </div>
+  `;
+}
+
+function handleFirestoreDocumentsClick(event) {
+  if (!isInvoiceJobsView()) {
+    return;
+  }
+
+  const saveBtn = event.target.closest('.firestore-save-amount-btn');
+  if (saveBtn) {
+    const docId = saveBtn.dataset.docId;
+    const row = saveBtn.closest('tr');
+    const input = row?.querySelector('.firestore-amount-input');
+    if (docId && input) {
+      void saveInvoiceJobAmount(docId, input.value.trim(), input);
+    }
+    return;
+  }
+
+  const copyBtn = event.target.closest('.firestore-copy-file-btn');
+  if (copyBtn?.dataset.url) {
+    void navigator.clipboard.writeText(copyBtn.dataset.url).then(
+      () => showFirestoreToast('File URL copied'),
+      () => showFirestoreToast('Could not copy URL', 'error')
+    );
+  }
+}
+
+function handleFirestoreDocumentsKeydown(event) {
+  if (!isInvoiceJobsView() || event.key !== 'Enter') {
+    return;
+  }
+  if (!event.target.classList.contains('firestore-amount-input')) {
+    return;
+  }
+  event.preventDefault();
+  const input = event.target;
+  const docId = input.dataset.docId;
+  if (docId) {
+    void saveInvoiceJobAmount(docId, input.value.trim(), input);
+  }
+}
+
+function bindFirestoreDocumentHandlers() {
+  const container = document.getElementById('documents-container');
+  if (!container || container.dataset.handlersBound === '1') {
+    return;
+  }
+  container.dataset.handlersBound = '1';
+  container.addEventListener('click', handleFirestoreDocumentsClick);
+  container.addEventListener('keydown', handleFirestoreDocumentsKeydown);
+}
 
 /**
  * Load Firestore collections
@@ -46,9 +198,11 @@ export async function loadCollections() {
 }
 
 /**
- * Load documents from a collection
+ * Load documents from a collection (newest by create date first).
+ * @param {object} options
+ * @param {boolean} options.reset - When true, reload from the first page
  */
-export async function loadCollectionDocuments() {
+export async function loadCollectionDocuments({ reset = true } = {}) {
   const collectionName = document.getElementById('collection-select').value;
   if (!collectionName) {
     showError('Please select a collection');
@@ -56,15 +210,20 @@ export async function loadCollectionDocuments() {
   }
 
   currentCollection = collectionName;
-  firestoreCursor = null;
-  selectedFirestoreDocs.clear();
-  updateFirestoreSelection();
+
+  if (reset) {
+    firestoreCursor = null;
+    selectedFirestoreDocs.clear();
+    updateFirestoreSelection();
+    firestoreSortColumn = 'createdAt';
+    firestoreSortDirection = 'desc';
+  }
 
   showLoading();
   try {
     const response = await fetch(
       `${API_BASE}/firestore/collections/${collectionName}?limit=50${
-        firestoreCursor ? `&startAfter=${firestoreCursor}` : ''
+        firestoreCursor ? `&startAfter=${encodeURIComponent(firestoreCursor)}` : ''
       }`,
       getAuthHeaders()
     );
@@ -81,6 +240,11 @@ export async function loadCollectionDocuments() {
   } finally {
     hideLoading();
   }
+}
+
+/** Load the next page without resetting pagination cursor. */
+export function loadNextFirestorePage() {
+  return loadCollectionDocuments({ reset: false });
 }
 
 /**
@@ -109,9 +273,9 @@ function sortFirestoreDocs(docs) {
       aVal = toSortableMs(a.data.updatedAt);
       bVal = toSortableMs(b.data.updatedAt);
     } else {
-      // createdAt
-      aVal = toSortableMs(a.data.createdAt);
-      bVal = toSortableMs(b.data.createdAt);
+      // createdAt (fallback to generatedAt / startedAt for generated docs)
+      aVal = toSortableMs(a.data.createdAt || a.data.generatedAt || a.data.startedAt);
+      bVal = toSortableMs(b.data.createdAt || b.data.generatedAt || b.data.startedAt);
     }
     if (aVal < bVal) return firestoreSortDirection === 'asc' ? -1 : 1;
     if (aVal > bVal) return firestoreSortDirection === 'asc' ? 1 : -1;
@@ -148,9 +312,27 @@ export function displayFirestoreDocuments(documents) {
   };
 
   const thStyle = 'cursor:pointer;user-select:none;white-space:nowrap;';
+  const invoiceJobs = isInvoiceJobsView();
 
   const table = document.createElement('table');
-  table.innerHTML = `
+  table.innerHTML = invoiceJobs
+    ? `
+    <thead>
+      <tr>
+        <th class="checkbox-cell"><input type="checkbox" id="select-all-firestore"></th>
+        <th>ID</th>
+        <th>Vendor</th>
+        <th>Amount</th>
+        <th>File</th>
+        <th id="sort-status" style="${thStyle}">Status${sortIndicator('status')}</th>
+        <th id="sort-createdAt" style="${thStyle}">Created${sortIndicator('createdAt')}</th>
+        <th id="sort-updatedAt" style="${thStyle}">Updated${sortIndicator('updatedAt')}</th>
+        <th class="action-cell">Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  `
+    : `
     <thead>
       <tr>
         <th class="checkbox-cell"><input type="checkbox" id="select-all-firestore"></th>
@@ -168,26 +350,34 @@ export function displayFirestoreDocuments(documents) {
   sorted.forEach((doc) => {
     const row = document.createElement('tr');
     const status = doc.data.status || doc.data.documentType || '-';
-    const createdAt = formatDate(doc.data.createdAt);
+    const createdAt = formatDate(
+      doc.data.createdAt || doc.data.generatedAt || doc.data.startedAt
+    );
     const updatedAt = formatDate(doc.data.updatedAt);
+    const safeId = escapeHtml(doc.id);
+    const safeCollection = escapeHtml(currentCollection);
 
-    row.innerHTML = `
+    if (invoiceJobs) {
+      row.innerHTML = `
       <td class="checkbox-cell">
-        <input type="checkbox" class="doc-checkbox" data-id="${doc.id}">
+        <input type="checkbox" class="doc-checkbox" data-id="${safeId}">
       </td>
-      <td><code>${doc.id}</code></td>
-      <td>${status}</td>
+      <td><code style="font-size:0.75rem;">${safeId}</code></td>
+      <td>${escapeHtml(doc.data.vendorName || '—')}</td>
+      <td>${renderInvoiceJobAmountCell(doc)}</td>
+      <td>${renderInvoiceJobFileCell(doc)}</td>
+      <td>${escapeHtml(status)}</td>
       <td>${createdAt}</td>
       <td>${updatedAt}</td>
       <td class="action-cell">
-        <button class="action-btn" onclick="window.viewFirestoreDocument('${currentCollection}', '${doc.id}', this)">
+        <button class="action-btn" onclick="window.viewFirestoreDocument('${safeCollection}', '${safeId}', this)">
           <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
             <circle cx="12" cy="12" r="3"/>
           </svg>
           <span>View</span>
         </button>
-        <button class="action-btn delete" onclick="window.deleteFirestoreDocument('${currentCollection}', '${doc.id}')">
+        <button class="action-btn delete" onclick="window.deleteFirestoreDocument('${safeCollection}', '${safeId}')">
           <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3 6 5 6 21 6"/>
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -196,11 +386,48 @@ export function displayFirestoreDocuments(documents) {
         </button>
       </td>
     `;
+    } else {
+      row.innerHTML = `
+      <td class="checkbox-cell">
+        <input type="checkbox" class="doc-checkbox" data-id="${safeId}">
+      </td>
+      <td><code>${safeId}</code></td>
+      <td>${escapeHtml(status)}</td>
+      <td>${createdAt}</td>
+      <td>${updatedAt}</td>
+      <td class="action-cell">
+        <button class="action-btn" onclick="window.viewFirestoreDocument('${safeCollection}', '${safeId}', this)">
+          <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+          <span>View</span>
+        </button>
+        <button class="action-btn delete" onclick="window.deleteFirestoreDocument('${safeCollection}', '${safeId}')">
+          <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+          <span>Delete</span>
+        </button>
+      </td>
+    `;
+    }
     tbody.appendChild(row);
   });
 
   container.innerHTML = '';
   container.appendChild(table);
+
+  if (invoiceJobs) {
+    const hint = document.createElement('p');
+    hint.style.cssText = 'font-size:0.8rem;color:var(--muted);margin-top:0.75rem;';
+    hint.textContent =
+      'Expense jobs: edit amount inline (Enter or ✓). Open/Copy opens the stored invoice file. Sheet is not auto-updated.';
+    container.appendChild(hint);
+  }
+
+  bindFirestoreDocumentHandlers();
 
   // Sort header clicks
   const makeToggle = (col, defaultDir) => () => {
@@ -268,7 +495,7 @@ export async function viewFirestoreDocument(collectionName, documentId, triggerB
     currentEditingDocument = { collectionName, documentId };
     originalDocumentData = JSON.stringify(data.data, null, 2);
 
-    const colCount = 6;
+    const colCount = isInvoiceJobsView() ? 9 : 6;
     const expandRow = document.createElement('tr');
     expandRow.id = 'firestore-expand-row';
     expandRow.dataset.docId = documentId;
@@ -611,17 +838,13 @@ export function updateFirestorePagination(hasMore) {
     const prevBtn = document.createElement('button');
     prevBtn.textContent = 'Previous';
     prevBtn.disabled = !firestoreCursor;
-    prevBtn.onclick = () => {
-      // Simple implementation - reload from start
-      firestoreCursor = null;
-      loadCollectionDocuments();
-    };
+    prevBtn.onclick = () => loadCollectionDocuments({ reset: true });
     pagination.appendChild(prevBtn);
 
     if (hasMore) {
       const nextBtn = document.createElement('button');
       nextBtn.textContent = 'Next';
-      nextBtn.onclick = () => loadCollectionDocuments();
+      nextBtn.onclick = () => loadNextFirestorePage();
       pagination.appendChild(nextBtn);
     }
   }

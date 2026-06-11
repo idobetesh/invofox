@@ -1155,7 +1155,12 @@ code {
   animation: fadeIn 0.2s ease-out;
 }
 
-.modal.show {
+#confirm-modal {
+  z-index: 5000;
+}
+
+.modal.show,
+#confirm-modal.show {
   display: flex;
 }
 

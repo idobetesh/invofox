@@ -92,14 +92,22 @@ export function showSuccess(message) {
 export function showConfirmModal(message, onConfirm, options = {}) {
   const modal = document.getElementById('confirm-modal');
   const messageEl = document.getElementById('confirm-message');
+  const titleEl = modal?.querySelector('.modal-content h3');
+
+  if (titleEl) {
+    titleEl.textContent = options.title || 'Confirm Deletion';
+  }
 
   // Build detailed message
   let fullMessage = message;
   if (options.count !== undefined) {
     fullMessage = `<strong>${options.count}</strong> ${message}`;
   }
+  if (options.summary) {
+    fullMessage += `<br><br><div style="font-size:1.05rem;font-weight:600;padding:10px 12px;border-radius:8px;background:var(--bg-secondary, #1e293b);border:1px solid var(--border-color, #334155);text-align:center;">${options.summary}</div>`;
+  }
   if (options.details) {
-    fullMessage += `<br><br><small style="color: var(--text-muted);">${options.details}</small>`;
+    fullMessage += `<br><br>${options.details}`;
   }
   if (options.warning) {
     fullMessage += `<br><br><div style="color: var(--danger); font-weight: 600; margin-top: 8px;">⚠️ ${options.warning}</div>`;
@@ -136,14 +144,31 @@ export function showConfirmModal(message, onConfirm, options = {}) {
   const yesBtn = document.getElementById('confirm-yes');
   const noBtn = document.getElementById('confirm-no');
   const backdrop = modal.querySelector('.modal-backdrop');
+  const usePrimary = options.confirmVariant === 'primary';
+
+  if (usePrimary) {
+    yesBtn.className = 'btn btn-primary';
+  } else {
+    yesBtn.className = 'btn btn-danger';
+  }
 
   // Update button text if provided
   if (options.confirmText) {
+    const iconSvg = usePrimary
+      ? `<svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>`
+      : `<svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="3 6 5 6 21 6"/>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+    </svg>`;
+    yesBtn.innerHTML = `${iconSvg}<span>${options.confirmText}</span>`;
+  } else {
     yesBtn.innerHTML = `<svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <polyline points="3 6 5 6 21 6"/>
       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
     </svg>
-    <span>${options.confirmText}</span>`;
+    <span>Delete</span>`;
   }
 
   // Remove old listeners by cloning
@@ -171,17 +196,37 @@ export function showConfirmModal(message, onConfirm, options = {}) {
     document.getElementById('confirm-type-wrapper')?.remove();
   };
 
+  const dismissModal = () => {
+    closeModal();
+    options.onCancel?.();
+  };
+
+  const onEscape = (event) => {
+    if (event.key === 'Escape') {
+      dismissModal();
+    }
+  };
+
   newYesBtn.onclick = () => {
     if (options.requireTyping && document.getElementById('confirm-type-input')?.value !== options.requireTyping) return;
     closeModal();
+    document.removeEventListener('keydown', onEscape);
     onConfirm();
   };
 
-  newNoBtn.onclick = closeModal;
+  newNoBtn.onclick = () => {
+    dismissModal();
+    document.removeEventListener('keydown', onEscape);
+  };
 
   if (backdrop) {
-    backdrop.onclick = closeModal;
+    backdrop.onclick = () => {
+      dismissModal();
+      document.removeEventListener('keydown', onEscape);
+    };
   }
+
+  document.addEventListener('keydown', onEscape);
 }
 
 /**

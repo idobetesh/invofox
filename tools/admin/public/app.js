@@ -203,10 +203,7 @@ function setupEventListeners() {
     .getElementById('clear-selection-storage')
     .addEventListener('click', Storage.clearStorageSelection);
 
-  // Modal
-  document.getElementById('confirm-no').addEventListener('click', () => {
-    document.getElementById('confirm-modal').classList.remove('show');
-  });
+
 }
 
 /**

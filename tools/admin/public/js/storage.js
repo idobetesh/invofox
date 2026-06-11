@@ -45,9 +45,11 @@ export async function loadBuckets() {
 }
 
 /**
- * Load objects from a bucket
+ * Load objects from a bucket (newest by create date first).
+ * @param {object} options
+ * @param {boolean} options.reset - When true, reload from the first page
  */
-export async function loadBucketObjects() {
+export async function loadBucketObjects({ reset = true } = {}) {
   const bucketName = document.getElementById('bucket-select').value;
   if (!bucketName) {
     showError('Please select a bucket');
@@ -55,9 +57,14 @@ export async function loadBucketObjects() {
   }
 
   currentBucket = bucketName;
-  storagePageToken = null;
-  selectedStorageObjects.clear();
-  updateStorageSelection();
+
+  if (reset) {
+    storagePageToken = null;
+    selectedStorageObjects.clear();
+    updateStorageSelection();
+    storageSortColumn = 'created';
+    storageSortDirection = 'desc';
+  }
 
   const prefix = document.getElementById('prefix-filter').value;
 
@@ -65,7 +72,7 @@ export async function loadBucketObjects() {
   try {
     let url = `${API_BASE}/storage/buckets/${bucketName}/objects?maxResults=100`;
     if (prefix) url += `&prefix=${encodeURIComponent(prefix)}`;
-    if (storagePageToken) url += `&pageToken=${storagePageToken}`;
+    if (storagePageToken) url += `&pageToken=${encodeURIComponent(storagePageToken)}`;
 
     const response = await fetch(url, getAuthHeaders());
 
@@ -464,16 +471,13 @@ export function updateStoragePagination(hasMore) {
     const prevBtn = document.createElement('button');
     prevBtn.textContent = 'Previous';
     prevBtn.disabled = !storagePageToken;
-    prevBtn.onclick = () => {
-      storagePageToken = null;
-      loadBucketObjects();
-    };
+    prevBtn.onclick = () => loadBucketObjects({ reset: true });
     pagination.appendChild(prevBtn);
 
     if (hasMore) {
       const nextBtn = document.createElement('button');
       nextBtn.textContent = 'Next';
-      nextBtn.onclick = () => loadBucketObjects();
+      nextBtn.onclick = () => loadBucketObjects({ reset: false });
       pagination.appendChild(nextBtn);
     }
   }
