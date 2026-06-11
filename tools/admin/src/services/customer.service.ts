@@ -1,5 +1,6 @@
 import { Firestore } from '@google-cloud/firestore';
 import { Storage } from '@google-cloud/storage';
+import { getCreatedAtMillis } from '../utils/timestamp';
 import {
   GENERATED_INVOICES_COLLECTION,
   GENERATED_RECEIPTS_COLLECTION,
@@ -23,7 +24,9 @@ export interface Customer {
   hasLogo: boolean;
   logoUrl?: string;
   hasSheet: boolean;
+  sheetId?: string;
   updatedAt: string;
+  createdAt: string;
 }
 
 export interface OffboardPreview {
@@ -74,13 +77,25 @@ export class CustomerService {
           hasLogo: Boolean(data.business?.logoUrl),
           logoUrl: data.business?.logoUrl || undefined,
           hasSheet: Boolean(data.business?.sheetId),
+          sheetId: data.business?.sheetId || undefined,
           updatedAt: data.updatedAt?.toDate?.()?.toISOString() || 'N/A',
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || 'N/A',
         });
       }
     }
 
-    // Sort by chat ID
-    customers.sort((a, b) => a.chatId - b.chatId);
+    // Newest customers first (by createdAt, then updatedAt)
+    customers.sort((a, b) => {
+      const aMs = getCreatedAtMillis(
+        { createdAt: a.createdAt, updatedAt: a.updatedAt },
+        'createdAt'
+      );
+      const bMs = getCreatedAtMillis(
+        { createdAt: b.createdAt, updatedAt: b.updatedAt },
+        'createdAt'
+      );
+      return bMs - aMs;
+    });
 
     return customers;
   }

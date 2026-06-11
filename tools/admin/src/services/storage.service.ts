@@ -123,6 +123,13 @@ export class StorageService {
         (response as { nextPageToken?: string })?.nextPageToken ||
         null;
 
+      // GCS lists lexicographically by name — sort newest-first for the admin table
+      objects.sort((a, b) => {
+        const ta = a.timeCreated ? new Date(a.timeCreated).getTime() : 0;
+        const tb = b.timeCreated ? new Date(b.timeCreated).getTime() : 0;
+        return tb - ta;
+      });
+
       return {
         objects,
         nextPageToken: nextPageTokenValue,

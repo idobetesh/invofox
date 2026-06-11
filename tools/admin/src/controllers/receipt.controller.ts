@@ -186,13 +186,23 @@ export class ReceiptController {
             amount: data.amount,
             currency: data.currency || 'ILS',
             date: data.date,
+            generatedAt: data.generatedAt,
             paymentStatus: data.paymentStatus || 'unpaid',
             paidAmount: data.paidAmount || 0,
             remainingBalance: data.remainingBalance || data.amount,
             relatedReceiptIds: data.relatedReceiptIds || [],
           };
         })
-        .filter((invoice) => statusFilter.includes(invoice.paymentStatus));
+        .filter((invoice) => statusFilter.includes(invoice.paymentStatus))
+        .sort((a, b) => {
+          const toMs = (val: unknown): number => {
+            if (val && typeof val === 'object' && 'toMillis' in val) {
+              return (val as { toMillis: () => number }).toMillis();
+            }
+            return 0;
+          };
+          return toMs(b.generatedAt) - toMs(a.generatedAt);
+        });
 
       res.json({ invoices, count: invoices.length });
     } catch (error) {
