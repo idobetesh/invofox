@@ -17,6 +17,7 @@ import {
   REPORT_SESSIONS_COLLECTION,
   USER_CUSTOMER_MAPPING_COLLECTION,
 } from '../../../../shared/collections';
+import { getCreatedAtMillis } from '../utils/timestamp';
 
 export interface FirestoreDocument {
   id: string;
@@ -60,7 +61,28 @@ export class FirestoreService {
   }
 
   /**
-   * List documents in a collection with pagination
+   * Primary timestamp field used for "newest first" ordering per collection.
+   */
+  private getSortFieldForCollection(collectionName: string): string {
+    const generatedAtCollections = new Set([
+      GENERATED_INVOICES_COLLECTION,
+      GENERATED_RECEIPTS_COLLECTION,
+      GENERATED_INVOICE_RECEIPTS_COLLECTION,
+    ]);
+
+    if (generatedAtCollections.has(collectionName)) {
+      return 'generatedAt';
+    }
+
+    if (collectionName === ONBOARDING_SESSIONS_COLLECTION) {
+      return 'startedAt';
+    }
+
+    return 'createdAt';
+  }
+
+  /**
+   * List documents in a collection with pagination (newest by create date first).
    */
   async listDocuments(
     collectionName: string,
@@ -71,36 +93,97 @@ export class FirestoreService {
   ): Promise<ListDocumentsResult> {
     const limit = options.limit || 50;
     const { startAfter } = options;
+    const sortField = this.getSortFieldForCollection(collectionName);
 
     const collectionRef = this.firestore.collection(collectionName);
-    let query = collectionRef.orderBy('__name__').limit(limit);
 
+    try {
+      let query = collectionRef.orderBy(sortField, 'desc').limit(limit);
+
+      if (startAfter) {
+        const startAfterDoc = await collectionRef.doc(startAfter).get();
+        if (startAfterDoc.exists) {
+          query = query.startAfter(startAfterDoc);
+        }
+      }
+
+      const snapshot = await query.get();
+      const documents = snapshot.docs.map((doc) => {
+        const docData = doc.data() || {};
+        return {
+          id: doc.id,
+          data: docData as Record<string, unknown>,
+          createdAt: docData.createdAt ?? docData.generatedAt ?? docData.startedAt,
+          updatedAt: docData.updatedAt,
+        };
+      });
+
+      const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+      const hasMore = snapshot.docs.length === limit;
+
+      return {
+        documents,
+        hasMore,
+        nextCursor: hasMore && lastDoc ? lastDoc.id : null,
+        total: documents.length,
+      };
+    } catch (error) {
+      // Fallback when the collection lacks the expected timestamp field / index
+      console.warn(
+        `orderBy(${sortField}) failed for ${collectionName}, falling back to in-memory sort:`,
+        error
+      );
+      return this.listDocumentsSortedInMemory(collectionName, sortField, limit, startAfter);
+    }
+  }
+
+  /**
+   * Fallback listing: fetch a larger batch and sort by creation time in memory.
+   */
+  private async listDocumentsSortedInMemory(
+    collectionName: string,
+    sortField: string,
+    limit: number,
+    startAfter?: string
+  ): Promise<ListDocumentsResult> {
+    const collectionRef = this.firestore.collection(collectionName);
+    const snapshot = await collectionRef.limit(500).get();
+
+    const sorted = snapshot.docs
+      .map((doc) => {
+        const docData = doc.data() || {};
+        return {
+          id: doc.id,
+          data: docData as Record<string, unknown>,
+          createdAt: docData.createdAt ?? docData.generatedAt ?? docData.startedAt,
+          updatedAt: docData.updatedAt,
+          sortMs: getCreatedAtMillis(docData as Record<string, unknown>, sortField),
+        };
+      })
+      .sort((a, b) => b.sortMs - a.sortMs);
+
+    let startIndex = 0;
     if (startAfter) {
-      const startAfterDoc = await collectionRef.doc(startAfter).get();
-      if (startAfterDoc.exists) {
-        query = query.startAfter(startAfterDoc);
+      const cursorIndex = sorted.findIndex((doc) => doc.id === startAfter);
+      if (cursorIndex >= 0) {
+        startIndex = cursorIndex + 1;
       }
     }
 
-    const snapshot = await query.get();
-    const documents = snapshot.docs.map((doc) => {
-      const docData = doc.data() || {};
-      return {
-        id: doc.id,
-        data: docData as Record<string, unknown>,
-        createdAt: docData.createdAt,
-        updatedAt: docData.updatedAt,
-      };
-    });
-
-    const lastDoc = snapshot.docs[snapshot.docs.length - 1];
-    const hasMore = snapshot.docs.length === limit;
+    const page = sorted.slice(startIndex, startIndex + limit);
+    const hasMore = startIndex + limit < sorted.length;
+    const lastDoc = page[page.length - 1];
 
     return {
-      documents,
+      documents: page.map(({ id, data, createdAt, updatedAt }) => ({
+        id,
+        data,
+        createdAt,
+        updatedAt,
+      })),
       hasMore,
       nextCursor: hasMore && lastDoc ? lastDoc.id : null,
-      total: documents.length,
+      total: page.length,
     };
   }
 
