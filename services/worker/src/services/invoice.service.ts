@@ -222,7 +222,6 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
       driveLink,
     });
 
-    // Use multi-image extraction if PDF, single-image for photos
     const { extraction, usage } = isPDF
       ? await llmService.extractInvoiceDataMulti(imageBuffers, imageExtension)
       : await llmService.extractInvoiceData(imageBuffers[0], imageExtension);
