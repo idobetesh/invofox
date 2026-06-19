@@ -78,7 +78,7 @@ jobs:
           build-args: |
             APP_VERSION=${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.service }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=min,scope=${{ matrix.service }}
           provenance: false
 
   # Deploy both services after builds complete
