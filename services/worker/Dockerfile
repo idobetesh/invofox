@@ -56,9 +56,8 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Configure Playwright to use system dependencies
-# Playwright handles browser installation and crashpad internally
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+# Configure Playwright browser path under /app (owned by nodejs before install)
+ENV PLAYWRIGHT_BROWSERS_PATH=/app/.cache/ms-playwright
 
 # Add security: run as non-root user
 RUN groupadd -r nodejs && useradd -r -g nodejs nodejs
@@ -77,16 +76,14 @@ RUN --mount=type=cache,target=/root/.npm \
 # Copy built application
 COPY --from=builder /app/services/worker/dist ./dist
 
-# Install Playwright Chromium browser (as root, before switching to nodejs user)
-# Playwright handles all browser setup including crashpad
-RUN npx playwright install chromium --with-deps
+# Playwright OS deps (root). App apt packages above cover PDF tooling (gm/gs).
+RUN npx playwright install-deps chromium
 
-# Change ownership to non-root user (including Playwright browsers, if present)
-RUN chown -R nodejs:nodejs /app && \
-    if [ -d "/ms-playwright" ]; then chown -R nodejs:nodejs /ms-playwright; fi
+# Prepare app-owned browser cache before install — avoids slow chown on 100k+ browser files
+RUN mkdir -p /app/.cache/ms-playwright && chown -R nodejs:nodejs /app
 
-# Switch to non-root user
 USER nodejs
+RUN npx playwright install chromium
 
 # Set environment
 ENV NODE_ENV=production \
