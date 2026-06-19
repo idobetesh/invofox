@@ -2,7 +2,7 @@
  * System Alerts panel — cached in localStorage, refresh on demand only.
  */
 
-import { API_BASE, getAuthHeaders, escapeHtml } from './utils.js';
+import { API_BASE, getAuthHeaders, escapeHtml, formatDate } from './utils.js';
 
 const CACHE_KEY = 'invofox-alerts-cache';
 const SEEN_KEY = 'invofox-alerts-seen';
@@ -21,15 +21,6 @@ function severityIcon(severity) {
     return '<svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
   }
   return '<svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
-}
-
-function formatWhen(iso) {
-  if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleString();
-  } catch {
-    return iso;
-  }
 }
 
 function humanizeErrorCode(code) {
@@ -202,7 +193,7 @@ function renderGeminiStatus(data) {
     if (gemini.model) details.push(`<div><strong>Model:</strong> <code>${escapeHtml(gemini.model)}</code></div>`);
     if (gemini.errorCode) details.push(`<div><strong>Issue:</strong> ${escapeHtml(humanizeErrorCode(gemini.errorCode))}</div>`);
     if (gemini.errorMessage) details.push(`<div class="alert-gemini-error-detail">${escapeHtml(gemini.errorMessage)}</div>`);
-    if (gemini.checkedAt) details.push(`<div><strong>Last checked:</strong> ${formatWhen(gemini.checkedAt)}</div>`);
+    if (gemini.checkedAt) details.push(`<div><strong>Last checked:</strong> ${formatDate(gemini.checkedAt)}</div>`);
   }
 
   return `
@@ -250,7 +241,7 @@ function renderAlertsList(alerts) {
             <div class="alert-item-body">
               <div class="alert-item-title">${escapeHtml(a.title)}</div>
               <div class="alert-item-message">${escapeHtml(a.message)}</div>
-              ${a.timestamp ? `<div class="alert-item-time">${formatWhen(a.timestamp)}</div>` : ''}
+              ${a.timestamp ? `<div class="alert-item-time">${formatDate(a.timestamp)}</div>` : ''}
             </div>
           </div>`
           )
@@ -293,11 +284,13 @@ function renderRecentLlmJobs(jobs, stats) {
   }
 
   const hint =
-    stats?.lastOpenAiAt && !stats?.lastGeminiAt
-      ? `<p class="form-hint">Last OpenAI job: ${formatWhen(stats.lastOpenAiAt)}. No Gemini jobs in the last ${stats.scannedJobs} scanned jobs.</p>`
-      : stats?.lastGeminiAt
-        ? `<p class="form-hint">Last Gemini: ${formatWhen(stats.lastGeminiAt)} · Last OpenAI: ${formatWhen(stats.lastOpenAiAt) || '—'}</p>`
-        : '';
+    stats?.unknownProviderCount > 0
+      ? `<p class="form-hint">${stats.unknownProviderCount} of ${stats.processedCount} processed jobs in the last ${stats.scannedJobs} scanned have no LLM provider in Firestore — check the admin Google Sheet or redeploy the worker.</p>`
+      : stats?.lastOpenAiAt && !stats?.lastGeminiAt
+        ? `<p class="form-hint">Last OpenAI job: ${formatDate(stats.lastOpenAiAt)}. No Gemini jobs in the last ${stats.scannedJobs} scanned jobs.</p>`
+        : stats?.lastGeminiAt
+          ? `<p class="form-hint">Last Gemini: ${formatDate(stats.lastGeminiAt)} · Last OpenAI: ${formatDate(stats.lastOpenAiAt) || '—'}</p>`
+          : '';
 
   return `
     ${hint}
@@ -316,7 +309,7 @@ function renderRecentLlmJobs(jobs, stats) {
           .map(
             (j) => `
           <tr>
-            <td>${formatWhen(j.createdAt)}</td>
+            <td>${formatDate(j.createdAt)}</td>
             <td>${escapeHtml(j.vendorName || '?')}</td>
             <td>${escapeHtml(j.chatTitle || j.jobId)}</td>
             <td>${providerBadge(j.llmProvider, j.llmFallbackFrom)}</td>
@@ -348,7 +341,7 @@ function renderFallbacksTable(fallbacks) {
           .map(
             (f) => `
           <tr>
-            <td>${formatWhen(f.createdAt || f.receivedAt)}</td>
+            <td>${formatDate(f.createdAt || f.receivedAt)}</td>
             <td>${escapeHtml(f.vendorName || '?')}</td>
             <td>${escapeHtml(f.chatTitle || String(f.jobId))}</td>
             <td class="alert-reason-cell">${escapeHtml(f.fallbackReason || 'Gemini failed → OpenAI')}</td>
@@ -361,7 +354,7 @@ function renderFallbacksTable(fallbacks) {
 
 function renderAlertsData(data, { fetchedAt, fromCache = false } = {}) {
   const cacheNote = fetchedAt
-    ? `<p class="alerts-cache-note">${fromCache ? 'Showing cached data' : 'Fetched'} · ${formatWhen(fetchedAt)} · click <strong>Refresh</strong> to update</p>`
+    ? `<p class="alerts-cache-note">${fromCache ? 'Showing cached data' : 'Fetched'} · ${formatDate(fetchedAt)} · click <strong>Refresh</strong> to update</p>`
     : '';
 
   return `
