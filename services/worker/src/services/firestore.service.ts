@@ -155,6 +155,11 @@ export async function markJobCompleted(
     driveFileId: string;
     driveLink: string;
     sheetRowId?: number;
+    llmProvider?: 'gemini' | 'openai';
+    totalTokens?: number;
+    costUSD?: number;
+    llmFallbackFrom?: 'gemini';
+    llmFallbackReason?: string;
   }
 ): Promise<void> {
   const db = getFirestore();
@@ -172,6 +177,22 @@ export async function markJobCompleted(
   // Only include sheetRowId if defined (not set for deleted duplicates)
   if (data.sheetRowId !== undefined) {
     updateData.sheetRowId = data.sheetRowId;
+  }
+
+  if (data.llmProvider !== undefined) {
+    updateData.llmProvider = data.llmProvider;
+  }
+  if (data.totalTokens !== undefined) {
+    updateData.totalTokens = data.totalTokens;
+  }
+  if (data.costUSD !== undefined) {
+    updateData.costUSD = data.costUSD;
+  }
+  if (data.llmFallbackFrom !== undefined) {
+    updateData.llmFallbackFrom = data.llmFallbackFrom;
+  }
+  if (data.llmFallbackReason !== undefined) {
+    updateData.llmFallbackReason = data.llmFallbackReason;
   }
 
   await docRef.update(updateData);

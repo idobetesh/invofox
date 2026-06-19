@@ -36,13 +36,23 @@ export async function extractInvoiceData(
     logger.debug('Attempting Gemini extraction');
     return await gemini.extractInvoiceData(imageBuffer, fileExtension);
   } catch (error) {
-    const errorInfo =
+    const fallbackReason =
       error instanceof RateLimitError || error instanceof AuthError
-        ? { provider: error.provider, type: error.constructor.name }
-        : { error: error instanceof Error ? error.message : 'Unknown error' };
+        ? `${error.constructor.name}: ${error.message}`
+        : error instanceof Error
+          ? error.message
+          : 'Unknown error';
 
-    logger.warn(errorInfo, 'Gemini failed, falling back to OpenAI');
-    return openai.extractInvoiceData(imageBuffer, fileExtension);
+    logger.warn({ fallbackReason }, 'Gemini failed, falling back to OpenAI');
+    const result = await openai.extractInvoiceData(imageBuffer, fileExtension);
+    return {
+      ...result,
+      usage: {
+        ...result.usage,
+        fallbackFrom: 'gemini',
+        fallbackReason,
+      },
+    };
   }
 }
 
@@ -65,13 +75,23 @@ export async function extractInvoiceDataMulti(
     logger.debug('Attempting Gemini multi-image extraction');
     return await gemini.extractInvoiceDataMulti(imageBuffers, fileExtension);
   } catch (error) {
-    const errorInfo =
+    const fallbackReason =
       error instanceof RateLimitError || error instanceof AuthError
-        ? { provider: error.provider, type: error.constructor.name }
-        : { error: error instanceof Error ? error.message : 'Unknown error' };
+        ? `${error.constructor.name}: ${error.message}`
+        : error instanceof Error
+          ? error.message
+          : 'Unknown error';
 
-    logger.warn(errorInfo, 'Gemini failed, falling back to OpenAI');
-    return openai.extractInvoiceDataMulti(imageBuffers, fileExtension);
+    logger.warn({ fallbackReason }, 'Gemini failed, falling back to OpenAI');
+    const result = await openai.extractInvoiceDataMulti(imageBuffers, fileExtension);
+    return {
+      ...result,
+      usage: {
+        ...result.usage,
+        fallbackFrom: 'gemini',
+        fallbackReason,
+      },
+    };
   }
 }
 

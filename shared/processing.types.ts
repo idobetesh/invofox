@@ -80,6 +80,9 @@ export interface LLMUsage {
   outputTokens: number;
   totalTokens: number;
   costUSD: number; // Total cost in USD
+  /** Set when OpenAI was used after Gemini failed */
+  fallbackFrom?: 'gemini';
+  fallbackReason?: string;
 }
 
 export interface ExtractionResult {
