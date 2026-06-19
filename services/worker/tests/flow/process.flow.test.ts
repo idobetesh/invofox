@@ -323,6 +323,9 @@ it('process: full pipeline — job claimed, LLM extracted, sheet appended, ACK s
     expect.objectContaining({
       driveLink: 'https://storage.googleapis.com/bucket/test.jpg',
       sheetRowId: 42,
+      llmProvider: 'openai',
+      totalTokens: 150,
+      costUSD: 0.001,
     })
   );
 

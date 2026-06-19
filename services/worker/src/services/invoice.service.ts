@@ -235,8 +235,10 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
         date: extraction.invoice_date,
         confidence: extraction.confidence,
         status,
+        provider: usage.provider,
         tokens: usage.totalTokens,
         cost: usage.costUSD.toFixed(6),
+        ...(usage.fallbackFrom && { fallbackFrom: usage.fallbackFrom }),
       },
       'LLM Vision extraction completed'
     );
@@ -383,6 +385,13 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
         driveFileId: driveFileIds[0],
         driveLink,
         sheetRowId,
+        llmProvider: usage.provider,
+        totalTokens: usage.totalTokens,
+        costUSD: usage.costUSD,
+        ...(usage.fallbackFrom && {
+          llmFallbackFrom: usage.fallbackFrom,
+          llmFallbackReason: usage.fallbackReason,
+        }),
       }),
       storeService.updateJobStep(chatId, messageId, currentStep, { sheetRowId }),
     ]);
@@ -569,6 +578,9 @@ export async function handleDuplicateDecision(
       driveFileId: job.driveFileId || '',
       driveLink: job.driveLink || '',
       sheetRowId,
+      llmProvider: jobWithExtraction.llmProvider || 'openai',
+      totalTokens: jobWithExtraction.totalTokens,
+      costUSD: jobWithExtraction.costUSD,
     });
 
     // Edit the button message to show result
