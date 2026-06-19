@@ -5,6 +5,7 @@
 
 import { z } from 'zod';
 import logger from './logger';
+import { DEFAULT_GEMINI_MODEL } from './constants/llm';
 
 /**
  * Environment schema with validation and helpful error messages
@@ -17,6 +18,7 @@ const envSchema = z.object({
   }),
   OPENAI_API_KEY: z.string().startsWith('sk-', { message: 'OpenAI API key must start with sk-' }),
   GEMINI_API_KEY: z.string().optional(), // Optional - if not provided, only OpenAI is used
+  GEMINI_MODEL: z.string().min(1).optional(), // Optional - defaults to DEFAULT_GEMINI_MODEL
   STORAGE_BUCKET: z.string().min(3, { message: 'Cloud Storage bucket name is required' }),
   GENERATED_INVOICES_BUCKET: z.string().optional(), // Optional - for invoice generation feature
   SHEET_ID: z.string().min(10).optional(), // Optional - admin's sheet ID to include internal metrics
@@ -30,6 +32,7 @@ export type Config = {
   telegramBotToken: string;
   openaiApiKey: string;
   geminiApiKey: string | undefined;
+  geminiModel: string;
   storageBucket: string;
   generatedInvoicesBucket: string;
   adminSheetId: string | undefined; // Optional - admin's sheet ID to include internal metrics
@@ -89,6 +92,7 @@ export function loadConfig(): Config {
     telegramBotToken: env.TELEGRAM_BOT_TOKEN,
     openaiApiKey: env.OPENAI_API_KEY,
     geminiApiKey: env.GEMINI_API_KEY,
+    geminiModel: env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL,
     storageBucket: env.STORAGE_BUCKET,
     generatedInvoicesBucket:
       env.GENERATED_INVOICES_BUCKET || `${env.GCP_PROJECT_ID}-generated-invoices`,
@@ -105,6 +109,7 @@ export function loadConfig(): Config {
       telegramToken: maskSecret(config.telegramBotToken),
       openaiKey: maskSecret(config.openaiApiKey),
       geminiKey: config.geminiApiKey ? maskSecret(config.geminiApiKey) : 'not_configured',
+      geminiModel: config.geminiModel,
       storageBucket: config.storageBucket,
       generatedInvoicesBucket: config.generatedInvoicesBucket,
       adminSheetId: config.adminSheetId || 'not_configured',

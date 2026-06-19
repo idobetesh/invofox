@@ -12,10 +12,7 @@ import { getConfig } from '../../config';
 import logger from '../../logger';
 import { normalizeExtraction, getMimeType } from './utils';
 
-// Gemini 2.0 Flash pricing
-// Free tier: 1M tokens/min, 1.5K requests/day (shows $0 effective cost)
-// Paid tier: $0.10/1M input, $0.40/1M output
-// We calculate actual cost for tracking (useful if you exceed free tier)
+// Gemini 2.5 Flash pricing (approximate — for cost tracking)
 const PRICE_PER_INPUT_TOKEN = 0.0000001;
 const PRICE_PER_OUTPUT_TOKEN = 0.0000004;
 
@@ -36,19 +33,12 @@ function calculateCost(inputTokens: number, outputTokens: number): number {
   return inputTokens * PRICE_PER_INPUT_TOKEN + outputTokens * PRICE_PER_OUTPUT_TOKEN;
 }
 
-/**
- * Get configured Gemini model for invoice extraction
- *
- * Note: responseMimeType: 'application/json' was removed due to 400 errors with gemini-2.0-flash.
- * The model still returns JSON in most cases, and we handle markdown-wrapped JSON in the parsing logic.
- * Temperature is kept at 0.1 to ensure consistent, deterministic extraction results.
- */
 function getModel() {
   const genAI = getClient();
   return genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
+    model: getConfig().geminiModel,
     generationConfig: {
-      temperature: 0.1, // Low temperature to reduce randomness for consistent, deterministic extraction results
+      temperature: 0.1,
     },
   });
 }

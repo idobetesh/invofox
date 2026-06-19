@@ -504,6 +504,11 @@ resource "google_cloud_run_v2_service" "worker" {
       }
 
       env {
+        name  = "GEMINI_MODEL"
+        value = var.gemini_model
+      }
+
+      env {
         name  = "STORAGE_BUCKET"
         value = google_storage_bucket.invoices.name
       }

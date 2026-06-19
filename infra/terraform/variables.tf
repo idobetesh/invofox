@@ -45,6 +45,12 @@ variable "gemini_api_key" {
   default     = ""
 }
 
+variable "gemini_model" {
+  description = "Gemini model ID for invoice extraction (e.g. gemini-2.5-flash)"
+  type        = string
+  default     = "gemini-2.5-flash"
+}
+
 # Google Sheets Configuration
 variable "sheet_id" {
   description = "Google Sheets spreadsheet ID for logging invoices"
