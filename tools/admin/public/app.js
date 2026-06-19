@@ -10,6 +10,7 @@ import * as Customers from './js/customers.js';
 import * as Invites from './js/invites.js';
 import * as InvoiceJobs from './js/invoice-jobs.js';
 import * as Reports from './js/reports.js';
+import * as Alerts from './js/alerts.js';
 
 /**
  * Load status snapshot
@@ -226,6 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
   Invites.setupInviteCodesTab();
   InvoiceJobs.setupInvoiceJobsTab();
   Reports.setupReportsTab();
+  Alerts.setupAlertsTab();
 
   // Expose functions to window for onclick handlers in dynamically generated HTML
   window.viewFirestoreDocument = Firestore.viewFirestoreDocument;

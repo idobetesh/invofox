@@ -11,3 +11,4 @@ export { FeatureFlagsService } from './feature-flags.service';
 export { InvoiceJobsService } from './invoice-jobs.service';
 export { BroadcastService } from './broadcast.service';
 export { ReportService } from './report.service';
+export { AlertsService } from './alerts.service';

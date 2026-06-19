@@ -12,6 +12,7 @@ import { FeatureFlagsController } from '../controllers/feature-flags.controller'
 import { InvoiceJobsController } from '../controllers/invoice-jobs.controller';
 import { BroadcastController } from '../controllers/broadcast.controller';
 import { ReportController } from '../controllers/report.controller';
+import { AlertsController } from '../controllers/alerts.controller';
 import { createHealthRoutes } from './health.routes';
 import { createFirestoreRoutes } from './firestore.routes';
 import { createStorageRoutes } from './storage.routes';
@@ -25,6 +26,7 @@ import { createFeatureFlagsRoutes } from './feature-flags.routes';
 import { createInvoiceJobsRoutes } from './invoice-jobs.routes';
 import { createBroadcastRoutes } from './broadcast.routes';
 import { createReportRoutes } from './report.routes';
+import { createAlertsRoutes } from './alerts.routes';
 
 export function createRoutes(
   firestoreController: FirestoreController,
@@ -39,7 +41,8 @@ export function createRoutes(
   featureFlagsController: FeatureFlagsController,
   invoiceJobsController: InvoiceJobsController,
   broadcastController: BroadcastController,
-  reportController: ReportController
+  reportController: ReportController,
+  alertsController: AlertsController
 ): Router {
   const router = Router();
 
@@ -57,6 +60,7 @@ export function createRoutes(
   router.use(createInvoiceJobsRoutes(invoiceJobsController));
   router.use(createBroadcastRoutes(broadcastController));
   router.use(createReportRoutes(reportController));
+  router.use(createAlertsRoutes(alertsController));
 
   return router;
 }

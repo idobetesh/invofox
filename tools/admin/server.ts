@@ -43,6 +43,7 @@ import {
   InvoiceJobsService,
   BroadcastService,
   ReportService,
+  AlertsService,
 } from './src/services';
 import {
   FirestoreController,
@@ -57,6 +58,7 @@ import {
   InvoiceJobsController,
   BroadcastController,
   ReportController,
+  AlertsController,
 } from './src/controllers';
 import { OffboardingService } from './src/offboarding/offboarding.service';
 import { OffboardingController } from './src/offboarding/offboarding.controller';
@@ -118,6 +120,7 @@ const featureFlagsService = new FeatureFlagsService(firestore);
 const invoiceJobsService = new InvoiceJobsService(firestore);
 const broadcastService = new BroadcastService(firestore, TELEGRAM_BOT_TOKEN);
 const reportService = new ReportService(firestore);
+const alertsService = new AlertsService(firestore);
 
 // Initialize controllers
 const firestoreController = new FirestoreController(firestoreService);
@@ -133,6 +136,7 @@ const featureFlagsController = new FeatureFlagsController(featureFlagsService);
 const invoiceJobsController = new InvoiceJobsController(invoiceJobsService);
 const broadcastController = new BroadcastController(broadcastService, customerService);
 const reportController = new ReportController(reportService);
+const alertsController = new AlertsController(alertsService);
 
 // Middleware
 app.use(express.json());
@@ -181,7 +185,8 @@ app.use(
     featureFlagsController,
     invoiceJobsController,
     broadcastController,
-    reportController
+    reportController,
+    alertsController
   )
 );
 

@@ -10,3 +10,4 @@ export { FeatureFlagsController } from './feature-flags.controller';
 export { InvoiceJobsController } from './invoice-jobs.controller';
 export { BroadcastController } from './broadcast.controller';
 export { ReportController } from './report.controller';
+export { AlertsController } from './alerts.controller';

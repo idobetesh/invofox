@@ -45,6 +45,13 @@
           </svg>
           <span>Feature Flags</span>
         </a>
+        <button class="tab-button" data-tab="alerts">
+          <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span>Alerts</span>
+        </button>
         <button class="tab-button" data-tab="reports">
           <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 3v18h18"/>
@@ -454,6 +461,40 @@
           </svg>
           <span>Delete</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alerts Tab -->
+  <div id="alerts-tab" class="tab-content">
+    <div class="card">
+      <div class="card-header">
+        <h2>
+          <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          System Alerts
+        </h2>
+        <button id="refresh-alerts-btn" class="btn btn-secondary">
+          <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"/>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+          <span>Refresh</span>
+        </button>
+      </div>
+      <div class="card-body">
+        <p class="form-hint" style="margin-top:0;margin-bottom:1rem">
+          Cached locally in your browser. Click <strong>Refresh</strong> to fetch live data from production.
+          Set <code>WORKER_URL</code> in <code>tools/admin/.env</code> (from <code>terraform output worker_url</code>).
+        </p>
+        <div id="alerts-container">
+          <div class="loading-state">
+            <div class="spinner-small"></div>
+            <p>Loading alerts...</p>
+          </div>
+        </div>
       </div>
     </div>
   </div>
