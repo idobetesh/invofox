@@ -41,7 +41,7 @@ RUN npm run build
 # =============================================================================
 # Tag must match playwright version in package.json (e.g. v1.58.2-noble ↔ ^1.58.2)
 # Includes: Node 24, Chromium, browser OS deps. Runs as pwuser by convention.
-FROM mcr.microsoft.com/playwright:v1.58.2-noble
+FROM mcr.microsoft.com/playwright:v1.61.0-noble
 
 ARG APP_VERSION=development
 
