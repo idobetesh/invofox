@@ -61,10 +61,24 @@ function statusBadge(status) {
     processed: 'var(--success)',
     failed: 'var(--error)',
     pending_decision: 'var(--warning)',
+    pending_retry: 'var(--warning)',
     processing: 'var(--info, #3b82f6)',
   };
   const color = colors[status] || 'var(--muted)';
   return `<span style="font-size:0.75rem;padding:2px 8px;border-radius:12px;background:${color}20;color:${color};white-space:nowrap;">${status}</span>`;
+}
+
+function isCommittedJob(job) {
+  return job.status === 'processed' || job.status === 'pending_decision';
+}
+
+function renderJobError(job) {
+  if (!job.lastError || isCommittedJob(job)) {
+    return '';
+  }
+  const safeError = escapeHtml(job.lastError);
+  const truncated = safeError.length > 80 ? `${safeError.slice(0, 77)}...` : safeError;
+  return `<div style="font-size:0.7rem;color:var(--error);margin-top:2px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${safeError}">${truncated}</div>`;
 }
 
 function sortIcon(col) {
@@ -160,7 +174,7 @@ function renderAmountCell(job) {
 }
 
 function renderFileCell(job) {
-  if (!isSafeFileUrl(job.driveLink)) {
+  if (!isCommittedJob(job) || !isSafeFileUrl(job.driveLink)) {
     return '<span style="color:var(--muted);font-size:0.75rem;">—</span>';
   }
   const safeUrl = escapeHtml(job.driveLink);
@@ -212,16 +226,18 @@ function renderTable(jobs) {
     return `<th style="cursor:pointer;user-select:none;" onclick="window._invoiceSortBy('${col.key}')">${col.label}${sortIcon(col.key)}</th>`;
   }).join('');
 
-  const rows = sorted.map(j => `
-    <tr data-job-id="${escapeHtml(j.jobId)}">
+  const rows = sorted.map(j => {
+    const mutedRow = !isCommittedJob(j) ? 'opacity:0.65;' : '';
+    return `
+    <tr data-job-id="${escapeHtml(j.jobId)}" style="${mutedRow}">
       <td style="white-space:nowrap;font-size:0.8rem;">${formatDate(j.createdAt || j.receivedAt)}</td>
-      <td>${escapeHtml(j.vendorName || '?')}</td>
+      <td>${escapeHtml(j.vendorName || (isCommittedJob(j) ? '?' : '—'))}</td>
       <td>${renderAmountCell(j)}</td>
       <td>${escapeHtml(j.currency || '')}</td>
       <td style="white-space:nowrap;font-size:0.8rem;">${formatDate(j.invoiceDate)}</td>
       <td>${escapeHtml(j.uploaderUsername || '?')}</td>
       <td>${escapeHtml(j.chatTitle || String(j.chatId || '?'))}</td>
-      <td>${statusBadge(j.status)}</td>
+      <td>${statusBadge(j.status)}${renderJobError(j)}</td>
       <td>${renderFileCell(j)}</td>
       <td>
         <button
@@ -233,7 +249,8 @@ function renderTable(jobs) {
         >More</button>
       </td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 
   container.innerHTML = `
     <div style="overflow-x:auto;">
@@ -351,7 +368,7 @@ export function openInvoiceEditModal(jobId) {
 
   const fileLinkEl = document.getElementById('edit-file-link');
   if (fileLinkEl) {
-    if (isSafeFileUrl(job.driveLink)) {
+    if (isCommittedJob(job) && isSafeFileUrl(job.driveLink)) {
       const safeUrl = escapeHtml(job.driveLink);
       fileLinkEl.innerHTML = `
         <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="word-break:break-all;">${safeUrl}</a>

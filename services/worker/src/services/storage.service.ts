@@ -86,18 +86,51 @@ export async function uploadInvoiceImage(
 }
 
 /**
- * Delete a file from Cloud Storage (for rollback on failure)
+ * Delete a file from Cloud Storage (for rollback on failure).
+ * Returns true when the object no longer exists.
  */
-export async function deleteFile(fileId: string): Promise<void> {
+export async function deleteFile(fileId: string): Promise<boolean> {
   const config = getConfig();
   const storage = getStorage();
   const bucket = storage.bucket(config.storageBucket);
+  const file = bucket.file(fileId);
 
   try {
-    await bucket.file(fileId).delete();
+    await file.delete({ ignoreNotFound: true });
+    const [exists] = await file.exists();
+    if (exists) {
+      logger.error({ fileId }, 'File still exists after delete attempt');
+      return false;
+    }
     logger.info({ fileId }, 'Deleted file from Cloud Storage (rollback)');
+    return true;
   } catch (error) {
-    // Log but don't throw - best effort cleanup
-    logger.warn({ fileId, error }, 'Failed to delete file from Cloud Storage during rollback');
+    logger.error({ fileId, error }, 'Failed to delete file from Cloud Storage during rollback');
+    return false;
+  }
+}
+
+/**
+ * Roll back all uploaded files for a job. Throws if any file could not be removed.
+ */
+export async function rollbackUploadedFiles(
+  fileIds: string[],
+  context?: { jobId?: string }
+): Promise<void> {
+  if (fileIds.length === 0) {
+    return;
+  }
+
+  const failures: string[] = [];
+  for (const fileId of fileIds) {
+    const deleted = await deleteFile(fileId);
+    if (!deleted) {
+      failures.push(fileId);
+    }
+  }
+
+  if (failures.length > 0) {
+    const jobSuffix = context?.jobId ? ` (job ${context.jobId})` : '';
+    throw new Error(`Storage rollback failed for: ${failures.join(', ')}${jobSuffix}`);
   }
 }
