@@ -56,6 +56,19 @@ export function isMissingTabError(error: unknown): boolean {
   return message.includes('Unable to parse range') || message.toLowerCase().includes('not found');
 }
 
+export function isSheetAlreadyExistsError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const err = error as {
+    message?: string;
+    response?: { data?: { error?: { message?: string } } };
+  };
+  const message = (err.message ?? err.response?.data?.error?.message ?? '').toLowerCase();
+  return message.includes('already exists') || message.includes('duplicate');
+}
+
 async function withSheetsRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
   const maxAttempts = 5;
   let lastError: unknown;
@@ -249,45 +262,41 @@ async function createInvoicesTab(
   );
 }
 
-async function ensureInvoicesTab(sheetId: string): Promise<void> {
+async function readInvoicesTabHeaders(
+  sheetId: string,
+  columnLetter: string
+): Promise<sheets_v4.Schema$ValueRange | undefined> {
   const sheets = getSheets();
-  const headers = getHeadersForSheet(sheetId);
-  const isAdmin = isAdminSheet(sheetId);
-  const columnLetter = String.fromCharCode(64 + headers.length); // A=65, K=75 (11 cols), N=78 (14 cols)
+  const result = await withSheetsRetry(
+    () =>
+      sheets.spreadsheets.values.get({
+        spreadsheetId: sheetId,
+        range: `Invoices!A1:${columnLetter}1`,
+      }),
+    'ensureInvoicesTab:get'
+  );
+  return result.data;
+}
 
-  let response: sheets_v4.Schema$ValueRange | undefined;
-  try {
-    const result = await withSheetsRetry(
-      () =>
-        sheets.spreadsheets.values.get({
-          spreadsheetId: sheetId,
-          range: `Invoices!A1:${columnLetter}1`,
-        }),
-      'ensureInvoicesTab:get'
-    );
-    response = result.data;
-  } catch (error) {
-    if (!isMissingTabError(error)) {
-      throw error;
-    }
-
-    await createInvoicesTab(sheetId, headers, columnLetter, isAdmin);
-    return;
-  }
+async function applyInvoicesTabHeaders(
+  sheetId: string,
+  headers: string[],
+  columnLetter: string,
+  isAdmin: boolean,
+  response: sheets_v4.Schema$ValueRange | undefined
+): Promise<void> {
+  const sheets = getSheets();
 
   if (response?.values && response.values.length > 0 && response.values[0].length > 0) {
-    // Tab exists - check if headers match expected format
     const existingHeaders = response.values[0];
     const headersMatch =
       existingHeaders.length === headers.length &&
       existingHeaders.every((h, i) => h === headers[i]);
 
     if (headersMatch) {
-      // Headers are correct
       return;
     }
 
-    // Headers don't match - update them (migration support)
     logger.warn(
       {
         sheetId,
@@ -315,7 +324,6 @@ async function ensureInvoicesTab(sheetId: string): Promise<void> {
     return;
   }
 
-  // Tab exists but no headers - add them
   await withSheetsRetry(
     () =>
       sheets.spreadsheets.values.update({
@@ -330,6 +338,42 @@ async function ensureInvoicesTab(sheetId: string): Promise<void> {
   );
 
   logger.info({ sheetId, isAdmin, columnCount: headers.length }, 'Invoices tab headers added');
+}
+
+async function ensureInvoicesTab(sheetId: string): Promise<void> {
+  const headers = getHeadersForSheet(sheetId);
+  const isAdmin = isAdminSheet(sheetId);
+  const columnLetter = String.fromCharCode(64 + headers.length); // A=65, K=75 (11 cols), N=78 (14 cols)
+
+  let response: sheets_v4.Schema$ValueRange | undefined;
+  try {
+    response = await readInvoicesTabHeaders(sheetId, columnLetter);
+  } catch (error) {
+    if (isMissingTabError(error)) {
+      await createInvoicesTab(sheetId, headers, columnLetter, isAdmin);
+      return;
+    }
+
+    // Fallback: legacy behavior treated any values.get failure as "tab missing".
+    // Stream errors can occur even when the tab exists — try create, then re-read.
+    logger.warn(
+      { sheetId, error },
+      'values.get failed after retries, attempting Invoices tab creation fallback'
+    );
+
+    try {
+      await createInvoicesTab(sheetId, headers, columnLetter, isAdmin);
+      return;
+    } catch (createError) {
+      if (!isSheetAlreadyExistsError(createError)) {
+        throw createError;
+      }
+      logger.info({ sheetId }, 'Invoices tab already exists, re-reading headers');
+      response = await readInvoicesTabHeaders(sheetId, columnLetter);
+    }
+  }
+
+  await applyInvoicesTabHeaders(sheetId, headers, columnLetter, isAdmin, response);
 }
 
 /**
@@ -383,15 +427,19 @@ export async function appendRow(chatId: number, row: SheetRow): Promise<number |
     'Appending row to Google Sheet'
   );
 
-  const response = await sheets.spreadsheets.values.append({
-    spreadsheetId: sheetId,
-    range: `Invoices!A:${columnLetter}`,
-    valueInputOption: 'USER_ENTERED',
-    insertDataOption: 'INSERT_ROWS',
-    requestBody: {
-      values,
-    },
-  });
+  const response = await withSheetsRetry(
+    () =>
+      sheets.spreadsheets.values.append({
+        spreadsheetId: sheetId,
+        range: `Invoices!A:${columnLetter}`,
+        valueInputOption: 'USER_ENTERED',
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: {
+          values,
+        },
+      }),
+    'appendRow'
+  );
 
   logger.info('Row appended to Google Sheets');
 
