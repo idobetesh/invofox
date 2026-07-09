@@ -1,4 +1,8 @@
-import { isMissingTabError, isTransientSheetsError } from '../../src/services/sheets.service';
+import {
+  isMissingTabError,
+  isSheetAlreadyExistsError,
+  isTransientSheetsError,
+} from '../../src/services/sheets.service';
 
 describe('sheets retry helpers', () => {
   it('detects transient stream and network errors', () => {
@@ -38,5 +42,20 @@ describe('sheets retry helpers', () => {
         message: 'Invalid value at foo',
       })
     ).toBe(false);
+  });
+
+  it('detects duplicate sheet name errors', () => {
+    expect(
+      isSheetAlreadyExistsError({
+        response: {
+          data: {
+            error: {
+              message:
+                'Invalid requests[0].addSheet: A sheet with the name "Invoices" already exists.',
+            },
+          },
+        },
+      })
+    ).toBe(true);
   });
 });
