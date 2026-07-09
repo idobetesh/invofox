@@ -8,3 +8,4 @@ export { handleNewCommand } from './new-command.handler';
 export { handleOnboardCommand } from './onboard-command.handler';
 export { handleReportCommand } from './report-command.handler';
 export { handleTextMessage } from './text-message.handler';
+export { handleVoiceMessage } from './voice-message.handler';

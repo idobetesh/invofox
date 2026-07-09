@@ -26,6 +26,8 @@ import {
 import { parseInvoiceDetails } from '../services/document-generator/parser.service';
 import { buildConfirmationMessage } from '../services/document-generator/messages.service';
 import * as callbackService from '../services/document-generator/invoice-callback.service';
+import * as nlDocumentService from '../services/document-generator/nl-document.service';
+import { featureFlags } from '../services/feature-flags';
 import * as correctionService from '../services/correction.service';
 import { t } from '../services/i18n/languages';
 import logger from '../logger';
@@ -80,6 +82,25 @@ export async function handleNewCommand(req: Request, res: Response): Promise<voi
       .updateUserActivity(payload.userId)
       .catch((err) => log.warn({ err, userId: payload.userId }, 'Failed to update user activity'));
 
+    let nlEnabled = false;
+    try {
+      nlEnabled = await featureFlags.getValue(nlDocumentService.NL_DOCUMENT_CREATION_FLAG, false, {
+        chatId: payload.chatId,
+      });
+    } catch (flagError) {
+      log.warn(
+        { err: flagError },
+        'Feature flag lookup failed, defaulting NL document creation to disabled'
+      );
+    }
+
+    if (nlEnabled) {
+      await nlDocumentService.startNlSession(payload.chatId, payload.userId);
+      log.info('Started NL document session');
+      res.status(StatusCodes.OK).json({ ok: true, action: 'awaiting_intent' });
+      return;
+    }
+
     await sessionService.createSession(payload.chatId, payload.userId);
 
     await telegramService.sendMessage(payload.chatId, t('he', 'invoice.newDocument'), {
@@ -114,7 +135,7 @@ export async function handleInvoiceMessage(req: Request, res: Response): Promise
     // Correction flow takes priority over session flow
     const pendingJob = await storeService.getCorrectionPendingJob(payload.chatId);
     if (pendingJob?.correctionPending) {
-      await correctionService.handleCorrectionInput(pendingJob, payload.text, payload.chatId);
+      await correctionService.handleCorrectionInput(pendingJob, payload.text ?? '', payload.chatId);
       res.status(StatusCodes.OK).json({ ok: true, action: 'correction_handled' });
       return;
     }
@@ -127,8 +148,46 @@ export async function handleInvoiceMessage(req: Request, res: Response): Promise
       return;
     }
 
+    if (session.nlMode) {
+      if (session.status === 'awaiting_intent') {
+        let audioBuffer: Buffer | undefined;
+        if (payload.voiceFileId) {
+          const downloaded = await telegramService.downloadFileById(payload.voiceFileId);
+          audioBuffer = downloaded.buffer;
+        }
+
+        const action = await nlDocumentService.handleIntentInput(payload.chatId, payload.userId, {
+          text: payload.text,
+          audioBuffer,
+        });
+        res.status(StatusCodes.OK).json({ ok: true, action });
+        return;
+      }
+
+      if (session.status === 'editing_field') {
+        if (!payload.text?.trim()) {
+          await telegramService.sendMessage(payload.chatId, t('he', 'nl.emptyInput'));
+          res.status(StatusCodes.OK).json({ ok: true, action: 'empty_input' });
+          return;
+        }
+
+        const action = await nlDocumentService.handleFieldEditInput(
+          payload.chatId,
+          payload.userId,
+          payload.text.trim(),
+          session
+        );
+        res.status(StatusCodes.OK).json({ ok: true, action });
+        return;
+      }
+
+      log.debug({ status: session.status }, 'Ignoring message for NL session status');
+      res.status(StatusCodes.OK).json({ ok: true, action: 'ignored_nl' });
+      return;
+    }
+
     if (session.status === 'awaiting_details') {
-      const details = parseInvoiceDetails(payload.text);
+      const details = parseInvoiceDetails(payload.text ?? '');
 
       if (!details) {
         await telegramService.sendMessage(payload.chatId, t('he', 'invoice.invalidFormat'));
@@ -181,7 +240,7 @@ export async function handleInvoiceMessage(req: Request, res: Response): Promise
     }
 
     if (session.status === 'awaiting_payment' && session.documentType === 'receipt') {
-      const amount = parseFloat(payload.text.trim());
+      const amount = parseFloat((payload.text ?? '').trim());
 
       if (isNaN(amount) || amount <= 0) {
         await telegramService.sendMessage(payload.chatId, t('he', 'invoice.invalidAmount'));
@@ -365,12 +424,61 @@ export async function handleInvoiceCallback(req: Request, res: Response): Promis
       }
 
       case 'select_payment': {
+        if (
+          session?.nlMode &&
+          (session.status === 'reviewing' || session.status === 'editing_field')
+        ) {
+          const resultAction = await nlDocumentService.handleSelectPaymentDuringReview(
+            payload.chatId,
+            payload.userId,
+            payload.messageId,
+            payload.callbackQueryId,
+            action.paymentMethod
+          );
+          res.status(StatusCodes.OK).json({ ok: true, action: resultAction });
+          break;
+        }
+
         const resultAction = await callbackService.handleSelectPayment(
           payload.chatId,
           payload.userId,
           payload.messageId,
           payload.callbackQueryId,
           action.paymentMethod
+        );
+        res.status(StatusCodes.OK).json({ ok: true, action: resultAction });
+        break;
+      }
+
+      case 'edit_field': {
+        const resultAction = await nlDocumentService.handleEditFieldCallback(
+          payload.chatId,
+          payload.userId,
+          payload.messageId,
+          payload.callbackQueryId,
+          action.field
+        );
+        res.status(StatusCodes.OK).json({ ok: true, action: resultAction });
+        break;
+      }
+
+      case 'proceed_to_confirm': {
+        const resultAction = await nlDocumentService.handleProceedToConfirm(
+          payload.chatId,
+          payload.userId,
+          payload.messageId,
+          payload.callbackQueryId
+        );
+        res.status(StatusCodes.OK).json({ ok: true, action: resultAction });
+        break;
+      }
+
+      case 'back_to_review': {
+        const resultAction = await nlDocumentService.handleBackToReview(
+          payload.chatId,
+          payload.userId,
+          payload.messageId,
+          payload.callbackQueryId
         );
         res.status(StatusCodes.OK).json({ ok: true, action: resultAction });
         break;

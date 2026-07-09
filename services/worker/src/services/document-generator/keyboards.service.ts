@@ -7,6 +7,7 @@ import type {
   TelegramInlineKeyboardMarkup,
   InvoiceCallbackAction,
   PaymentMethod,
+  InvoiceSession,
 } from '../../../../../shared/types';
 import type { OpenInvoice } from './open-invoices.service';
 import { formatInvoiceForButton } from './open-invoices.service';
@@ -190,6 +191,73 @@ export function buildInvoiceSelectionKeyboard(
   // Add cancel button
   const cancelData: InvoiceCallbackAction = { action: 'cancel' };
   rows.push([{ text: '❌ בטל', callback_data: JSON.stringify(cancelData) }]);
+
+  return { inline_keyboard: rows };
+}
+
+/**
+ * Build NL review keyboard with per-field edit buttons
+ */
+export function buildReviewKeyboard(session: InvoiceSession): TelegramInlineKeyboardMarkup {
+  const rows: { text: string; callback_data: string }[][] = [
+    [
+      {
+        text: '✏️ לקוח',
+        callback_data: JSON.stringify({
+          action: 'edit_field',
+          field: 'customerName',
+        } satisfies InvoiceCallbackAction),
+      },
+      {
+        text: '✏️ תיאור',
+        callback_data: JSON.stringify({
+          action: 'edit_field',
+          field: 'description',
+        } satisfies InvoiceCallbackAction),
+      },
+      {
+        text: '✏️ סכום',
+        callback_data: JSON.stringify({
+          action: 'edit_field',
+          field: 'amount',
+        } satisfies InvoiceCallbackAction),
+      },
+    ],
+    [
+      {
+        text: '✏️ סוג מסמך',
+        callback_data: JSON.stringify({
+          action: 'edit_field',
+          field: 'documentType',
+        } satisfies InvoiceCallbackAction),
+      },
+      ...(session.documentType === 'invoice_receipt'
+        ? [
+            {
+              text: '✏️ תשלום',
+              callback_data: JSON.stringify({
+                action: 'edit_field',
+                field: 'paymentMethod',
+              } satisfies InvoiceCallbackAction),
+            },
+          ]
+        : []),
+    ],
+    [
+      {
+        text: '✅ המשך לאישור',
+        callback_data: JSON.stringify({
+          action: 'proceed_to_confirm',
+        } satisfies InvoiceCallbackAction),
+      },
+    ],
+    [
+      {
+        text: '❌ בטל',
+        callback_data: JSON.stringify({ action: 'cancel' } satisfies InvoiceCallbackAction),
+      },
+    ],
+  ];
 
   return { inline_keyboard: rows };
 }
