@@ -2,6 +2,7 @@
  * Natural-language document creation flow
  */
 
+import { FieldValue } from '@google-cloud/firestore';
 import type { InvoiceSession, PaymentMethod } from '../../../../../shared/types';
 import type {
   DocumentIntentMissingField,
@@ -109,16 +110,15 @@ export async function handleIntentInput(
 
   await sessionService.updateSession(chatId, userId, {
     status: 'reviewing',
-    documentType: intent.documentType ?? undefined,
-    customerName: intent.customerName ?? undefined,
-    description: intent.description ?? undefined,
-    amount: intent.amount ?? undefined,
     currency: intent.currency,
-    customerTaxId: intent.customerTaxId ?? undefined,
-    paymentMethod: intent.paymentMethod ?? undefined,
     sourceTranscript: intent.transcript || input.text || t('he', 'nl.voiceTranscript'),
     parseConfidence: intent.confidence,
-    editingField: undefined,
+    ...(intent.documentType ? { documentType: intent.documentType } : {}),
+    ...(intent.customerName ? { customerName: intent.customerName } : {}),
+    ...(intent.description ? { description: intent.description } : {}),
+    ...(typeof intent.amount === 'number' ? { amount: intent.amount } : {}),
+    ...(intent.customerTaxId ? { customerTaxId: intent.customerTaxId } : {}),
+    ...(intent.paymentMethod ? { paymentMethod: intent.paymentMethod } : {}),
   });
 
   const session = await sessionService.getSession(chatId, userId);
@@ -214,7 +214,7 @@ export async function handleFieldEditInput(
 
   const updates: Partial<InvoiceSession> = {
     status: 'reviewing',
-    editingField: undefined,
+    editingField: FieldValue.delete() as unknown as InvoiceSession['editingField'],
   };
 
   switch (field) {
@@ -286,7 +286,7 @@ export async function handleSelectPaymentDuringReview(
   const updated = await sessionService.updateSession(chatId, userId, {
     paymentMethod,
     status: 'reviewing',
-    editingField: undefined,
+    editingField: FieldValue.delete() as unknown as InvoiceSession['editingField'],
   });
 
   await telegramService.answerCallbackQuery(callbackQueryId, { text: paymentMethod });
@@ -378,7 +378,7 @@ export async function handleBackToReview(
 ): Promise<string> {
   const session = await sessionService.updateSession(chatId, userId, {
     status: 'reviewing',
-    editingField: undefined,
+    editingField: FieldValue.delete() as unknown as InvoiceSession['editingField'],
   });
 
   await telegramService.answerCallbackQuery(callbackQueryId);

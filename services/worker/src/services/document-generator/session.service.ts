@@ -13,6 +13,13 @@ import type {
 import { INVOICE_SESSIONS_COLLECTION } from '../../../../../shared/collections';
 import logger from '../../logger';
 import { getFirestore } from '../firestore.service';
+
+function stripUndefinedUpdates(
+  updates: Partial<Omit<InvoiceSession, 'createdAt' | 'updatedAt'>>
+): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(updates).filter(([, value]) => value !== undefined));
+}
+
 const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 /**
@@ -114,7 +121,7 @@ export async function updateSession(
   const log = logger.child({ sessionId });
 
   await docRef.update({
-    ...updates,
+    ...stripUndefinedUpdates(updates),
     updatedAt: FieldValue.serverTimestamp(),
   });
 
