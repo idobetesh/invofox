@@ -3,7 +3,7 @@
  * List and correct OCR-processed invoice jobs
  */
 
-import { API_BASE, getAuthHeaders, escapeHtml } from './utils.js';
+import { API_BASE, getAuthHeaders, escapeHtml, isCommittedInvoiceJob, renderJobStatusHtml } from './utils.js';
 import {
   promptAndSaveInvoiceJobAmount,
   promptAndSaveInvoiceJobCorrection,
@@ -56,29 +56,8 @@ function formatDate(isoString) {
   }
 }
 
-function statusBadge(status) {
-  const colors = {
-    processed: 'var(--success)',
-    failed: 'var(--error)',
-    pending_decision: 'var(--warning)',
-    pending_retry: 'var(--warning)',
-    processing: 'var(--info, #3b82f6)',
-  };
-  const color = colors[status] || 'var(--muted)';
-  return `<span style="font-size:0.75rem;padding:2px 8px;border-radius:12px;background:${color}20;color:${color};white-space:nowrap;">${status}</span>`;
-}
-
 function isCommittedJob(job) {
-  return job.status === 'processed' || job.status === 'pending_decision';
-}
-
-function renderJobError(job) {
-  if (!job.lastError || isCommittedJob(job)) {
-    return '';
-  }
-  const safeError = escapeHtml(job.lastError);
-  const truncated = safeError.length > 80 ? `${safeError.slice(0, 77)}...` : safeError;
-  return `<div style="font-size:0.7rem;color:var(--error);margin-top:2px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${safeError}">${truncated}</div>`;
+  return isCommittedInvoiceJob(job.status);
 }
 
 function sortIcon(col) {
@@ -237,7 +216,7 @@ function renderTable(jobs) {
       <td style="white-space:nowrap;font-size:0.8rem;">${formatDate(j.invoiceDate)}</td>
       <td>${escapeHtml(j.uploaderUsername || '?')}</td>
       <td>${escapeHtml(j.chatTitle || String(j.chatId || '?'))}</td>
-      <td>${statusBadge(j.status)}${renderJobError(j)}</td>
+      <td>${renderJobStatusHtml(j.status, { lastError: j.lastError })}</td>
       <td>${renderFileCell(j)}</td>
       <td>
         <button
