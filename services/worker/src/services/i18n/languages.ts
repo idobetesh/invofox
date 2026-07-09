@@ -150,6 +150,39 @@ You're ready to go! Try these commands:
       selectAmountPrompt: '💰 Enter amount\n(Example: {example})',
     },
 
+    nl: {
+      awaitingIntent:
+        '🎙️ Natural-language document creation\n\nDescribe the document in voice or text.\nExample: "Create an invoice-receipt for Moshe for a book, 300 ILS"',
+      parsing: '⏳ Analyzing your request...',
+      parseError: '❌ Could not understand the request. Try again with clearer details.',
+      emptyInput: '❌ Please send a voice message or text.',
+      voiceTranscript: '(voice message)',
+      reviewTitle: '📋 Review parsed details:',
+      reviewFields:
+        'Type: {type}\nCustomer: {customer}\nDescription: {description}\nAmount: {amount}\nPayment: {payment}\n\n📝 Transcript:\n{transcript}',
+      unknown: '—',
+      unsupportedReceipt:
+        '❌ Receipts for existing invoices are not supported in voice mode yet.\nSend /new and choose "Receipt" from the buttons.',
+      unsupportedDocType: '❌ Supported types: invoice or invoice-receipt only.',
+      invalidPayment:
+        '❌ Unknown payment method. Choose: cash, Bit, PayBox, transfer, credit, check.',
+      missingDocumentType: '❓ Which document type? (invoice / invoice-receipt)',
+      missingCustomerName: '❓ Who is the customer?',
+      missingAmount: '❓ What is the amount?',
+      missingDescription: '❓ What is the description?',
+      missingPaymentMethod: '💳 How was payment received?',
+      missingRelatedInvoice: '❓ Which invoice is this receipt for?',
+      missingCurrency: '❓ Which currency? (ILS / USD / EUR)',
+      promptCustomerName: '✏️ Send the customer name:',
+      promptDescription: '✏️ Send the description:',
+      promptAmount: '✏️ Send the amount (numbers only):',
+      promptDocumentType: '✏️ Send document type: invoice or invoice-receipt',
+      promptPaymentMethod: '✏️ Choose payment method from the buttons or type one:',
+      paymentSelected: '✅ Payment: {payment}',
+      incompleteFields: 'Some fields are still missing. Please complete them.',
+      emptyField: '❌ Value cannot be empty.',
+    },
+
     correction: {
       editButton: '✏️ Edit details',
       whatToEdit: '✏️ What would you like to edit?',
@@ -331,6 +364,38 @@ docs.google.com/spreadsheets/d/[זה_השדה]/edit`,
       multiInvoiceHelper: '💡 בחר לפחות 2 חשבוניות',
       multiInvoiceDescription: 'קבלה עבור חשבוניות: {invoiceNumbers}',
       selectAmountPrompt: '💰 הכנס סכום\n(לדוגמה: {example})',
+    },
+
+    nl: {
+      awaitingIntent:
+        '🎙️ יצירת מסמך בשפה טבעית\n\nתאר את המסמך בקול או בטקסט.\nלדוגמה: "תוציא לי חשבונית קבלה למשה על ספר בסכום של 300 שח"',
+      parsing: '⏳ מנתח את הבקשה...',
+      parseError: '❌ לא הצלחתי להבין את הבקשה. נסה שוב עם פרטים ברורים יותר.',
+      emptyInput: '❌ שלח הודעת קול או טקסט.',
+      voiceTranscript: '(הודעת קול)',
+      reviewTitle: '📋 סקירת הפרטים שזוהו:',
+      reviewFields:
+        'סוג: {type}\nלקוח: {customer}\nתיאור: {description}\nסכום: {amount}\nתשלום: {payment}\n\n📝 תמלול:\n{transcript}',
+      unknown: '—',
+      unsupportedReceipt:
+        '❌ קבלה על חשבונית קיימת עדיין לא נתמכת במצב קול.\nשלח /new ובחר "קבלה" מהכפתורים.',
+      unsupportedDocType: '❌ סוגים נתמכים: חשבונית או חשבונית-קבלה בלבד.',
+      invalidPayment: '❌ אמצעי תשלום לא מוכר. בחר: מזומן, ביט, PayBox, העברה, אשראי, צ׳ק.',
+      missingDocumentType: '❓ איזה סוג מסמך? (חשבונית / חשבונית-קבלה)',
+      missingCustomerName: '❓ מי הלקוח?',
+      missingAmount: '❓ מה הסכום?',
+      missingDescription: '❓ מה התיאור?',
+      missingPaymentMethod: '💳 איך התקבל התשלום?',
+      missingRelatedInvoice: '❓ לאיזו חשבונית זו קבלה?',
+      missingCurrency: '❓ באיזה מטבע? (ILS / USD / EUR)',
+      promptCustomerName: '✏️ שלח שם לקוח:',
+      promptDescription: '✏️ שלח תיאור:',
+      promptAmount: '✏️ שלח סכום (מספרים בלבד):',
+      promptDocumentType: '✏️ שלח סוג מסמך: חשבונית או חשבונית-קבלה',
+      promptPaymentMethod: '✏️ בחר אמצעי תשלום מהכפתורים או הקלד:',
+      paymentSelected: '✅ תשלום: {payment}',
+      incompleteFields: 'עדיין חסרים שדות. אנא השלם אותם.',
+      emptyField: '❌ הערך לא יכול להיות ריק.',
     },
 
     correction: {

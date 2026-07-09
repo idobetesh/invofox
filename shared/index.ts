@@ -31,5 +31,8 @@ export * from './security.types';
 // Report generation
 export * from './report.types';
 
+// Natural-language document intent
+export * from './document-intent.types';
+
 // Feature flags
 export * from './feature-flags.types';

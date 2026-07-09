@@ -18,6 +18,7 @@ import {
   handleTextMessage,
   handleOnboardCommand,
   handleReportCommand,
+  handleVoiceMessage,
 } from '../handlers';
 
 /**
@@ -79,6 +80,13 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
   if (telegramService.isReportCommand(update)) {
     logger.info('Processing /report command');
     await handleReportCommand(update, config, res);
+    return;
+  }
+
+  // Handle voice messages (NL document creation)
+  if (telegramService.isVoiceMessage(update)) {
+    logger.debug('Processing voice message');
+    await handleVoiceMessage(update, config, res);
     return;
   }
 
@@ -188,7 +196,7 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
     return;
   }
 
-  // Ignore all other updates (stickers, voice messages, etc.)
+  // Ignore all other updates (stickers, etc.)
   logger.debug('Ignoring non-processable update');
   res.status(StatusCodes.OK).json({ ok: true, action: 'ignored' });
 }

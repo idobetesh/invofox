@@ -158,3 +158,14 @@ export function isSupportedDocument(update: TelegramUpdate): boolean {
 export function isCallbackQuery(update: TelegramUpdate): boolean {
   return Boolean(update.callback_query);
 }
+
+/**
+ * Check if the update contains a voice message
+ */
+export function isVoiceMessage(update: TelegramUpdate): boolean {
+  if (isFromBot(update)) {
+    return false;
+  }
+  const message = update.message || update.channel_post;
+  return Boolean(message?.voice?.file_id);
+}

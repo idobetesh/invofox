@@ -41,7 +41,8 @@ export interface InvoiceMessagePayload {
   userId: number;
   username: string;
   firstName: string;
-  text: string;
+  text?: string;
+  voiceFileId?: string;
   receivedAt: string;
 }
 

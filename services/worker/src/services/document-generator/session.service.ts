@@ -78,6 +78,28 @@ export async function createSession(chatId: number, userId: number): Promise<Inv
 }
 
 /**
+ * Create a new NL document session (voice/text intent flow)
+ */
+export async function createNlSession(chatId: number, userId: number): Promise<InvoiceSession> {
+  const db = getFirestore();
+  const sessionId = getSessionId(chatId, userId);
+  const docRef = db.collection(INVOICE_SESSIONS_COLLECTION).doc(sessionId);
+  const log = logger.child({ sessionId });
+
+  const session: InvoiceSession = {
+    status: 'awaiting_intent',
+    nlMode: true,
+    createdAt: FieldValue.serverTimestamp() as unknown as Timestamp,
+    updatedAt: FieldValue.serverTimestamp() as unknown as Timestamp,
+  };
+
+  await docRef.set(session);
+
+  log.info('NL session created');
+  return session;
+}
+
+/**
  * Update session with new data
  * Returns the updated session (Firestore guarantees read-after-write consistency)
  */

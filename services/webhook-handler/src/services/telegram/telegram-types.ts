@@ -34,6 +34,14 @@ const TelegramPhotoSizeSchema = z.object({
   file_size: z.number().optional(),
 });
 
+const TelegramVoiceSchema = z.object({
+  file_id: z.string(),
+  file_unique_id: z.string(),
+  duration: z.number(),
+  mime_type: z.string().optional(),
+  file_size: z.number().optional(),
+});
+
 const TelegramDocumentSchema = z.object({
   file_id: z.string(),
   file_unique_id: z.string(),
@@ -51,6 +59,7 @@ const TelegramMessageSchema = z.object({
   photo: z.array(TelegramPhotoSizeSchema).optional(),
   document: TelegramDocumentSchema.optional(),
   caption: z.string().optional(),
+  voice: TelegramVoiceSchema.optional(),
 });
 
 const TelegramCallbackQuerySchema = z.object({
@@ -73,6 +82,7 @@ const TelegramUpdateSchema = z.object({
 export type TelegramUpdate = z.infer<typeof TelegramUpdateSchema>;
 export type TelegramMessage = z.infer<typeof TelegramMessageSchema>;
 export type TelegramPhotoSize = z.infer<typeof TelegramPhotoSizeSchema>;
+export type TelegramVoice = z.infer<typeof TelegramVoiceSchema>;
 export type TelegramDocument = z.infer<typeof TelegramDocumentSchema>;
 export type TelegramCallbackQuery = z.infer<typeof TelegramCallbackQuerySchema>;
 

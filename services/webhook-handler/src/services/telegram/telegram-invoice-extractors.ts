@@ -45,7 +45,12 @@ export function extractNewCommandPayload(update: TelegramUpdate): InvoiceCommand
 export function extractInvoiceMessagePayload(update: TelegramUpdate): InvoiceMessagePayload | null {
   const message = update.message || update.channel_post;
 
-  if (!message || !message.text || !message.from) {
+  if (!message || !message.from) {
+    return null;
+  }
+
+  const voiceFileId = message.voice?.file_id;
+  if (!message.text && !voiceFileId) {
     return null;
   }
 
@@ -63,6 +68,7 @@ export function extractInvoiceMessagePayload(update: TelegramUpdate): InvoiceMes
     username,
     firstName: message.from.first_name || 'Unknown',
     text: message.text,
+    voiceFileId,
     receivedAt: new Date(message.date * 1000).toISOString(),
   };
 }
@@ -111,6 +117,9 @@ export function isInvoiceCallback(data: string): boolean {
       'confirm_selection',
       'show_more',
       'select_payment',
+      'edit_field',
+      'proceed_to_confirm',
+      'back_to_review',
       'confirm',
       'cancel',
     ].includes(parsed.action);

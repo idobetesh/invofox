@@ -4,7 +4,8 @@
  */
 
 import { t } from '../i18n/languages';
-import type { InvoiceDocumentType } from '../../../../../shared/types';
+import type { InvoiceDocumentType, InvoiceSession } from '../../../../../shared/types';
+import { getCurrencySymbol } from '../../../../../shared/templates/template-utils';
 
 /**
  * Get document type label
@@ -88,4 +89,35 @@ export function buildSuccessMessage(
     type: typeLabel,
     number: invoiceNumber.toString(),
   });
+}
+
+/**
+ * Build NL review message showing parsed fields and transcript
+ */
+export function buildReviewMessage(session: InvoiceSession, language: 'en' | 'he' = 'he'): string {
+  const typeLabel = session.documentType
+    ? getDocumentTypeLabel(session.documentType, language)
+    : t(language, 'nl.unknown');
+
+  const symbol = getCurrencySymbol(session.currency ?? 'ILS');
+  const amount =
+    typeof session.amount === 'number'
+      ? `${symbol}${session.amount.toLocaleString()}`
+      : t(language, 'nl.unknown');
+  const payment =
+    session.paymentMethod || (session.documentType === 'invoice' ? '—' : t(language, 'nl.unknown'));
+
+  const fields = t(language, 'nl.reviewFields', {
+    type: typeLabel,
+    customer: session.customerName || t(language, 'nl.unknown'),
+    description: session.description || t(language, 'nl.unknown'),
+    amount,
+    payment,
+    transcript: session.sourceTranscript || '—',
+  });
+
+  return `${t(language, 'nl.reviewTitle')}
+━━━━━━━━━━━━━━━━
+${fields}
+━━━━━━━━━━━━━━━━`;
 }

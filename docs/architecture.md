@@ -56,6 +56,21 @@ Creates invoices, receipts, and invoice-receipts through guided flow.
 - Marked as fully paid on creation
 - Stored in `generated_invoice_receipts` collection
 
+
+### Natural-Language Document Creation (feature flag: `nl-document-creation`)
+
+When enabled per chat, `/new` starts a voice/text intent flow instead of button-based type selection.
+
+```
+/new (FF on) → voice/text intent → LLM parse (Gemini → OpenAI fallback)
+      → review/edit screen → missing-field prompts → confirm → PDF generation
+```
+
+- Supported v1 types: `invoice`, `invoice_receipt` (receipt-on-existing-invoice uses classic button flow)
+- Voice: Telegram `.ogg` → Gemini 2.5 Flash audio-in; OpenAI `gpt-4o-mini-audio-preview` fallback (+ Whisper tertiary)
+- State stored in existing `invoice_sessions` (`awaiting_intent`, `reviewing`, `editing_field`, `confirming`)
+- Webhook routes voice messages to the same invoice message task with `voiceFileId`
+
 ### Payment Tracking Flow
 
 ```

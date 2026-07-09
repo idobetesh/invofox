@@ -3,6 +3,8 @@
  * Type definitions for generating and managing invoices
  */
 
+import type { NlDocumentEditField } from './document-intent.types';
+
 /**
  * Invoice document types
  * - invoice: חשבונית (invoice only, payment pending)
@@ -16,6 +18,9 @@ export type InvoiceDocumentType = 'invoice' | 'invoice_receipt' | 'receipt';
  */
 export type InvoiceSessionStatus =
   | 'select_type' // Waiting for user to select document type
+  | 'awaiting_intent' // NL mode: waiting for voice or text intent
+  | 'reviewing' // NL mode: showing parsed fields for review
+  | 'editing_field' // NL mode: user is editing one field via text
   | 'awaiting_invoice_selection' // Waiting for user to select existing invoice (receipt flow)
   | 'awaiting_details' // Waiting for customer name, amount, description
   | 'awaiting_payment' // Waiting for payment method selection
@@ -55,6 +60,10 @@ export interface InvoiceSession {
   currency?: string; // Currency code (e.g., "ILS", "USD"), defaults to "ILS"
   paymentMethod?: PaymentMethod;
   date?: string; // YYYY-MM-DD format
+  nlMode?: boolean; // Natural-language document creation flow
+  sourceTranscript?: string; // Voice/text transcript from NL parse
+  editingField?: NlDocumentEditField;
+  parseConfidence?: number;
   createdAt: Date | { toMillis: () => number };
   updatedAt: Date | { toMillis: () => number };
 }
@@ -176,4 +185,7 @@ export type InvoiceCallbackAction =
   | { action: 'select_payment'; paymentMethod: PaymentMethod }
   | { action: 'show_more'; offset: number }
   | { action: 'confirm' }
+  | { action: 'edit_field'; field: NlDocumentEditField }
+  | { action: 'proceed_to_confirm' }
+  | { action: 'back_to_review' }
   | { action: 'cancel' };
