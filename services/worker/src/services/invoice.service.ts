@@ -52,7 +52,7 @@ export interface ProcessingResult {
 
 /**
  * Process an invoice image through the full pipeline
- * Uses atomic transactions - if Sheets fails, Drive upload is rolled back
+ * Compensating saga: if Sheets fails, Cloud Storage is rolled back and Firestore artifacts cleared
  */
 export async function processInvoice(payload: TaskPayload): Promise<ProcessingResult> {
   const { chatId, messageId, fileId, uploaderUsername, chatTitle, receivedAt } = payload;
@@ -217,10 +217,7 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
     // Step 3: Extract data with LLM Vision (multi-image for PDFs)
     currentStep = 'llm';
     log.info('Step 3: Extracting with LLM Vision');
-    await storeService.updateJobStep(chatId, messageId, currentStep, {
-      driveFileId: driveFileIds[0],
-      driveLink,
-    });
+    await storeService.updateJobStep(chatId, messageId, currentStep);
 
     const { extraction, usage } = isPDF
       ? await llmService.extractInvoiceDataMulti(imageBuffers, imageExtension)
@@ -253,7 +250,9 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
       // Delete uploaded file since it's not an invoice
       if (driveFileIds.length > 0) {
         try {
-          await Promise.all(driveFileIds.map((id) => storageService.deleteFile(id)));
+          await storageService.rollbackUploadedFiles(driveFileIds, {
+            jobId: storeService.getJobId(chatId, messageId),
+          });
           log.info({ fileCount: driveFileIds.length }, 'Deleted non-invoice files from storage');
         } catch (deleteError) {
           log.warn({ error: deleteError }, 'Failed to delete non-invoice files');
@@ -286,10 +285,7 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
       'Checking for duplicate invoices'
     );
 
-    const [, duplicate] = await Promise.all([
-      storeService.storeExtraction(chatId, messageId, extraction),
-      duplicateService.findDuplicateInvoice(chatId, extraction, jobId),
-    ]);
+    const duplicate = await duplicateService.findDuplicateInvoice(chatId, extraction, jobId);
 
     log.info({ isDuplicate: !!duplicate }, 'Duplicate check completed');
 
@@ -299,6 +295,15 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
         { duplicateJobId: duplicate.jobId },
         'Duplicate detected, waiting for user decision'
       );
+
+      // Persist extraction and file refs so duplicate resolution can resume
+      await Promise.all([
+        storeService.storeExtraction(chatId, messageId, extraction),
+        storeService.updateJobStep(chatId, messageId, currentStep, {
+          driveFileId: driveFileIds[0],
+          driveLink,
+        }),
+      ]);
 
       // Store pending decision state with all data needed to resume
       await duplicateService.markJobPendingDecision(chatId, messageId, {
@@ -334,7 +339,7 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
       };
     }
 
-    // Step 4: Append to Google Sheets (ATOMIC - rollback Drive on failure)
+    // Step 4: Append to Google Sheets (rollback storage + Firestore artifacts on failure)
     currentStep = 'sheets';
     log.info('Step 4: Appending to Google Sheets');
     await storeService.updateJobStep(chatId, messageId, currentStep);
@@ -356,14 +361,23 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
       sheetRowId = await sheetsService.appendRow(chatId, sheetRow);
       log.info({ sheetRowId }, 'Appended to customer Google Sheet');
     } catch (sheetsError) {
-      // Sheets failed - ROLLBACK: delete all uploaded files
       log.error({ error: sheetsError }, 'Sheets append failed, rolling back uploads');
 
       if (driveFileIds.length > 0) {
-        await Promise.all(driveFileIds.map((id) => storageService.deleteFile(id)));
+        try {
+          await storageService.rollbackUploadedFiles(driveFileIds, { jobId });
+        } catch (rollbackError) {
+          const rollbackMessage =
+            rollbackError instanceof Error ? rollbackError.message : 'Storage rollback failed';
+          log.error({ error: rollbackError }, 'Storage rollback failed after Sheets error');
+          await storeService.clearJobArtifacts(chatId, messageId);
+          throw new Error(
+            `${rollbackMessage}; original error: ${sheetsError instanceof Error ? sheetsError.message : 'Sheets append failed'}`
+          );
+        }
       }
 
-      // Re-throw to trigger retry
+      await storeService.clearJobArtifacts(chatId, messageId);
       throw sheetsError;
     }
 
@@ -380,6 +394,7 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
 
     // CRITICAL: Mark job as completed BEFORE sending message
     // This prevents duplicate messages if message send fails or takes long
+    await storeService.storeExtraction(chatId, messageId, extraction);
     await Promise.all([
       storeService.markJobCompleted(chatId, messageId, {
         driveFileId: driveFileIds[0],
@@ -438,6 +453,17 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     log.error({ step: currentStep, error: errorMessage }, 'Processing failed');
+
+    if (driveFileIds.length > 0 && currentStep !== 'drive') {
+      try {
+        await storageService.rollbackUploadedFiles(driveFileIds, {
+          jobId: storeService.getJobId(chatId, messageId),
+        });
+      } catch (rollbackError) {
+        log.error({ error: rollbackError }, 'Storage rollback failed after pipeline error');
+      }
+      await storeService.clearJobArtifacts(chatId, messageId);
+    }
 
     // Mark job as pending retry (NOT failed - that's only after max retries)
     // This allows Cloud Tasks retries to reclaim the job

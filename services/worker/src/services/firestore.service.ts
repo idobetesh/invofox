@@ -145,6 +145,43 @@ export async function updateJobStep(
   });
 }
 
+const JOB_ARTIFACT_FIELDS = [
+  'driveFileId',
+  'driveLink',
+  'vendorName',
+  'invoiceNumber',
+  'totalAmount',
+  'invoiceDate',
+  'currency',
+  'vatAmount',
+  'confidence',
+  'category',
+  'sheetRowId',
+  'llmProvider',
+  'totalTokens',
+  'costUSD',
+  'llmFallbackFrom',
+  'llmFallbackReason',
+] as const;
+
+function artifactDeleteFields(): Record<string, unknown> {
+  return Object.fromEntries(JOB_ARTIFACT_FIELDS.map((field) => [field, FieldValue.delete()]));
+}
+
+/**
+ * Remove pipeline output fields that were not committed (storage rolled back or job failed).
+ */
+export async function clearJobArtifacts(chatId: number, messageId: number): Promise<void> {
+  const db = getFirestore();
+  const docId = getJobId(chatId, messageId);
+  const docRef = db.collection(INVOICE_JOBS_COLLECTION).doc(docId);
+
+  await docRef.update({
+    ...artifactDeleteFields(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+}
+
 /**
  * Mark job as completed successfully
  */
@@ -216,6 +253,7 @@ export async function markJobFailed(
     updatedAt: FieldValue.serverTimestamp(),
     lastStep: step,
     lastError: error,
+    ...artifactDeleteFields(),
   });
 }
 

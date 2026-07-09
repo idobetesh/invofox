@@ -1633,6 +1633,50 @@ code {
   border: 1px solid #ef4444;
 }
 
+/* Invoice pipeline job statuses (Firestore + Invoice Jobs tabs) */
+.status-job {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.status-job-failed {
+  color: #dc2626;
+  font-weight: 700;
+  background: rgba(220, 38, 38, 0.12);
+}
+
+.status-job-has-error {
+  cursor: help;
+}
+
+.status-job-processed {
+  color: var(--success, #22c55e);
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.status-job-pending {
+  color: var(--warning, #f59e0b);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.status-job-processing {
+  color: var(--info, #3b82f6);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.status-job-muted {
+  color: var(--muted, #94a3b8);
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.status-failed {
+  font-weight: 700;
+  color: #dc2626;
+}
+
 /* Filter Buttons */
 .filter-button {
   background: var(--bg-tertiary);

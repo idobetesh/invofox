@@ -15,6 +15,72 @@ import { DEFAULT_CATEGORY } from './llms/utils';
 
 let sheetsClient: sheets_v4.Sheets | null = null;
 
+const TRANSIENT_SHEETS_ERROR_CODES = new Set([
+  'ERR_STREAM_PREMATURE_CLOSE',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+]);
+
+export function isTransientSheetsError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const err = error as { code?: string; response?: { status?: number } };
+  if (err.code && TRANSIENT_SHEETS_ERROR_CODES.has(err.code)) {
+    return true;
+  }
+
+  const status = err.response?.status;
+  return status === 429 || (status !== undefined && status >= 500);
+}
+
+export function isMissingTabError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const err = error as {
+    code?: number;
+    message?: string;
+    response?: { status?: number; data?: { error?: { message?: string } } };
+  };
+  const status = err.code ?? err.response?.status;
+  if (status !== 400) {
+    return false;
+  }
+
+  const message = err.message ?? err.response?.data?.error?.message ?? '';
+  return message.includes('Unable to parse range') || message.toLowerCase().includes('not found');
+}
+
+async function withSheetsRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
+  const maxAttempts = 5;
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (!isTransientSheetsError(error) || attempt === maxAttempts) {
+        throw error;
+      }
+
+      const delayMs = Math.min(1000 * 2 ** (attempt - 1), 8000);
+      logger.warn(
+        { attempt, maxAttempts, delayMs, label, error },
+        'Transient Sheets API error, retrying'
+      );
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  throw lastError;
+}
+
 function getSheets(): sheets_v4.Sheets {
   if (!sheetsClient) {
     const auth = new google.auth.GoogleAuth({
@@ -135,108 +201,135 @@ function formatDateTime(isoString: string): string {
 /**
  * Ensure Invoices tab exists with headers
  */
-async function ensureInvoicesTab(sheetId: string): Promise<void> {
+async function createInvoicesTab(
+  sheetId: string,
+  headers: string[],
+  columnLetter: string,
+  isAdmin: boolean
+): Promise<void> {
   const sheets = getSheets();
-  const headers = getHeadersForSheet(sheetId);
-  const isAdmin = isAdminSheet(sheetId);
-  const columnLetter = String.fromCharCode(64 + headers.length); // A=65, K=75 (11 cols), N=78 (14 cols)
 
-  try {
-    // Check if tab exists by trying to read from it
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: sheetId,
-      range: `Invoices!A1:${columnLetter}1`,
-    });
+  logger.info({ sheetId }, 'Creating Invoices tab');
 
-    if (
-      response.data.values &&
-      response.data.values.length > 0 &&
-      response.data.values[0].length > 0
-    ) {
-      // Tab exists - check if headers match expected format
-      const existingHeaders = response.data.values[0];
-      const headersMatch =
-        existingHeaders.length === headers.length &&
-        existingHeaders.every((h, i) => h === headers[i]);
-
-      if (headersMatch) {
-        // Headers are correct
-        return;
-      }
-
-      // Headers don't match - update them (migration support)
-      logger.warn(
-        {
-          sheetId,
-          isAdmin,
-          existingCount: existingHeaders.length,
-          expectedCount: headers.length,
+  await withSheetsRetry(
+    () =>
+      sheets.spreadsheets.batchUpdate({
+        spreadsheetId: sheetId,
+        requestBody: {
+          requests: [
+            {
+              addSheet: {
+                properties: {
+                  title: 'Invoices',
+                },
+              },
+            },
+          ],
         },
-        'Updating sheet headers to match expected format'
-      );
+      }),
+    'ensureInvoicesTab:create'
+  );
 
-      await sheets.spreadsheets.values.update({
+  await withSheetsRetry(
+    () =>
+      sheets.spreadsheets.values.update({
         spreadsheetId: sheetId,
         range: `Invoices!A1:${columnLetter}1`,
         valueInputOption: 'RAW',
         requestBody: {
           values: [headers],
         },
-      });
+      }),
+    'ensureInvoicesTab:headers'
+  );
 
-      logger.info(
-        { sheetId, isAdmin, columnCount: headers.length },
-        'Invoices tab headers updated'
-      );
+  logger.info(
+    { sheetId, isAdmin, columnCount: headers.length },
+    'Invoices tab created with headers'
+  );
+}
+
+async function ensureInvoicesTab(sheetId: string): Promise<void> {
+  const sheets = getSheets();
+  const headers = getHeadersForSheet(sheetId);
+  const isAdmin = isAdminSheet(sheetId);
+  const columnLetter = String.fromCharCode(64 + headers.length); // A=65, K=75 (11 cols), N=78 (14 cols)
+
+  let response: sheets_v4.Schema$ValueRange | undefined;
+  try {
+    const result = await withSheetsRetry(
+      () =>
+        sheets.spreadsheets.values.get({
+          spreadsheetId: sheetId,
+          range: `Invoices!A1:${columnLetter}1`,
+        }),
+      'ensureInvoicesTab:get'
+    );
+    response = result.data;
+  } catch (error) {
+    if (!isMissingTabError(error)) {
+      throw error;
+    }
+
+    await createInvoicesTab(sheetId, headers, columnLetter, isAdmin);
+    return;
+  }
+
+  if (response?.values && response.values.length > 0 && response.values[0].length > 0) {
+    // Tab exists - check if headers match expected format
+    const existingHeaders = response.values[0];
+    const headersMatch =
+      existingHeaders.length === headers.length &&
+      existingHeaders.every((h, i) => h === headers[i]);
+
+    if (headersMatch) {
+      // Headers are correct
       return;
     }
 
-    // Tab exists but no headers - add them
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: sheetId,
-      range: `Invoices!A1:${columnLetter}1`,
-      valueInputOption: 'RAW',
-      requestBody: {
-        values: [headers],
+    // Headers don't match - update them (migration support)
+    logger.warn(
+      {
+        sheetId,
+        isAdmin,
+        existingCount: existingHeaders.length,
+        expectedCount: headers.length,
       },
-    });
-
-    logger.info({ sheetId, isAdmin, columnCount: headers.length }, 'Invoices tab headers added');
-  } catch (error) {
-    // Tab doesn't exist - create it
-    logger.info('Creating Invoices tab');
-
-    // Create the Invoices tab
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: sheetId,
-      requestBody: {
-        requests: [
-          {
-            addSheet: {
-              properties: {
-                title: 'Invoices',
-              },
-            },
-          },
-        ],
-      },
-    });
-
-    // Add headers to new tab
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: sheetId,
-      range: `Invoices!A1:${columnLetter}1`,
-      valueInputOption: 'RAW',
-      requestBody: {
-        values: [headers],
-      },
-    });
-
-    logger.info(
-      { sheetId, isAdmin, columnCount: headers.length },
-      'Invoices tab created with headers'
+      'Updating sheet headers to match expected format'
     );
+
+    await withSheetsRetry(
+      () =>
+        sheets.spreadsheets.values.update({
+          spreadsheetId: sheetId,
+          range: `Invoices!A1:${columnLetter}1`,
+          valueInputOption: 'RAW',
+          requestBody: {
+            values: [headers],
+          },
+        }),
+      'ensureInvoicesTab:updateHeaders'
+    );
+
+    logger.info({ sheetId, isAdmin, columnCount: headers.length }, 'Invoices tab headers updated');
+    return;
   }
+
+  // Tab exists but no headers - add them
+  await withSheetsRetry(
+    () =>
+      sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId,
+        range: `Invoices!A1:${columnLetter}1`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [headers],
+        },
+      }),
+    'ensureInvoicesTab:addHeaders'
+  );
+
+  logger.info({ sheetId, isAdmin, columnCount: headers.length }, 'Invoices tab headers added');
 }
 
 /**

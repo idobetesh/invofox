@@ -274,3 +274,33 @@ export function escapeHtml(text) {
   div.textContent = text;
   return div.innerHTML;
 }
+
+/**
+ * Invoice job statuses where file link and extracted fields are committed.
+ */
+export function isCommittedInvoiceJob(status) {
+  return status === 'processed' || status === 'pending_decision';
+}
+
+/**
+ * Render invoice pipeline status for admin tables (bold red for failed).
+ */
+export function renderJobStatusHtml(status, options = {}) {
+  const safeStatus = escapeHtml(status || '—');
+  const { lastError } = options;
+  const showError = lastError && !isCommittedInvoiceJob(status);
+
+  const statusClasses = {
+    processed: 'status-job status-job-processed',
+    failed: 'status-job status-job-failed',
+    pending_decision: 'status-job status-job-pending',
+    pending_retry: 'status-job status-job-pending',
+    processing: 'status-job status-job-processing',
+    rejected: 'status-job status-job-muted',
+  };
+  const cls = statusClasses[status] || 'status-job status-job-muted';
+  const titleAttr =
+    showError && lastError ? ` title="${escapeHtml(lastError)}"` : '';
+
+  return `<span class="${cls}${showError ? ' status-job-has-error' : ''}"${titleAttr}>${safeStatus}</span>`;
+}

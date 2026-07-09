@@ -13,6 +13,8 @@ import {
   showConfirmModal,
   formatDate,
   escapeHtml,
+  isCommittedInvoiceJob,
+  renderJobStatusHtml,
 } from './utils.js';
 import { promptAndSaveInvoiceJobAmount } from './invoice-amount-update.js';
 
@@ -100,8 +102,9 @@ function renderInvoiceJobAmountCell(doc) {
 }
 
 function renderInvoiceJobFileCell(doc) {
+  const status = doc.data.status;
   const link = doc.data.driveLink;
-  if (!isSafeFileUrl(link)) {
+  if (!isCommittedInvoiceJob(status) || !isSafeFileUrl(link)) {
     return '<span style="color:var(--muted);font-size:0.75rem;">—</span>';
   }
   const safeUrl = escapeHtml(link);
@@ -358,15 +361,19 @@ export function displayFirestoreDocuments(documents) {
     const safeCollection = escapeHtml(currentCollection);
 
     if (invoiceJobs) {
+      const committed = isCommittedInvoiceJob(status);
+      if (!committed) {
+        row.style.opacity = '0.65';
+      }
       row.innerHTML = `
       <td class="checkbox-cell">
         <input type="checkbox" class="doc-checkbox" data-id="${safeId}">
       </td>
       <td><code style="font-size:0.75rem;">${safeId}</code></td>
-      <td>${escapeHtml(doc.data.vendorName || '—')}</td>
+      <td>${escapeHtml(committed ? doc.data.vendorName || '—' : '—')}</td>
       <td>${renderInvoiceJobAmountCell(doc)}</td>
       <td>${renderInvoiceJobFileCell(doc)}</td>
-      <td>${escapeHtml(status)}</td>
+      <td>${renderJobStatusHtml(status, { lastError: doc.data.lastError })}</td>
       <td>${createdAt}</td>
       <td>${updatedAt}</td>
       <td class="action-cell">
@@ -392,7 +399,7 @@ export function displayFirestoreDocuments(documents) {
         <input type="checkbox" class="doc-checkbox" data-id="${safeId}">
       </td>
       <td><code>${safeId}</code></td>
-      <td>${escapeHtml(status)}</td>
+      <td>${renderJobStatusHtml(status)}</td>
       <td>${createdAt}</td>
       <td>${updatedAt}</td>
       <td class="action-cell">

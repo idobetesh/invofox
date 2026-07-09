@@ -43,6 +43,7 @@ jest.mock('../../src/services/firestore.service', () => ({
   markJobCompleted: jest.fn(),
   markJobFailed: jest.fn(),
   markJobPendingRetry: jest.fn(),
+  clearJobArtifacts: jest.fn(),
   getJob: jest.fn(),
   getCorrectionPendingJob: jest.fn().mockResolvedValue(null),
   setCorrectionPending: jest.fn(),
@@ -67,7 +68,8 @@ jest.mock('../../src/services/telegram.service', () => ({
 
 jest.mock('../../src/services/storage.service', () => ({
   uploadInvoiceImage: jest.fn(),
-  deleteFile: jest.fn().mockResolvedValue(undefined),
+  deleteFile: jest.fn().mockResolvedValue(true),
+  rollbackUploadedFiles: jest.fn().mockResolvedValue(undefined),
   getStorage: jest.fn(),
 }));
 
@@ -124,8 +126,9 @@ import {
   markJobCompleted,
   markJobFailed,
   markJobPendingRetry,
+  clearJobArtifacts,
 } from '../../src/services/firestore.service';
-import { uploadInvoiceImage, deleteFile } from '../../src/services/storage.service';
+import { uploadInvoiceImage, rollbackUploadedFiles } from '../../src/services/storage.service';
 import { extractInvoiceData, needsReview } from '../../src/services/llm.service';
 import { findDuplicateInvoice } from '../../src/services/duplicate-detection.service';
 import { appendRow } from '../../src/services/sheets.service';
@@ -214,7 +217,16 @@ beforeEach(() => {
   (markJobFailed as jest.Mock).mockImplementation(
     async (chatId: number, messageId: number, step: string, error: string) => {
       const jobId = getJobId(chatId, messageId);
-      jobStore[jobId] = { ...jobStore[jobId], status: 'failed', lastStep: step, lastError: error };
+      jobStore[jobId] = {
+        ...jobStore[jobId],
+        status: 'failed',
+        lastStep: step,
+        lastError: error,
+        driveLink: undefined,
+        driveFileId: undefined,
+        vendorName: undefined,
+        totalAmount: undefined,
+      };
     }
   );
   (markJobPendingRetry as jest.Mock).mockImplementation(
@@ -228,6 +240,17 @@ beforeEach(() => {
       };
     }
   );
+  (clearJobArtifacts as jest.Mock).mockImplementation(async (chatId: number, messageId: number) => {
+    const jobId = getJobId(chatId, messageId);
+    jobStore[jobId] = {
+      ...jobStore[jobId],
+      driveLink: undefined,
+      driveFileId: undefined,
+      vendorName: undefined,
+      totalAmount: undefined,
+      currency: undefined,
+    };
+  });
 
   // External mocks
   (telegramService.downloadFileById as jest.Mock).mockResolvedValue({
@@ -316,6 +339,17 @@ it('process: full pipeline — job claimed, LLM extracted, sheet appended, ACK s
   // Sheet row appended
   expect(appendRow as jest.Mock).toHaveBeenCalledWith(CHAT_ID, expect.anything());
 
+  // Extraction persisted only after Sheets succeeds
+  expect(storeExtraction as jest.Mock).toHaveBeenCalledTimes(1);
+  expect(storeExtraction as jest.Mock).toHaveBeenCalledWith(
+    CHAT_ID,
+    MESSAGE_ID,
+    expect.objectContaining({ vendor_name: 'Acme Corp', total_amount: 500 })
+  );
+  expect((storeExtraction as jest.Mock).mock.invocationCallOrder[0]).toBeGreaterThan(
+    (appendRow as jest.Mock).mock.invocationCallOrder[0]
+  );
+
   // Job marked as processed with sheet row ID and drive link
   expect(markJobCompleted as jest.Mock).toHaveBeenCalledWith(
     CHAT_ID,
@@ -389,7 +423,10 @@ it('process: LLM rejects as non-invoice — file deleted, rejection message sent
   expect(res.status).toBe(200);
 
   // File should be deleted (not an invoice)
-  expect(deleteFile as jest.Mock).toHaveBeenCalledWith('invoices/test/file.jpg');
+  expect(rollbackUploadedFiles as jest.Mock).toHaveBeenCalledWith(
+    ['invoices/test/file.jpg'],
+    expect.objectContaining({ jobId: getJobId(CHAT_ID, MESSAGE_ID) })
+  );
 
   // Sheet should NOT have been appended
   expect(appendRow as jest.Mock).not.toHaveBeenCalled();
@@ -431,4 +468,56 @@ it('process: duplicate detected — pending_decision, no sheet append, user show
 
   // User should see the duplicate warning message with inline buttons
   expect(telegramService.sendMessage as jest.Mock).toHaveBeenCalled();
+
+  // Duplicate path persists extraction before user decision
+  expect(storeExtraction as jest.Mock).toHaveBeenCalledWith(
+    CHAT_ID,
+    MESSAGE_ID,
+    expect.objectContaining({ vendor_name: 'Acme Corp' })
+  );
+});
+
+// ─── Sheets failure: rollback storage and clear Firestore artifacts ───────────
+
+it('process: sheets append fails — storage rolled back and artifacts cleared', async () => {
+  (appendRow as jest.Mock).mockRejectedValue(new Error('Sheets API unavailable'));
+
+  const res = await request(app)
+    .post('/process')
+    .set('X-CloudTasks-TaskName', 'test-task')
+    .set('X-CloudTasks-QueueName', 'test-queue')
+    .send(TASK_PAYLOAD);
+
+  expect(res.status).toBe(500);
+  expect(res.body.action).toBe('retry');
+
+  expect(rollbackUploadedFiles as jest.Mock).toHaveBeenCalledWith(
+    ['invoices/test/file.jpg'],
+    expect.objectContaining({ jobId: getJobId(CHAT_ID, MESSAGE_ID) })
+  );
+  expect(clearJobArtifacts as jest.Mock).toHaveBeenCalledWith(CHAT_ID, MESSAGE_ID);
+  expect(markJobPendingRetry as jest.Mock).toHaveBeenCalled();
+  expect(storeExtraction as jest.Mock).not.toHaveBeenCalled();
+  expect(markJobCompleted as jest.Mock).not.toHaveBeenCalled();
+});
+
+// ─── Success path does not write extraction before Sheets ─────────────────────
+
+it('process: extraction is not stored before sheet append on success path', async () => {
+  const callOrder: string[] = [];
+  (appendRow as jest.Mock).mockImplementation(async () => {
+    callOrder.push('appendRow');
+    return 42;
+  });
+  (storeExtraction as jest.Mock).mockImplementation(async () => {
+    callOrder.push('storeExtraction');
+  });
+
+  await request(app)
+    .post('/process')
+    .set('X-CloudTasks-TaskName', 'test-task')
+    .set('X-CloudTasks-QueueName', 'test-queue')
+    .send(TASK_PAYLOAD);
+
+  expect(callOrder).toEqual(['appendRow', 'storeExtraction']);
 });
