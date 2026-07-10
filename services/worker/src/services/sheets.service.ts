@@ -278,6 +278,24 @@ async function readInvoicesTabHeaders(
   return result.data;
 }
 
+/**
+ * Check whether the Invoices tab exists via spreadsheet metadata (not values.get).
+ * More reliable than inferring from values.get parse errors when the API flakes.
+ */
+async function invoicesTabExists(sheetId: string): Promise<boolean> {
+  const sheets = getSheets();
+  const result = await withSheetsRetry(
+    () =>
+      sheets.spreadsheets.get({
+        spreadsheetId: sheetId,
+        fields: 'sheets.properties.title',
+      }),
+    'ensureInvoicesTab:metadata'
+  );
+
+  return result.data.sheets?.some((sheet) => sheet.properties?.title === 'Invoices') ?? false;
+}
+
 async function applyInvoicesTabHeaders(
   sheetId: string,
   headers: string[],
@@ -354,11 +372,18 @@ async function ensureInvoicesTab(sheetId: string): Promise<void> {
       return;
     }
 
-    // Fallback: legacy behavior treated any values.get failure as "tab missing".
-    // Stream errors can occur even when the tab exists — try create, then re-read.
+    if (await invoicesTabExists(sheetId)) {
+      logger.warn(
+        { sheetId, error },
+        'values.get failed but Invoices tab exists (metadata check), skipping header sync'
+      );
+      return;
+    }
+
+    // Tab likely missing — try create (handles already-exists race via metadata re-check)
     logger.warn(
       { sheetId, error },
-      'values.get failed after retries, attempting Invoices tab creation fallback'
+      'values.get failed after retries, attempting Invoices tab creation'
     );
 
     try {
@@ -367,6 +392,10 @@ async function ensureInvoicesTab(sheetId: string): Promise<void> {
     } catch (createError) {
       if (!isSheetAlreadyExistsError(createError)) {
         throw createError;
+      }
+      if (await invoicesTabExists(sheetId)) {
+        logger.info({ sheetId }, 'Invoices tab exists after create conflict, proceeding');
+        return;
       }
       logger.info({ sheetId }, 'Invoices tab already exists, re-reading headers');
       response = await readInvoicesTabHeaders(sheetId, columnLetter);

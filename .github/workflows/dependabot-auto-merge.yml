@@ -11,8 +11,8 @@ permissions:
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
-    # Only run for Dependabot PRs
-    if: github.actor == 'dependabot[bot]'
+    # Only run for Dependabot PRs (never auto-merge docker image bumps)
+    if: github.actor == 'dependabot[bot]' && !startsWith(github.event.pull_request.title, 'chore(docker)')
     
     steps:
       - name: Get Dependabot metadata
