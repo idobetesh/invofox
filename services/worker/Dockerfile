@@ -9,6 +9,10 @@
 # Installing Chromium during docker build hung CI/local builds (silent unzip after
 # download). The official Playwright image ships browsers + OS libs — same result,
 # reliable builds. Pin tag to match services/worker package.json playwright version.
+#
+# PLAYWRIGHT_VERSION must be declared before the first FROM so BuildKit can use it
+# in the production stage FROM line (see deploy.yml build-arg).
+ARG PLAYWRIGHT_VERSION=1.61.1
 
 # =============================================================================
 # Stage 1: Build — compile TypeScript only
@@ -39,9 +43,7 @@ RUN npm run build
 # =============================================================================
 # Stage 2: Production — run worker + Playwright (invoice/receipt PDF generation)
 # =============================================================================
-# PLAYWRIGHT_VERSION is injected at build time from package-lock.json (see deploy.yml).
-# Default below is for local `docker build` only — keep in sync with package-lock.
-ARG PLAYWRIGHT_VERSION=1.61.1
+# Default ARG at top of file — keep in sync with package-lock (see check-playwright script).
 FROM mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-noble
 
 ARG APP_VERSION=development
