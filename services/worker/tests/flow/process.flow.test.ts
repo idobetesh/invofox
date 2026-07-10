@@ -13,6 +13,28 @@
 // ─── Module mocks ────────────────────────────────────────────────────────────
 
 // Skip Cloud Tasks header validation in tests
+// ─── Imports ────────────────────────────────────────────────────────────────
+
+import request from 'supertest';
+import * as telegramService from '../../src/services/telegram.service';
+import {
+  getFirestore,
+  claimJob,
+  updateJobStep,
+  storeExtraction,
+  markJobCompleted,
+  markJobFailed,
+  markJobPendingRetry,
+  clearJobArtifacts,
+} from '../../src/services/firestore.service';
+import { uploadInvoiceImage, rollbackUploadedFiles } from '../../src/services/storage.service';
+import { extractInvoiceData, needsReview } from '../../src/services/llm.service';
+import { findDuplicateInvoice } from '../../src/services/duplicate-detection.service';
+import { appendRow } from '../../src/services/sheets.service';
+import { InMemoryFirestore } from './helpers/in-memory-firestore';
+import app from '../../src/app';
+import { CHAT_ID } from './helpers/test-data';
+
 jest.mock('../../src/middlewares/cloudTasks', () => ({
   validateCloudTasks: jest.fn((req: unknown, _res: unknown, next: () => void) => next()),
   getRetryCount: jest.fn().mockReturnValue(0),
@@ -113,28 +135,6 @@ jest.mock('../../src/services/pdf.service', () => ({
 jest.mock('../../src/services/heic.service', () => ({
   convertHEICToJPEG: jest.fn(),
 }));
-
-// ─── Imports ────────────────────────────────────────────────────────────────
-
-import request from 'supertest';
-import * as telegramService from '../../src/services/telegram.service';
-import {
-  getFirestore,
-  claimJob,
-  updateJobStep,
-  storeExtraction,
-  markJobCompleted,
-  markJobFailed,
-  markJobPendingRetry,
-  clearJobArtifacts,
-} from '../../src/services/firestore.service';
-import { uploadInvoiceImage, rollbackUploadedFiles } from '../../src/services/storage.service';
-import { extractInvoiceData, needsReview } from '../../src/services/llm.service';
-import { findDuplicateInvoice } from '../../src/services/duplicate-detection.service';
-import { appendRow } from '../../src/services/sheets.service';
-import { InMemoryFirestore } from './helpers/in-memory-firestore';
-import app from '../../src/app';
-import { CHAT_ID } from './helpers/test-data';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 

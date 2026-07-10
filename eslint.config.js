@@ -33,9 +33,12 @@ module.exports = [
       eqeqeq: ['error', 'always'],
       curly: ['error', 'all'],
 
-      // Import rules
       'no-restricted-syntax': [
         'error',
+        {
+          selector: 'Program > :not(ImportDeclaration) ~ ImportDeclaration',
+          message: 'All imports must be at the top of the file.',
+        },
         {
           selector: 'ImportExpression',
           message: 'Dynamic imports are not allowed. All imports must be at the top of the file.',
@@ -49,6 +52,10 @@ module.exports = [
     rules: {
       'no-restricted-syntax': [
         'error',
+        {
+          selector: 'Program > :not(ImportDeclaration) ~ ImportDeclaration',
+          message: 'All imports must be at the top of the file.',
+        },
         {
           selector: 'ImportExpression',
           message: 'Dynamic imports are not allowed. All imports must be at the top of the file.',

@@ -2,6 +2,9 @@
  * Idempotent append: transient client errors must not create duplicate sheet rows.
  */
 
+import type { GeneratedInvoiceSheetRow } from '../../../../shared/types';
+import { appendGeneratedInvoiceRow } from '../../src/services/sheets.service';
+
 const mockValuesGet = jest.fn();
 const mockValuesAppend = jest.fn();
 const mockSpreadsheetsGet = jest.fn();
@@ -34,9 +37,6 @@ jest.mock('../../src/services/business-config/config.service', () => ({
 jest.mock('../../src/config', () => ({
   getConfig: jest.fn(() => ({ adminSheetId: undefined })),
 }));
-
-import type { GeneratedInvoiceSheetRow } from '../../../../shared/types';
-import { appendGeneratedInvoiceRow } from '../../src/services/sheets.service';
 
 const streamError = Object.assign(new Error('Premature close'), {
   code: 'ERR_STREAM_PREMATURE_CLOSE',

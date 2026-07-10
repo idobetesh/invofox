@@ -9,6 +9,24 @@
 
 // ─── Module mocks ────────────────────────────────────────────────────────────
 
+// ─── Imports ────────────────────────────────────────────────────────────────
+
+import request from 'supertest';
+import * as telegramService from '../../src/services/telegram.service';
+import * as userMappingService from '../../src/services/customer/user-mapping.service';
+import * as reportCore from '../../src/services/report/core';
+import * as reportGenerators from '../../src/services/report/generators';
+import * as businessConfigService from '../../src/services/business-config/config.service';
+import { getFirestore } from '../../src/services/firestore.service';
+import { InMemoryFirestore } from './helpers/in-memory-firestore';
+import {
+  TelegramCapture,
+  ConversationSimulator,
+  setupTelegramMock,
+} from './helpers/conversation-simulator';
+import { CHAT_ID, USER_ID, USERNAME } from './helpers/test-data';
+import app from '../../src/app';
+
 jest.mock('@google-cloud/firestore', () => ({
   FieldValue: {
     serverTimestamp: () => ({ __firestoreType: 'serverTimestamp' }),
@@ -86,24 +104,6 @@ jest.mock('../../src/services/report/report-rate-limiter.service', () => ({
   checkReportLimit: jest.fn().mockResolvedValue({ allowed: true }),
   recordReportGeneration: jest.fn().mockResolvedValue(undefined),
 }));
-
-// ─── Imports ────────────────────────────────────────────────────────────────
-
-import request from 'supertest';
-import * as telegramService from '../../src/services/telegram.service';
-import * as userMappingService from '../../src/services/customer/user-mapping.service';
-import * as reportCore from '../../src/services/report/core';
-import * as reportGenerators from '../../src/services/report/generators';
-import * as businessConfigService from '../../src/services/business-config/config.service';
-import { getFirestore } from '../../src/services/firestore.service';
-import { InMemoryFirestore } from './helpers/in-memory-firestore';
-import {
-  TelegramCapture,
-  ConversationSimulator,
-  setupTelegramMock,
-} from './helpers/conversation-simulator';
-import { CHAT_ID, USER_ID, USERNAME } from './helpers/test-data';
-import app from '../../src/app';
 
 // ─── Setup ───────────────────────────────────────────────────────────────────
 

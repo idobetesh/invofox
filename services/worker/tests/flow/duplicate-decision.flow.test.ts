@@ -13,6 +13,21 @@
 
 // ─── Module mocks ────────────────────────────────────────────────────────────
 
+// ─── Imports ────────────────────────────────────────────────────────────────
+
+import request from 'supertest';
+import * as telegramService from '../../src/services/telegram.service';
+import { getFirestore, getJob, markJobCompleted } from '../../src/services/firestore.service';
+import {
+  getPendingDecisionJob,
+  formatDuplicateResolved,
+} from '../../src/services/duplicate-detection.service';
+import { appendRow } from '../../src/services/sheets.service';
+import { deleteFile } from '../../src/services/storage.service';
+import { InMemoryFirestore } from './helpers/in-memory-firestore';
+import app from '../../src/app';
+import { CHAT_ID } from './helpers/test-data';
+
 jest.mock('@google-cloud/firestore', () => ({
   FieldValue: {
     serverTimestamp: () => ({ __firestoreType: 'serverTimestamp' }),
@@ -98,21 +113,6 @@ jest.mock('../../src/services/pdf.service', () => ({
 jest.mock('../../src/services/heic.service', () => ({
   convertHEICToJPEG: jest.fn(),
 }));
-
-// ─── Imports ────────────────────────────────────────────────────────────────
-
-import request from 'supertest';
-import * as telegramService from '../../src/services/telegram.service';
-import { getFirestore, getJob, markJobCompleted } from '../../src/services/firestore.service';
-import {
-  getPendingDecisionJob,
-  formatDuplicateResolved,
-} from '../../src/services/duplicate-detection.service';
-import { appendRow } from '../../src/services/sheets.service';
-import { deleteFile } from '../../src/services/storage.service';
-import { InMemoryFirestore } from './helpers/in-memory-firestore';
-import app from '../../src/app';
-import { CHAT_ID } from './helpers/test-data';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 

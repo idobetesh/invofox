@@ -2,6 +2,20 @@
  * NL document creation flow tests (mocked LLM)
  */
 
+import * as telegramService from '../../src/services/telegram.service';
+import * as userMappingService from '../../src/services/customer/user-mapping.service';
+import { generateInvoice } from '../../src/services/document-generator';
+import { getFirestore } from '../../src/services/firestore.service';
+import { parseDocumentIntentFromText } from '../../src/services/document-generator/document-intent';
+import { InMemoryFirestore } from './helpers/in-memory-firestore';
+import {
+  TelegramCapture,
+  ConversationSimulator,
+  setupTelegramMock,
+} from './helpers/conversation-simulator';
+import { CHAT_ID, USER_ID, USERNAME } from './helpers/test-data';
+import app from '../../src/app';
+
 jest.mock('@google-cloud/firestore', () => ({
   FieldValue: {
     serverTimestamp: () => ({ __firestoreType: 'serverTimestamp' }),
@@ -59,20 +73,6 @@ jest.mock('../../src/services/document-generator/document-intent', () => ({
 jest.mock('../../src/services/feature-flags', () => ({
   featureFlags: { getValue: jest.fn().mockResolvedValue(true), destroy: jest.fn() },
 }));
-
-import * as telegramService from '../../src/services/telegram.service';
-import * as userMappingService from '../../src/services/customer/user-mapping.service';
-import { generateInvoice } from '../../src/services/document-generator';
-import { getFirestore } from '../../src/services/firestore.service';
-import { parseDocumentIntentFromText } from '../../src/services/document-generator/document-intent';
-import { InMemoryFirestore } from './helpers/in-memory-firestore';
-import {
-  TelegramCapture,
-  ConversationSimulator,
-  setupTelegramMock,
-} from './helpers/conversation-simulator';
-import { CHAT_ID, USER_ID, USERNAME } from './helpers/test-data';
-import app from '../../src/app';
 
 let db: InMemoryFirestore;
 let capture: TelegramCapture;

@@ -7,6 +7,9 @@ import { generateInvoice } from '../../src/services/document-generator';
 import { appendGeneratedInvoiceRow } from '../../src/services/sheets.service';
 import type { InvoiceSession } from '../../../../shared/types';
 
+// Import the mocked modules to set up the mocks
+import * as configService from '../../src/services/business-config/config.service';
+
 // Mock dependencies
 const mockSet = jest.fn();
 const mockDelete = jest.fn().mockResolvedValue(undefined);
@@ -95,9 +98,6 @@ jest.mock('../../src/config', () => ({
     generatedInvoicesBucket: 'test-bucket',
   })),
 }));
-
-// Import the mocked modules to set up the mocks
-import * as configService from '../../src/services/business-config/config.service';
 
 describe('Invoice Generator', () => {
   beforeEach(() => {

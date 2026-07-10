@@ -3,6 +3,9 @@
  * appendRow must still succeed (metadata check skips header sync).
  */
 
+import type { SheetRow } from '../../../../shared/processing.types';
+import { appendRow } from '../../src/services/sheets.service';
+
 const mockValuesGet = jest.fn();
 const mockValuesAppend = jest.fn();
 const mockSpreadsheetsGet = jest.fn();
@@ -36,9 +39,6 @@ jest.mock('../../src/services/business-config/config.service', () => ({
 jest.mock('../../src/config', () => ({
   getConfig: jest.fn(() => ({ adminSheetId: undefined })),
 }));
-
-import type { SheetRow } from '../../../../shared/processing.types';
-import { appendRow } from '../../src/services/sheets.service';
 
 const streamError = Object.assign(new Error('Premature close'), {
   code: 'ERR_STREAM_PREMATURE_CLOSE',

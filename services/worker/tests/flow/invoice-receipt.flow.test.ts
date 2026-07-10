@@ -7,6 +7,21 @@
 
 // ─── Module mocks ────────────────────────────────────────────────────────────
 
+// ─── Imports ────────────────────────────────────────────────────────────────
+
+import * as telegramService from '../../src/services/telegram.service';
+import * as userMappingService from '../../src/services/customer/user-mapping.service';
+import { generateInvoice } from '../../src/services/document-generator';
+import { getFirestore } from '../../src/services/firestore.service';
+import { InMemoryFirestore } from './helpers/in-memory-firestore';
+import {
+  TelegramCapture,
+  ConversationSimulator,
+  setupTelegramMock,
+} from './helpers/conversation-simulator';
+import { CHAT_ID, USER_ID, USERNAME, sessionDocId } from './helpers/test-data';
+import app from '../../src/app';
+
 jest.mock('@google-cloud/firestore', () => ({
   FieldValue: {
     serverTimestamp: () => ({ __firestoreType: 'serverTimestamp' }),
@@ -55,21 +70,6 @@ jest.mock('../../src/services/correction.service', () => ({
 jest.mock('../../src/services/feature-flags', () => ({
   featureFlags: { isEnabled: jest.fn().mockReturnValue(false), destroy: jest.fn() },
 }));
-
-// ─── Imports ────────────────────────────────────────────────────────────────
-
-import * as telegramService from '../../src/services/telegram.service';
-import * as userMappingService from '../../src/services/customer/user-mapping.service';
-import { generateInvoice } from '../../src/services/document-generator';
-import { getFirestore } from '../../src/services/firestore.service';
-import { InMemoryFirestore } from './helpers/in-memory-firestore';
-import {
-  TelegramCapture,
-  ConversationSimulator,
-  setupTelegramMock,
-} from './helpers/conversation-simulator';
-import { CHAT_ID, USER_ID, USERNAME, sessionDocId } from './helpers/test-data';
-import app from '../../src/app';
 
 // ─── Setup ───────────────────────────────────────────────────────────────────
 

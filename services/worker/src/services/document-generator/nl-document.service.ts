@@ -68,7 +68,7 @@ function missingFieldMessage(field: DocumentIntentMissingField): string {
 export async function startNlSession(chatId: number, userId: number): Promise<void> {
   await sessionService.createNlSession(chatId, userId);
   await telegramService.sendMessage(chatId, t('he', 'nl.awaitingIntent'), {
-    parseMode: 'Markdown',
+    parseMode: 'HTML',
     replyMarkup: buildDocumentTypeKeyboard(),
   });
 }
