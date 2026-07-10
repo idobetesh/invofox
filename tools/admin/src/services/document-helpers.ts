@@ -6,6 +6,7 @@
 import { Firestore } from '@google-cloud/firestore';
 import { Storage } from '@google-cloud/storage';
 import { BUSINESS_CONFIG_COLLECTION } from '../../../../shared/collections';
+import type { InvoiceDocumentType } from '../../../../shared/invoice.types';
 
 const STORAGE_BUCKET =
   process.env.GENERATED_INVOICES_BUCKET || 'papertrail-invoice-generated-invoices';
@@ -57,8 +58,6 @@ export async function getBusinessConfig(
 /**
  * Upload PDF to Cloud Storage and return public URL
  */
-import type { InvoiceDocumentType } from '../../../../shared/invoice.types';
-
 export async function uploadPDFToStorage(
   storage: Storage,
   pdfBuffer: Buffer,

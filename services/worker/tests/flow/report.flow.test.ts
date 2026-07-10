@@ -9,6 +9,22 @@
 
 // ─── Module mocks ────────────────────────────────────────────────────────────
 
+// ─── Imports ────────────────────────────────────────────────────────────────
+
+import request from 'supertest';
+import * as telegramService from '../../src/services/telegram.service';
+import * as userMappingService from '../../src/services/customer/user-mapping.service';
+import * as reportFlowService from '../../src/services/report/report-flow.service';
+import { getFirestore } from '../../src/services/firestore.service';
+import { InMemoryFirestore } from './helpers/in-memory-firestore';
+import {
+  TelegramCapture,
+  ConversationSimulator,
+  setupTelegramMock,
+} from './helpers/conversation-simulator';
+import { CHAT_ID, USER_ID, USERNAME } from './helpers/test-data';
+import app from '../../src/app';
+
 jest.mock('@google-cloud/firestore', () => ({
   FieldValue: {
     serverTimestamp: () => ({ __firestoreType: 'serverTimestamp' }),
@@ -67,22 +83,6 @@ jest.mock('../../src/services/report/report-dedup.service', () => ({
   isCallbackProcessed: jest.fn().mockResolvedValue(false),
   markCallbackProcessed: jest.fn().mockResolvedValue(undefined),
 }));
-
-// ─── Imports ────────────────────────────────────────────────────────────────
-
-import request from 'supertest';
-import * as telegramService from '../../src/services/telegram.service';
-import * as userMappingService from '../../src/services/customer/user-mapping.service';
-import * as reportFlowService from '../../src/services/report/report-flow.service';
-import { getFirestore } from '../../src/services/firestore.service';
-import { InMemoryFirestore } from './helpers/in-memory-firestore';
-import {
-  TelegramCapture,
-  ConversationSimulator,
-  setupTelegramMock,
-} from './helpers/conversation-simulator';
-import { CHAT_ID, USER_ID, USERNAME } from './helpers/test-data';
-import app from '../../src/app';
 
 // ─── Setup ───────────────────────────────────────────────────────────────────
 

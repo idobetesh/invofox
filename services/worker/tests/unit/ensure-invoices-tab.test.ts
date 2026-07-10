@@ -3,6 +3,9 @@
  * appendRow must still succeed (metadata check skips header sync).
  */
 
+import type { SheetRow } from '../../../../shared/processing.types';
+import { appendRow } from '../../src/services/sheets.service';
+
 const mockValuesGet = jest.fn();
 const mockValuesAppend = jest.fn();
 const mockSpreadsheetsGet = jest.fn();
@@ -36,9 +39,6 @@ jest.mock('../../src/services/business-config/config.service', () => ({
 jest.mock('../../src/config', () => ({
   getConfig: jest.fn(() => ({ adminSheetId: undefined })),
 }));
-
-import type { SheetRow } from '../../../../shared/processing.types';
-import { appendRow } from '../../src/services/sheets.service';
 
 const streamError = Object.assign(new Error('Premature close'), {
   code: 'ERR_STREAM_PREMATURE_CLOSE',
@@ -106,5 +106,27 @@ describe('ensureInvoicesTab metadata fallback', () => {
 
     expect(mockBatchUpdate).toHaveBeenCalled();
     expect(mockValuesAppend).toHaveBeenCalled();
+  });
+
+  it('appendRow does not duplicate when append flakes but row was written', async () => {
+    mockValuesGet.mockImplementation(({ range }: { range: string }) => {
+      if (range === 'Invoices!J:J') {
+        return Promise.resolve({
+          data: { values: [['Link'], [sampleRow.drive_link]] },
+        });
+      }
+      return Promise.resolve({
+        data: { values: [['Received At', 'Invoice Date', 'Amount']] },
+      });
+    });
+    mockSpreadsheetsGet.mockResolvedValue({
+      data: { sheets: [{ properties: { title: 'Invoices' } }] },
+    });
+    mockValuesAppend.mockRejectedValue(streamError);
+
+    const rowId = await appendRow(-1001234567, sampleRow);
+
+    expect(rowId).toBe(2);
+    expect(mockValuesAppend).toHaveBeenCalledTimes(1);
   });
 });

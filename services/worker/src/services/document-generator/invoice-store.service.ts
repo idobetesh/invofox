@@ -111,6 +111,7 @@ export async function saveInvoiceRecord(
     },
     storagePath: `${chatId}/${new Date().getFullYear()}/${invoiceNumber}.pdf`,
     storageUrl,
+    ...(session?.inputMethod !== undefined && { inputMethod: session.inputMethod }),
     // Payment tracking fields (for invoices that can receive receipts later)
     ...(data.documentType === 'invoice' && {
       paymentStatus: 'unpaid' as const,

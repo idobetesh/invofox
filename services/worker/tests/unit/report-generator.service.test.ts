@@ -4,6 +4,8 @@
 
 import type { ReportData } from '../../../../shared/report.types';
 
+import * as reportGeneratorService from '../../src/services/report/generators';
+
 // Mock Playwright BEFORE importing the service
 const mockPdf = jest.fn(() => Promise.resolve(Buffer.from('fake-pdf-content')));
 const mockClose = jest.fn(() => Promise.resolve());
@@ -34,8 +36,6 @@ const mockStringify = jest.fn((records) => {
 jest.mock('csv-stringify/sync', () => ({
   stringify: mockStringify,
 }));
-
-import * as reportGeneratorService from '../../src/services/report/generators';
 
 describe('Report Generator Service', () => {
   const mockReportData: ReportData = {

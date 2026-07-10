@@ -124,19 +124,44 @@
     }
 
     /* Autocomplete dropdown */
+    .business-selector-card,
+    .business-selector-card .card-body {
+      overflow: visible;
+    }
+
     .autocomplete-dropdown {
       position: absolute;
       top: 100%;
       left: 0;
       right: 0;
-      background: var(--bg-secondary);
+      background: var(--bg-card);
       border: 1px solid var(--primary);
       border-radius: var(--radius);
       margin-top: 4px;
-      max-height: 300px;
+      max-height: min(300px, 50vh);
       overflow-y: auto;
-      z-index: 1000;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      overflow-x: hidden;
+      overscroll-behavior: contain;
+      z-index: 1100;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .autocomplete-dropdown::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .autocomplete-dropdown::-webkit-scrollbar-track {
+      background: var(--bg-secondary);
+      border-radius: 4px;
+    }
+
+    .autocomplete-dropdown::-webkit-scrollbar-thumb {
+      background: var(--border-light);
+      border-radius: 4px;
+    }
+
+    .autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
     }
 
     .autocomplete-item {
@@ -502,7 +527,7 @@
     </div>
 
     <!-- Business Selection (Global) -->
-    <div class="card" style="margin-bottom: 24px;">
+    <div class="card business-selector-card" style="margin-bottom: 24px;">
       <div class="card-header" style="background: rgba(129, 140, 248, 0.1); border-bottom: 2px solid var(--primary);">
         <h3 style="font-size: 16px; color: var(--primary-light); direction: rtl;">
           🏢 בחר עסק

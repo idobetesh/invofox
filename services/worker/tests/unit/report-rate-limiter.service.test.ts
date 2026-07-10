@@ -3,6 +3,8 @@
  */
 
 // Mock Firestore
+import * as rateLimiter from '../../src/services/report/report-rate-limiter.service';
+
 const mockData: Record<string, any> = {};
 const mockGet = jest.fn((docPath: string) => {
   return Promise.resolve({
@@ -42,8 +44,6 @@ jest.mock('@google-cloud/firestore', () => {
     },
   };
 });
-
-import * as rateLimiter from '../../src/services/report/report-rate-limiter.service';
 
 describe('Report Rate Limiter Service', () => {
   beforeEach(() => {

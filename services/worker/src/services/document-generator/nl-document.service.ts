@@ -23,7 +23,11 @@ import {
   buildPaymentMethodKeyboard,
   buildDocumentTypeKeyboard,
 } from './keyboards.service';
-import { buildConfirmationMessage, buildReviewMessage } from './messages.service';
+import {
+  buildConfirmationMessage,
+  buildReviewMessage,
+  buildEditFieldPrompt,
+} from './messages.service';
 import { t } from '../i18n/languages';
 import logger from '../../logger';
 
@@ -61,21 +65,10 @@ function missingFieldMessage(field: DocumentIntentMissingField): string {
   return t('he', keyMap[field]);
 }
 
-function editFieldPrompt(field: NlDocumentEditField): string {
-  const keyMap: Record<NlDocumentEditField, string> = {
-    customerName: 'nl.promptCustomerName',
-    description: 'nl.promptDescription',
-    amount: 'nl.promptAmount',
-    documentType: 'nl.promptDocumentType',
-    paymentMethod: 'nl.promptPaymentMethod',
-  };
-  return t('he', keyMap[field]);
-}
-
 export async function startNlSession(chatId: number, userId: number): Promise<void> {
   await sessionService.createNlSession(chatId, userId);
   await telegramService.sendMessage(chatId, t('he', 'nl.awaitingIntent'), {
-    parseMode: 'Markdown',
+    parseMode: 'HTML',
     replyMarkup: buildDocumentTypeKeyboard(),
   });
 }
@@ -118,6 +111,7 @@ export async function handleIntentInput(
       status: 'reviewing',
       currency: intent.currency,
       sourceTranscript: intent.transcript || input.text || t('he', 'nl.voiceTranscript'),
+      inputMethod: input.audioBuffer ? 'voice' : 'typing',
       parseConfidence: intent.confidence,
       ...(intent.documentType ? { documentType: intent.documentType } : {}),
       ...(intent.customerName ? { customerName: intent.customerName } : {}),
@@ -196,7 +190,7 @@ export async function promptForMissingField(
       editingField: editField,
     });
     await telegramService.sendMessage(chatId, missingFieldMessage(field));
-    await telegramService.sendMessage(chatId, editFieldPrompt(editField));
+    await telegramService.sendMessage(chatId, buildEditFieldPrompt(editField, current));
     return;
   }
 
@@ -224,7 +218,7 @@ export async function handleFieldEditInput(
   const parsed = parseFieldEdit(field, text);
   if (!parsed.ok) {
     await telegramService.sendMessage(chatId, t('he', parsed.errorKey));
-    await telegramService.sendMessage(chatId, editFieldPrompt(field));
+    await telegramService.sendMessage(chatId, buildEditFieldPrompt(field, session));
     return 'invalid_field';
   }
 
@@ -273,6 +267,8 @@ export async function handleEditFieldCallback(
   callbackQueryId: string,
   field: NlDocumentEditField
 ): Promise<string> {
+  const session = await sessionService.getSession(chatId, userId);
+
   await sessionService.updateSession(chatId, userId, {
     status: 'editing_field',
     editingField: field,
@@ -280,15 +276,17 @@ export async function handleEditFieldCallback(
 
   await telegramService.answerCallbackQuery(callbackQueryId);
 
+  const prompt = buildEditFieldPrompt(field, session ?? undefined);
+
   if (field === 'paymentMethod') {
-    await telegramService.editMessageText(chatId, messageId, editFieldPrompt(field));
+    await telegramService.editMessageText(chatId, messageId, prompt);
     await telegramService.sendMessage(chatId, t('he', 'invoice.selectPaymentMethod'), {
       replyMarkup: buildPaymentMethodKeyboard(),
     });
     return 'editing_payment';
   }
 
-  await telegramService.editMessageText(chatId, messageId, editFieldPrompt(field));
+  await telegramService.editMessageText(chatId, messageId, prompt);
   return 'editing_field';
 }
 

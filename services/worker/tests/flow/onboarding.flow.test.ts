@@ -10,6 +10,20 @@
 
 // ─── Module mocks ────────────────────────────────────────────────────────────
 
+// ─── Imports ────────────────────────────────────────────────────────────────
+
+import * as telegramService from '../../src/services/telegram.service';
+import { getFirestore } from '../../src/services/firestore.service';
+import * as stepsService from '../../src/services/onboarding/steps.service';
+import { InMemoryFirestore } from './helpers/in-memory-firestore';
+import {
+  TelegramCapture,
+  ConversationSimulator,
+  setupTelegramMock,
+} from './helpers/conversation-simulator';
+import { CHAT_ID, USER_ID, USERNAME } from './helpers/test-data';
+import app from '../../src/app';
+
 jest.mock('@google-cloud/firestore', () => ({
   FieldValue: {
     serverTimestamp: () => ({ __firestoreType: 'serverTimestamp' }),
@@ -95,20 +109,6 @@ jest.mock('../../src/services/onboarding/steps.service', () => ({
   handleTaxStatusSelection: jest.fn(),
   handleCounterSelection: jest.fn(),
 }));
-
-// ─── Imports ────────────────────────────────────────────────────────────────
-
-import * as telegramService from '../../src/services/telegram.service';
-import { getFirestore } from '../../src/services/firestore.service';
-import * as stepsService from '../../src/services/onboarding/steps.service';
-import { InMemoryFirestore } from './helpers/in-memory-firestore';
-import {
-  TelegramCapture,
-  ConversationSimulator,
-  setupTelegramMock,
-} from './helpers/conversation-simulator';
-import { CHAT_ID, USER_ID, USERNAME } from './helpers/test-data';
-import app from '../../src/app';
 
 // ─── Setup ───────────────────────────────────────────────────────────────────
 

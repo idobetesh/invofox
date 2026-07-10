@@ -12,6 +12,16 @@ import type {
   InvoiceCallbackPayload,
 } from '../../../../shared/types';
 
+import * as userMappingService from '../../src/services/customer/user-mapping.service';
+import * as sessionService from '../../src/services/document-generator/session.service';
+import { getNextDocumentNumber } from '../../src/services/document-generator/counter.service';
+import { generateInvoice } from '../../src/services/document-generator';
+import * as telegramService from '../../src/services/telegram.service';
+import * as parserService from '../../src/services/document-generator/parser.service';
+import * as openInvoicesService from '../../src/services/document-generator/open-invoices.service';
+import * as storeService from '../../src/services/firestore.service';
+import * as sheetsService from '../../src/services/sheets.service';
+
 // Mock external services
 jest.mock('../../src/services/customer/user-mapping.service');
 jest.mock('../../src/services/document-generator/session.service');
@@ -26,16 +36,6 @@ jest.mock('../../src/services/sheets.service');
 jest.mock('../../src/services/feature-flags', () => ({
   featureFlags: { getValue: jest.fn().mockResolvedValue(false) },
 }));
-
-import * as userMappingService from '../../src/services/customer/user-mapping.service';
-import * as sessionService from '../../src/services/document-generator/session.service';
-import { getNextDocumentNumber } from '../../src/services/document-generator/counter.service';
-import { generateInvoice } from '../../src/services/document-generator';
-import * as telegramService from '../../src/services/telegram.service';
-import * as parserService from '../../src/services/document-generator/parser.service';
-import * as openInvoicesService from '../../src/services/document-generator/open-invoices.service';
-import * as storeService from '../../src/services/firestore.service';
-import * as sheetsService from '../../src/services/sheets.service';
 
 describe('Invoice Generator Integration Tests', () => {
   beforeEach(() => {

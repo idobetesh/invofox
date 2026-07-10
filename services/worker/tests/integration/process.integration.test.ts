@@ -8,6 +8,10 @@ import { StatusCodes } from 'http-status-codes';
 import app from '../../src/app';
 import type { TaskPayload } from '../../../../shared/types';
 
+import * as invoiceService from '../../src/services/invoice.service';
+import * as storeService from '../../src/services/firestore.service';
+import * as telegramService from '../../src/services/telegram.service';
+
 // Mock external services
 jest.mock('../../src/services/invoice.service');
 jest.mock('../../src/services/firestore.service');
@@ -20,10 +24,6 @@ jest.mock('../../src/middlewares/cloudTasks', () => ({
   getRetryCount: jest.fn(() => 0),
   getMaxRetries: jest.fn(() => 3),
 }));
-
-import * as invoiceService from '../../src/services/invoice.service';
-import * as storeService from '../../src/services/firestore.service';
-import * as telegramService from '../../src/services/telegram.service';
 
 describe('Process Controller Integration Tests', () => {
   beforeEach(() => {

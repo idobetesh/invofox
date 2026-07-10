@@ -3,7 +3,10 @@
  * CRITICAL: These tests verify Google Sheets logging works correctly
  */
 
-import { getRelatedInvoice } from '../../src/services/document-generator/invoice-sheet-helpers';
+import {
+  getRelatedInvoice,
+  formatInputMethodForSheet,
+} from '../../src/services/document-generator/invoice-sheet-helpers';
 import type { InvoiceSession } from '../../../../shared/types';
 
 describe('Invoice Sheet Helpers', () => {
@@ -107,6 +110,14 @@ describe('Invoice Sheet Helpers', () => {
       const result = getRelatedInvoice('receipt', session as InvoiceSession);
 
       expect(result).toBe('');
+    });
+  });
+
+  describe('formatInputMethodForSheet', () => {
+    it('maps voice and typing to sheet labels', () => {
+      expect(formatInputMethodForSheet('voice')).toBe('Voice');
+      expect(formatInputMethodForSheet('typing')).toBe('Typing');
+      expect(formatInputMethodForSheet(undefined)).toBe('');
     });
   });
 });

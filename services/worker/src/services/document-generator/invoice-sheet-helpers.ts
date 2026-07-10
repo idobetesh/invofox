@@ -3,7 +3,7 @@
  * Helper functions for generating Google Sheets data from invoice records
  */
 
-import type { InvoiceSession } from '../../../../../shared/types';
+import type { InvoiceSession, DocumentInputMethod } from '../../../../../shared/types';
 
 /**
  * Get related invoice number for Google Sheets (receipts only)
@@ -33,4 +33,19 @@ export function getRelatedInvoice(type: string, session: InvoiceSession): string
   }
 
   return '';
+}
+
+const INPUT_METHOD_SHEET_LABELS: Record<DocumentInputMethod, string> = {
+  voice: 'Voice',
+  typing: 'Typing',
+};
+
+/**
+ * Human-readable label for the Generated Invoices sheet Input Method column
+ */
+export function formatInputMethodForSheet(method?: DocumentInputMethod): string {
+  if (!method) {
+    return '';
+  }
+  return INPUT_METHOD_SHEET_LABELS[method];
 }

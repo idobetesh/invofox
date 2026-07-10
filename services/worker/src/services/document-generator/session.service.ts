@@ -198,12 +198,15 @@ export async function setDetails(
     amount: number;
   }
 ): Promise<InvoiceSession> {
+  const current = await getSession(chatId, userId);
+
   const updates: Partial<Omit<InvoiceSession, 'createdAt' | 'updatedAt'>> = {
     status: 'awaiting_payment',
     customerName: details.customerName,
     description: details.description,
     amount: details.amount,
     ...(details.customerTaxId !== undefined && { customerTaxId: details.customerTaxId }),
+    ...(!current?.inputMethod ? { inputMethod: 'typing' as const } : {}),
   };
 
   return await updateSession(chatId, userId, updates);

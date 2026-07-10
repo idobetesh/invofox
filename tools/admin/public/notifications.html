@@ -145,22 +145,37 @@
     .tg-bubble-wrap {
       display: flex;
       flex-direction: column;
-      align-items: flex-end;
+      align-items: flex-start;
+      align-self: flex-start;
       gap: 4px;
+      max-width: 90%;
+    }
+    .tg-bubble-wrap.rtl {
+      align-items: flex-end;
+      align-self: flex-end;
     }
     .tg-sender {
-      font-size: 0.72rem; color: #818cf8; font-weight: 600; padding-right: 2px;
+      font-size: 0.72rem; color: #818cf8; font-weight: 600; padding-left: 2px;
+    }
+    .tg-bubble-wrap.rtl .tg-sender {
+      padding-left: 0;
+      padding-right: 2px;
     }
     .tg-bubble {
       background: #1e3a5f;
-      border-radius: 16px 4px 16px 16px;
+      border-radius: 4px 16px 16px 16px;
       padding: 10px 13px;
-      max-width: 90%;
+      max-width: 100%;
       word-break: break-word;
       color: #e2e8f0;
       font-size: 0.88rem;
       line-height: 1.5;
       box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+    .tg-bubble-wrap.rtl .tg-bubble {
+      direction: rtl;
+      text-align: right;
+      border-radius: 16px 4px 16px 16px;
     }
     .tg-bubble img {
       width: 100%;
@@ -173,7 +188,8 @@
     }
     .tg-bubble .caption-text { white-space: pre-wrap; }
     .tg-bubble .msg-text { white-space: pre-wrap; }
-    .tg-time { font-size: 0.68rem; color: #64748b; padding-right: 2px; }
+    .tg-time { font-size: 0.68rem; color: #64748b; padding-left: 2px; }
+    .tg-bubble-wrap.rtl .tg-time { padding-left: 0; padding-right: 2px; }
     .preview-empty {
       color: #334155; font-size: 0.82rem; text-align: center; padding: 12px;
     }
@@ -293,6 +309,11 @@
     .fmt-toolbar + textarea {
       border-radius: 0 0 var(--radius) var(--radius) !important;
       border-top: none !important;
+    }
+    .form-field textarea.rtl,
+    .fmt-toolbar + textarea.rtl {
+      direction: rtl;
+      text-align: right;
     }
     .fmt-btn {
       display: inline-flex; align-items: center; justify-content: center;
@@ -637,6 +658,21 @@
       updateSendBtn();
     });
 
+  /** True when message is primarily Hebrew (or other RTL script). */
+    function isRtlText(text) {
+      const plain = text.replace(/<[^>]+>/g, '').trim();
+      if (!plain) return false;
+      const rtlChars = (plain.match(/[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F]/g) || []).length;
+      const ltrChars = (plain.match(/[A-Za-z]/g) || []).length;
+      return rtlChars > ltrChars;
+    }
+
+    function updateMessageDirection(text) {
+      const rtl = isRtlText(text);
+      tgBubbleWrap.classList.toggle('rtl', rtl);
+      msgInput.classList.toggle('rtl', rtl);
+    }
+
     /**
      * Render Telegram HTML preview.
      * Telegram supports a strict subset of HTML: <b>, <i>, <u>, <s>, <code>,
@@ -681,11 +717,14 @@
       if (!msg.trim() && !imgUrl) {
         previewEmpty.style.display = '';
         tgBubbleWrap.style.display = 'none';
+        tgBubbleWrap.classList.remove('rtl');
+        msgInput.classList.remove('rtl');
         return;
       }
 
       previewEmpty.style.display = 'none';
       tgBubbleWrap.style.display = 'flex';
+      updateMessageDirection(msg);
 
       const now = new Date();
       tgTime.textContent = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -995,6 +1034,7 @@
       previewBanner.style.display = 'flex';
       previewEmpty.style.display = 'none';
       tgBubbleWrap.style.display = 'flex';
+      updateMessageDirection(b.message);
 
       const now = new Date(
         (() => { const t = b.sentAt || b.createdAt; if (!t) return Date.now(); const s = t._seconds ?? t.seconds; return s ? s * 1000 : Date.now(); })()
