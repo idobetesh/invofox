@@ -4,6 +4,7 @@
  */
 
 import { generateInvoice } from '../../src/services/document-generator';
+import { appendGeneratedInvoiceRow } from '../../src/services/sheets.service';
 import type { InvoiceSession } from '../../../../shared/types';
 
 // Mock dependencies
@@ -163,6 +164,21 @@ describe('Invoice Generator', () => {
       expect(firestoreRecord).not.toHaveProperty('customerTaxId');
       expect(firestoreRecord.customerName).toBe('John Doe');
       expect(firestoreRecord.amount).toBe(1000);
+    });
+
+    it('persists inputMethod to Firestore and Google Sheets', async () => {
+      const session: InvoiceSession = {
+        ...baseSession,
+        inputMethod: 'voice',
+      };
+
+      await generateInvoice(session, userId, username, chatId);
+
+      const firestoreRecord = mockSet.mock.calls[0][0];
+      expect(firestoreRecord.inputMethod).toBe('voice');
+
+      const sheetRow = (appendGeneratedInvoiceRow as jest.Mock).mock.calls[0][1];
+      expect(sheetRow.input_method).toBe('Voice');
     });
 
     it('should successfully generate invoice with customerTaxId', async () => {

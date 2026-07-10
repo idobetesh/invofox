@@ -37,6 +37,11 @@ export type PaymentMethod = 'מזומן' | 'ביט' | 'PayBox' | 'העברה' | 
 export type PaymentStatus = 'unpaid' | 'partial' | 'paid';
 
 /**
+ * How the user provided document details in the NL / creation flow
+ */
+export type DocumentInputMethod = 'voice' | 'typing';
+
+/**
  * Invoice generation session stored in Firestore
  * Document ID: `${chatId}_${userId}`
  */
@@ -62,6 +67,7 @@ export interface InvoiceSession {
   date?: string; // YYYY-MM-DD format
   nlMode?: boolean; // Natural-language document creation flow
   sourceTranscript?: string; // Voice/text transcript from NL parse
+  inputMethod?: DocumentInputMethod; // Voice message vs typed text for NL / creation flow
   editingField?: NlDocumentEditField;
   parseConfidence?: number;
   /** Reserved on first confirm attempt so retries reuse the same document number */
@@ -94,6 +100,7 @@ export interface GeneratedInvoice {
   };
   storagePath: string;
   storageUrl: string;
+  inputMethod?: DocumentInputMethod;
 
   // Invoice-specific fields (for tracking payments)
   paymentStatus?: PaymentStatus;
@@ -171,9 +178,10 @@ export interface GeneratedInvoiceSheetRow {
   generated_by: string;
   generated_at: string;
   pdf_link: string;
-  // New columns (L-M) - appended at end to avoid breaking existing data
+  // New columns (L-N) - appended at end to avoid breaking existing data
   currency: string; // Column L: "ILS" | "USD" | "EUR"
   related_invoice: string; // Column M: For receipts - parent invoice number
+  input_method: string; // Column N: Voice | Typing
 }
 
 /**

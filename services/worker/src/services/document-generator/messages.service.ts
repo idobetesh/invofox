@@ -5,6 +5,7 @@
 
 import { t } from '../i18n/languages';
 import type { InvoiceDocumentType, InvoiceSession } from '../../../../../shared/types';
+import type { NlDocumentEditField } from '../../../../../shared/document-intent.types';
 import { getCurrencySymbol } from '../../../../../shared/templates/template-utils';
 
 /**
@@ -120,4 +121,59 @@ export function buildReviewMessage(session: InvoiceSession, language: 'en' | 'he
 ━━━━━━━━━━━━━━━━
 ${fields}
 ━━━━━━━━━━━━━━━━`;
+}
+
+const EDIT_FIELD_PROMPT_KEYS: Record<NlDocumentEditField, string> = {
+  customerName: 'nl.promptCustomerName',
+  description: 'nl.promptDescription',
+  amount: 'nl.promptAmount',
+  documentType: 'nl.promptDocumentType',
+  paymentMethod: 'nl.promptPaymentMethod',
+};
+
+/**
+ * Display value for a field when the user is editing it
+ */
+export function formatFieldCurrentValue(
+  field: NlDocumentEditField,
+  session: InvoiceSession,
+  language: 'en' | 'he' = 'he'
+): string | undefined {
+  switch (field) {
+    case 'customerName':
+      return session.customerName?.trim() || undefined;
+    case 'description':
+      return session.description?.trim() || undefined;
+    case 'amount':
+      if (typeof session.amount !== 'number') {
+        return undefined;
+      }
+      return `${getCurrencySymbol(session.currency ?? 'ILS')}${session.amount.toLocaleString()}`;
+    case 'documentType':
+      return session.documentType
+        ? getDocumentTypeLabel(session.documentType, language)
+        : undefined;
+    case 'paymentMethod':
+      return session.paymentMethod || undefined;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Prompt shown when the user edits a single NL document field
+ */
+export function buildEditFieldPrompt(
+  field: NlDocumentEditField,
+  session?: InvoiceSession,
+  language: 'en' | 'he' = 'he'
+): string {
+  const prompt = t(language, EDIT_FIELD_PROMPT_KEYS[field]);
+  const current = session ? formatFieldCurrentValue(field, session, language) : undefined;
+
+  if (!current) {
+    return prompt;
+  }
+
+  return `${prompt}\n\n${t(language, 'nl.currentValue', { value: current })}`;
 }

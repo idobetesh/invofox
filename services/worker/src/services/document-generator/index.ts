@@ -13,7 +13,7 @@ import { generateInvoicePDFWithConfig } from './pdf.generator';
 import { getNextDocumentNumber } from './counter.service';
 import { getBusinessConfig, getLogoBase64 } from '../business-config/config.service';
 import { appendGeneratedInvoiceRow } from '../sheets.service';
-import { getRelatedInvoice } from './invoice-sheet-helpers';
+import { getRelatedInvoice, formatInputMethodForSheet } from './invoice-sheet-helpers';
 import { getDocumentTypeLabel } from './messages.service';
 import {
   validateSessionFields,
@@ -173,6 +173,7 @@ export async function generateInvoice(
         pdf_link: pdfUrl,
         currency: invoiceData.currency || 'ILS',
         related_invoice: getRelatedInvoice(invoiceData.documentType, session),
+        input_method: formatInputMethodForSheet(session.inputMethod),
       },
       config.business.sheetId
     );
