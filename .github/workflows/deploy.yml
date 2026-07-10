@@ -182,7 +182,7 @@ jobs:
         run: |
           gcloud run services update worker \
             --image ${{ env.REGISTRY }}/worker:${{ github.sha }} \
-            --region ${{ env.REGISTRY }} \
+            --region ${{ env.REGION }} \
             --project ${{ env.PROJECT_ID }} \
             --cpu-throttling \
             --memory 1Gi \
