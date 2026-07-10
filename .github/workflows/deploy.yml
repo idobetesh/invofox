@@ -9,7 +9,7 @@ on:
       - 'infra/**'
       - 'package.json'
       - 'package-lock.json'
-      - '.github/workflows/deploy.yml'
+      - '.github/**'
   workflow_dispatch: # Manual trigger (bypasses path filter)
 
 env:
@@ -18,32 +18,47 @@ env:
   REGISTRY: docker.io/idobet21
 
 jobs:
-  # Run tests first
   test:
     name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
           cache-dependency-path: |
+            package-lock.json
             services/webhook-handler/package-lock.json
             services/worker/package-lock.json
 
-      - name: Install & Test
-        run: |
-          npm ci
-          cd services/webhook-handler && npm ci && npm run test:ci
-          cd services/worker && npm ci && npm run test:ci
+      - name: Install root dependencies
+        run: npm ci
 
-      - name: Check Playwright version sync (worker)
+      - name: Check Playwright / Node Docker version sync
         run: bash .github/scripts/check-playwright-version-sync.sh
 
-  # Build and push containers in parallel
+      - name: Install service dependencies
+        run: |
+          (cd services/webhook-handler && npm ci)
+          (cd services/worker && npm ci)
+
+      - name: Lint
+        run: |
+          npm run lint:webhook
+          npm run lint:worker
+
+      - name: Build
+        run: npm run build
+
+      - name: Test webhook-handler
+        run: cd services/webhook-handler && npm run test:ci
+
+      - name: Test worker
+        run: cd services/worker && npm run test:ci
+
   build:
     name: Build ${{ matrix.service }}
     needs: test
@@ -68,31 +83,69 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Resolve Playwright version (worker)
+      - name: Resolve Playwright version (worker only)
         if: matrix.service == 'worker'
         id: playwright
         run: |
           VERSION=$(node -p "require('./services/worker/package-lock.json').packages['node_modules/playwright'].version")
+          if [ -z "$VERSION" ]; then
+            echo "Could not resolve playwright version from package-lock.json"
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved PLAYWRIGHT_VERSION=$VERSION"
 
-      - name: Build and push ${{ matrix.service }}
+      - name: Build and push webhook-handler
+        if: matrix.service == 'webhook-handler'
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: services/${{ matrix.service }}/Dockerfile
+          file: services/webhook-handler/Dockerfile
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ matrix.service }}:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ matrix.service }}:latest
+            ${{ env.REGISTRY }}/webhook-handler:${{ github.sha }}
+            ${{ env.REGISTRY }}/webhook-handler:latest
+          build-args: |
+            APP_VERSION=${{ github.sha }}
+          cache-from: type=gha,scope=webhook-handler
+          cache-to: type=gha,mode=min,scope=webhook-handler
+          provenance: false
+
+      - name: Build and push worker
+        if: matrix.service == 'worker'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/worker/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/worker:${{ github.sha }}
+            ${{ env.REGISTRY }}/worker:latest
           build-args: |
             APP_VERSION=${{ github.sha }}
             PLAYWRIGHT_VERSION=${{ steps.playwright.outputs.version }}
-          cache-from: type=gha,scope=${{ matrix.service }}
-          cache-to: type=gha,mode=min,scope=${{ matrix.service }}
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,mode=min,scope=worker
           provenance: false
 
-  # Deploy both services after builds complete
+      - name: Smoke test Playwright in worker image
+        if: matrix.service == 'worker'
+        run: |
+          IMAGE="${{ env.REGISTRY }}/worker:${{ github.sha }}"
+          docker pull "$IMAGE"
+          docker run --rm --user pwuser "$IMAGE" node -e "
+            const { chromium } = require('playwright');
+            chromium.launch({
+              headless: true,
+              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+            })
+              .then((browser) => browser.close())
+              .then(() => { console.log('Playwright launch OK'); })
+              .catch((err) => { console.error(err); process.exit(1); });
+          "
+
   deploy:
     name: Deploy
     needs: build
@@ -129,7 +182,7 @@ jobs:
         run: |
           gcloud run services update worker \
             --image ${{ env.REGISTRY }}/worker:${{ github.sha }} \
-            --region ${{ env.REGION }} \
+            --region ${{ env.REGISTRY }} \
             --project ${{ env.PROJECT_ID }} \
             --cpu-throttling \
             --memory 1Gi \
