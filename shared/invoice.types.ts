@@ -64,6 +64,8 @@ export interface InvoiceSession {
   sourceTranscript?: string; // Voice/text transcript from NL parse
   editingField?: NlDocumentEditField;
   parseConfidence?: number;
+  /** Reserved on first confirm attempt so retries reuse the same document number */
+  reservedInvoiceNumber?: string;
   createdAt: Date | { toMillis: () => number };
   updatedAt: Date | { toMillis: () => number };
 }

@@ -8,6 +8,7 @@ import type {
   InvoiceData,
   GeneratedInvoice,
   InvoiceSession,
+  InvoiceDocumentType,
   PaymentStatus,
 } from '../../../../../shared/types';
 import {
@@ -155,6 +156,20 @@ export async function saveInvoiceRecord(
   };
 
   await docRef.set(record);
+}
+
+/**
+ * Remove a generated invoice record (rollback when persistence pipeline fails).
+ */
+export async function deleteGeneratedInvoiceRecord(
+  chatId: number,
+  invoiceNumber: string,
+  documentType: InvoiceDocumentType
+): Promise<void> {
+  const db = getFirestore();
+  const docId = `chat_${chatId}_${invoiceNumber}`;
+  const collectionName = getCollectionForDocumentType(documentType);
+  await db.collection(collectionName).doc(docId).delete();
 }
 
 /**
@@ -338,4 +353,134 @@ export async function updateMultipleInvoicesPayment(
   });
 
   log.info('All parent invoices updated atomically');
+}
+
+/**
+ * Reverse a single parent invoice payment update (rollback after failed receipt commit).
+ */
+export async function reverseParentInvoicePayment(
+  chatId: number,
+  parentInvoiceNumber: string,
+  receiptNumber: string,
+  paymentAmount: number
+): Promise<void> {
+  const db = getFirestore();
+  const docId = `chat_${chatId}_${parentInvoiceNumber}`;
+  const docRef = db.collection(GENERATED_INVOICES_COLLECTION).doc(docId);
+  const log = logger.child({ chatId, parentInvoiceNumber, receiptNumber, paymentAmount });
+
+  await db.runTransaction(async (transaction) => {
+    const doc = await transaction.get(docRef);
+
+    if (!doc.exists) {
+      log.warn('Parent invoice not found during payment reversal');
+      return;
+    }
+
+    const invoice = doc.data() as GeneratedInvoice;
+    const currentPaid = invoice.paidAmount || 0;
+    const currentRemaining = invoice.remainingBalance ?? invoice.amount;
+
+    const newPaidAmount = Math.max(0, currentPaid - paymentAmount);
+    const newRemainingBalance = currentRemaining + paymentAmount;
+
+    let newPaymentStatus: PaymentStatus;
+    if (newPaidAmount <= 0) {
+      newPaymentStatus = 'unpaid';
+    } else if (newRemainingBalance <= 0) {
+      newPaymentStatus = 'paid';
+    } else {
+      newPaymentStatus = 'partial';
+    }
+
+    transaction.update(docRef, {
+      paidAmount: newPaidAmount,
+      remainingBalance: newRemainingBalance,
+      paymentStatus: newPaymentStatus,
+      relatedReceiptIds: FieldValue.arrayRemove(receiptNumber),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  });
+}
+
+/**
+ * Reverse multi-invoice payment allocation (inverse of updateMultipleInvoicesPayment).
+ * Uses the pre-update parent invoice snapshot to recompute the same per-invoice amounts.
+ */
+export async function reverseMultipleInvoicesPayment(
+  chatId: number,
+  parentInvoicesSnapshot: GeneratedInvoice[],
+  receiptNumber: string,
+  totalPaymentAmount: number
+): Promise<void> {
+  const db = getFirestore();
+  const log = logger.child({
+    chatId,
+    receiptNumber,
+    parentInvoiceCount: parentInvoicesSnapshot.length,
+  });
+
+  let remainingPayment = totalPaymentAmount;
+  const allocations: Array<{ invoiceNumber: string; amount: number }> = [];
+
+  for (const inv of parentInvoicesSnapshot) {
+    const currentRemaining = inv.remainingBalance ?? inv.amount;
+    const paymentForThisInvoice = Math.min(remainingPayment, currentRemaining);
+    remainingPayment -= paymentForThisInvoice;
+    if (paymentForThisInvoice <= 0) {
+      break;
+    }
+    allocations.push({ invoiceNumber: inv.invoiceNumber, amount: paymentForThisInvoice });
+  }
+
+  if (allocations.length === 0) {
+    return;
+  }
+
+  await db.runTransaction(async (transaction) => {
+    for (const { invoiceNumber, amount } of allocations) {
+      const docId = `chat_${chatId}_${invoiceNumber}`;
+      const docRef = db.collection(GENERATED_INVOICES_COLLECTION).doc(docId);
+      const doc = await transaction.get(docRef);
+
+      if (!doc.exists) {
+        log.warn({ invoiceNumber }, 'Parent invoice not found during multi-invoice reversal');
+        continue;
+      }
+
+      const invoice = doc.data() as GeneratedInvoice;
+      const currentPaid = invoice.paidAmount || 0;
+      const currentRemaining = invoice.remainingBalance ?? invoice.amount;
+      const newPaidAmount = Math.max(0, currentPaid - amount);
+      const newRemainingBalance = currentRemaining + amount;
+
+      let newPaymentStatus: PaymentStatus;
+      if (newPaidAmount <= 0) {
+        newPaymentStatus = 'unpaid';
+      } else if (newRemainingBalance <= 0) {
+        newPaymentStatus = 'paid';
+      } else {
+        newPaymentStatus = 'partial';
+      }
+
+      transaction.update(docRef, {
+        paidAmount: newPaidAmount,
+        remainingBalance: newRemainingBalance,
+        paymentStatus: newPaymentStatus,
+        relatedReceiptIds: FieldValue.arrayRemove(receiptNumber),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      log.debug(
+        {
+          invoiceNumber,
+          reversedAmount: amount,
+          newPaidAmount,
+          newRemainingBalance,
+          newPaymentStatus,
+        },
+        'Reversed invoice payment in multi-invoice rollback'
+      );
+    }
+  });
 }

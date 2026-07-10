@@ -6,6 +6,8 @@
 
 import * as sessionService from './session.service';
 import { generateInvoice, getGeneratedInvoice } from '.';
+import { getNextDocumentNumber } from './counter.service';
+import { isTransientGenerationError } from './generation-errors';
 import * as telegramService from '../telegram.service';
 import { buildConfirmationKeyboard, buildInvoiceSelectionKeyboard } from './keyboards.service';
 import { getOpenInvoices, countOpenInvoices } from './open-invoices.service';
@@ -388,8 +390,19 @@ export async function handleConfirm(
 
   await telegramService.editMessageText(chatId, messageId, summaryText);
 
+  const documentType = confirmedSession.documentType as InvoiceDocumentType;
+  const reservedInvoiceNumber =
+    confirmedSession.reservedInvoiceNumber ?? (await getNextDocumentNumber(chatId, documentType));
+
+  await sessionService.updateSession(chatId, userId, {
+    reservedInvoiceNumber,
+    status: 'confirming',
+  });
+
   try {
-    const result = await generateInvoice(confirmedSession, userId, username, chatId);
+    const result = await generateInvoice(confirmedSession, userId, username, chatId, {
+      reservedInvoiceNumber,
+    });
     await sessionService.deleteSession(chatId, userId);
 
     try {
@@ -409,7 +422,20 @@ export async function handleConfirm(
     return { action: 'invoice_generated', invoiceNumber: result.invoiceNumber };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    log.error({ chatId, error: errorMessage }, 'Invoice generation failed');
+    log.error({ chatId, error: errorMessage, reservedInvoiceNumber }, 'Invoice generation failed');
+
+    if (isTransientGenerationError(error)) {
+      await sessionService.updateSession(chatId, userId, {
+        status: 'confirming',
+        reservedInvoiceNumber,
+      });
+      await telegramService.editMessageText(chatId, messageId, t('he', 'invoice.error'));
+      await telegramService.sendMessage(chatId, t('he', 'invoice.errorTransientRetry'), {
+        parseMode: 'Markdown',
+        replyMarkup: buildConfirmationKeyboard(),
+      });
+      return { action: 'generation_retryable', invoiceNumber: reservedInvoiceNumber };
+    }
 
     await sessionService.deleteSession(chatId, userId);
     await telegramService.editMessageText(chatId, messageId, t('he', 'invoice.error'));

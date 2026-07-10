@@ -15,6 +15,7 @@ import type {
 // Mock external services
 jest.mock('../../src/services/customer/user-mapping.service');
 jest.mock('../../src/services/document-generator/session.service');
+jest.mock('../../src/services/document-generator/counter.service');
 jest.mock('../../src/services/document-generator');
 jest.mock('../../src/services/telegram.service');
 jest.mock('../../src/services/document-generator/parser.service');
@@ -28,6 +29,7 @@ jest.mock('../../src/services/feature-flags', () => ({
 
 import * as userMappingService from '../../src/services/customer/user-mapping.service';
 import * as sessionService from '../../src/services/document-generator/session.service';
+import { getNextDocumentNumber } from '../../src/services/document-generator/counter.service';
 import { generateInvoice } from '../../src/services/document-generator';
 import * as telegramService from '../../src/services/telegram.service';
 import * as parserService from '../../src/services/document-generator/parser.service';
@@ -552,6 +554,8 @@ describe('Invoice Generator Integration Tests', () => {
           paymentMethod: 'cash',
           date: '2024-01-15',
         });
+        (getNextDocumentNumber as jest.Mock).mockResolvedValue('I-2026-1');
+        (sessionService.updateSession as jest.Mock).mockResolvedValue({});
         (generateInvoice as jest.Mock).mockResolvedValue({
           invoiceNumber: 123,
           filePath: '/path/to/invoice.pdf',

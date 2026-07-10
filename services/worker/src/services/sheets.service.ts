@@ -279,10 +279,13 @@ async function readInvoicesTabHeaders(
 }
 
 /**
- * Check whether the Invoices tab exists via spreadsheet metadata (not values.get).
- * More reliable than inferring from values.get parse errors when the API flakes.
+ * Check whether a tab exists via spreadsheet metadata (not values.get).
  */
-async function invoicesTabExists(sheetId: string): Promise<boolean> {
+async function spreadsheetHasTab(
+  sheetId: string,
+  tabTitle: string,
+  retryLabel: string
+): Promise<boolean> {
   const sheets = getSheets();
   const result = await withSheetsRetry(
     () =>
@@ -290,10 +293,46 @@ async function invoicesTabExists(sheetId: string): Promise<boolean> {
         spreadsheetId: sheetId,
         fields: 'sheets.properties.title',
       }),
-    'ensureInvoicesTab:metadata'
+    retryLabel
   );
 
-  return result.data.sheets?.some((sheet) => sheet.properties?.title === 'Invoices') ?? false;
+  return result.data.sheets?.some((sheet) => sheet.properties?.title === tabTitle) ?? false;
+}
+
+async function invoicesTabExists(sheetId: string): Promise<boolean> {
+  return spreadsheetHasTab(sheetId, 'Invoices', 'ensureInvoicesTab:metadata');
+}
+
+async function generatedInvoicesTabExists(sheetId: string): Promise<boolean> {
+  return spreadsheetHasTab(sheetId, 'Generated Invoices', 'ensureGeneratedInvoicesTab:metadata');
+}
+
+/**
+ * If values.get and metadata checks both fail (API flake), skip header sync and proceed to append.
+ */
+async function skipHeaderSyncIfTabLikelyExists(
+  sheetId: string,
+  tabTitle: string,
+  retryLabel: string,
+  valuesGetError: unknown
+): Promise<boolean> {
+  try {
+    if (await spreadsheetHasTab(sheetId, tabTitle, retryLabel)) {
+      logger.warn(
+        { sheetId, error: valuesGetError },
+        'values.get failed but tab exists (metadata check), skipping header sync'
+      );
+      return true;
+    }
+  } catch (metadataError) {
+    logger.warn(
+      { sheetId, error: valuesGetError, metadataError },
+      'values.get and metadata check failed, skipping header sync'
+    );
+    return true;
+  }
+
+  return false;
 }
 
 async function applyInvoicesTabHeaders(
@@ -372,11 +411,14 @@ async function ensureInvoicesTab(sheetId: string): Promise<void> {
       return;
     }
 
-    if (await invoicesTabExists(sheetId)) {
-      logger.warn(
-        { sheetId, error },
-        'values.get failed but Invoices tab exists (metadata check), skipping header sync'
-      );
+    if (
+      await skipHeaderSyncIfTabLikelyExists(
+        sheetId,
+        'Invoices',
+        'ensureInvoicesTab:metadata',
+        error
+      )
+    ) {
       return;
     }
 
@@ -596,82 +638,149 @@ export const GENERATED_INVOICES_HEADERS = [
 /**
  * Ensure Generated Invoices tab exists with headers
  */
-async function ensureGeneratedInvoicesTab(sheetId: string): Promise<void> {
+async function createGeneratedInvoicesTab(sheetId: string): Promise<void> {
   const sheets = getSheets();
 
-  try {
-    // Check if tab exists by trying to read from it
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: sheetId,
-      range: `'${GENERATED_INVOICES_TAB}'!A1:M1`, // 13 columns (A-M)
-    });
+  logger.info({ sheetId }, 'Creating Generated Invoices tab');
 
-    if (
-      response.data.values &&
-      response.data.values.length > 0 &&
-      response.data.values[0].length > 0
-    ) {
-      // Tab and headers exist - check if we need to add new columns
-      const existingHeaders = response.data.values[0];
-      if (existingHeaders.length < GENERATED_INVOICES_HEADERS.length) {
-        // Headers exist but missing new columns - update them
-        logger.info('Updating Generated Invoices headers to include new columns');
-        await sheets.spreadsheets.values.update({
+  await withSheetsRetry(
+    () =>
+      sheets.spreadsheets.batchUpdate({
+        spreadsheetId: sheetId,
+        requestBody: {
+          requests: [
+            {
+              addSheet: {
+                properties: {
+                  title: GENERATED_INVOICES_TAB,
+                },
+              },
+            },
+          ],
+        },
+      }),
+    'ensureGeneratedInvoicesTab:create'
+  );
+
+  await withSheetsRetry(
+    () =>
+      sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId,
+        range: `'${GENERATED_INVOICES_TAB}'!A1:M1`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [GENERATED_INVOICES_HEADERS],
+        },
+      }),
+    'ensureGeneratedInvoicesTab:headers'
+  );
+
+  logger.info('Generated Invoices tab created with headers');
+}
+
+async function readGeneratedInvoicesTabHeaders(
+  sheetId: string
+): Promise<sheets_v4.Schema$ValueRange | undefined> {
+  const sheets = getSheets();
+  const result = await withSheetsRetry(
+    () =>
+      sheets.spreadsheets.values.get({
+        spreadsheetId: sheetId,
+        range: `'${GENERATED_INVOICES_TAB}'!A1:M1`,
+      }),
+    'ensureGeneratedInvoicesTab:get'
+  );
+  return result.data;
+}
+
+async function applyGeneratedInvoicesTabHeaders(
+  sheetId: string,
+  response: sheets_v4.Schema$ValueRange | undefined
+): Promise<void> {
+  const sheets = getSheets();
+
+  if (response?.values && response.values.length > 0 && response.values[0].length > 0) {
+    const existingHeaders = response.values[0];
+    if (existingHeaders.length >= GENERATED_INVOICES_HEADERS.length) {
+      return;
+    }
+
+    logger.info('Updating Generated Invoices headers to include new columns');
+    await withSheetsRetry(
+      () =>
+        sheets.spreadsheets.values.update({
           spreadsheetId: sheetId,
           range: `'${GENERATED_INVOICES_TAB}'!A1:M1`,
           valueInputOption: 'RAW',
           requestBody: {
             values: [GENERATED_INVOICES_HEADERS],
           },
-        });
-        logger.info('Generated Invoices tab headers updated with new columns');
-      }
+        }),
+      'ensureGeneratedInvoicesTab:updateHeaders'
+    );
+    logger.info('Generated Invoices tab headers updated with new columns');
+    return;
+  }
+
+  await withSheetsRetry(
+    () =>
+      sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId,
+        range: `'${GENERATED_INVOICES_TAB}'!A1:M1`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [GENERATED_INVOICES_HEADERS],
+        },
+      }),
+    'ensureGeneratedInvoicesTab:addHeaders'
+  );
+
+  logger.info('Generated Invoices tab headers added');
+}
+
+async function ensureGeneratedInvoicesTab(sheetId: string): Promise<void> {
+  let response: sheets_v4.Schema$ValueRange | undefined;
+  try {
+    response = await readGeneratedInvoicesTabHeaders(sheetId);
+  } catch (error) {
+    if (isMissingTabError(error)) {
+      await createGeneratedInvoicesTab(sheetId);
       return;
     }
 
-    // Tab exists but no headers - add them
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: sheetId,
-      range: `'${GENERATED_INVOICES_TAB}'!A1:M1`, // 13 columns (A-M)
-      valueInputOption: 'RAW',
-      requestBody: {
-        values: [GENERATED_INVOICES_HEADERS],
-      },
-    });
+    if (
+      await skipHeaderSyncIfTabLikelyExists(
+        sheetId,
+        GENERATED_INVOICES_TAB,
+        'ensureGeneratedInvoicesTab:metadata',
+        error
+      )
+    ) {
+      return;
+    }
 
-    logger.info('Generated Invoices tab headers added');
-  } catch (error) {
-    // Tab doesn't exist - create it
-    logger.info('Creating Generated Invoices tab');
+    logger.warn(
+      { sheetId, error },
+      'values.get failed after retries, attempting Generated Invoices tab creation'
+    );
 
-    // Get spreadsheet to add a new sheet
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: sheetId,
-      requestBody: {
-        requests: [
-          {
-            addSheet: {
-              properties: {
-                title: GENERATED_INVOICES_TAB,
-              },
-            },
-          },
-        ],
-      },
-    });
-
-    // Add headers to new tab
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: sheetId,
-      range: `'${GENERATED_INVOICES_TAB}'!A1:M1`, // 13 columns (A-M)
-      valueInputOption: 'RAW',
-      requestBody: {
-        values: [GENERATED_INVOICES_HEADERS],
-      },
-    });
-
-    logger.info('Generated Invoices tab created with headers');
+    try {
+      await createGeneratedInvoicesTab(sheetId);
+      return;
+    } catch (createError) {
+      if (!isSheetAlreadyExistsError(createError)) {
+        throw createError;
+      }
+      if (await generatedInvoicesTabExists(sheetId)) {
+        logger.info({ sheetId }, 'Generated Invoices tab exists after create conflict, proceeding');
+        return;
+      }
+      logger.info({ sheetId }, 'Generated Invoices tab already exists, re-reading headers');
+      response = await readGeneratedInvoicesTabHeaders(sheetId);
+    }
   }
+
+  await applyGeneratedInvoicesTabHeaders(sheetId, response);
 }
 
 /**
@@ -725,15 +834,19 @@ export async function appendGeneratedInvoiceRow(
     'Appending row to customer Generated Invoices tab'
   );
 
-  const response = await sheets.spreadsheets.values.append({
-    spreadsheetId: resolvedSheetId,
-    range: `'${GENERATED_INVOICES_TAB}'!A:M`, // Columns A through M (13 columns)
-    valueInputOption: 'USER_ENTERED',
-    insertDataOption: 'INSERT_ROWS',
-    requestBody: {
-      values,
-    },
-  });
+  const response = await withSheetsRetry(
+    () =>
+      sheets.spreadsheets.values.append({
+        spreadsheetId: resolvedSheetId,
+        range: `'${GENERATED_INVOICES_TAB}'!A:M`, // Columns A through M (13 columns)
+        valueInputOption: 'USER_ENTERED',
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: {
+          values,
+        },
+      }),
+    'appendGeneratedInvoiceRow'
+  );
 
   logger.info('Row appended to Generated Invoices tab');
 

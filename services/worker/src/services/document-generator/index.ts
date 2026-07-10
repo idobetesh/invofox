@@ -24,10 +24,13 @@ import {
   saveInvoiceRecord,
   updateParentInvoicePayment,
   updateMultipleInvoicesPayment,
+  deleteGeneratedInvoiceRecord,
+  reverseParentInvoicePayment,
+  reverseMultipleInvoicesPayment,
 } from './invoice-store.service';
 import logger from '../../logger';
 import { getConfig } from '../../config';
-import { getStorage } from '../storage.service';
+import { deleteGeneratedPdfFile, getStorage } from '../storage.service';
 
 /**
  * Load business configuration from Firestore (by chat ID) or local file
@@ -55,11 +58,17 @@ function formatDateDisplay(date: string): string {
  * Generate invoice from confirmed session data
  * Returns the generated invoice details
  */
+export interface GenerateInvoiceOptions {
+  /** Reuse a number from a prior failed attempt (avoids counter gaps on retry) */
+  reservedInvoiceNumber?: string;
+}
+
 export async function generateInvoice(
   session: InvoiceSession,
   userId: number,
   username: string,
-  chatId: number
+  chatId: number,
+  options?: GenerateInvoiceOptions
 ): Promise<{
   invoiceNumber: string;
   pdfUrl: string;
@@ -92,9 +101,13 @@ export async function generateInvoice(
   const config = await loadBusinessConfig(chatId);
 
   // Step 4: Fetch logo and document number in parallel
+  const invoiceNumberPromise = options?.reservedInvoiceNumber
+    ? Promise.resolve(options.reservedInvoiceNumber)
+    : getNextDocumentNumber(chatId, session.documentType!);
+
   const [logoBase64, invoiceNumber] = await Promise.all([
     getLogoBase64(chatId, config.business.logoUrl),
-    getNextDocumentNumber(chatId, session.documentType),
+    invoiceNumberPromise,
   ]);
 
   log.debug(
@@ -132,76 +145,138 @@ export async function generateInvoice(
   );
   log.info({ pdfSize: pdfBuffer.length }, 'PDF generated');
 
-  // Step 7: Upload to Cloud Storage
-  const pdfUrl = await uploadPDF(chatId, invoiceNumber, pdfBuffer);
-  log.info({ pdfUrl }, 'PDF uploaded to storage');
+  const storagePath = buildGeneratedPdfPath(chatId, invoiceNumber);
+  let storageUploaded = false;
+  let firestoreSaved = false;
+  let parentPaymentUpdated = false;
 
-  // Step 8: Save to Firestore audit log
-  await saveInvoiceRecord(invoiceNumber, invoiceData, userId, username, chatId, pdfUrl, session);
-  log.info('Invoice record saved to Firestore');
+  try {
+    // Step 7: Upload to Cloud Storage (rolled back if later steps fail)
+    const pdfUrl = await uploadPDF(chatId, invoiceNumber, pdfBuffer);
+    storageUploaded = true;
+    log.info({ pdfUrl, storagePath }, 'PDF uploaded to storage');
 
-  // Step 9: If receipt, update parent invoice payment tracking
-  if (session.documentType === 'receipt') {
-    if (parentInvoices.length > 0) {
-      await updateMultipleInvoicesPayment(chatId, parentInvoices, invoiceNumber, session.amount!);
-      log.info(
-        {
-          parentInvoiceCount: parentInvoices.length,
-          parentInvoiceNumbers: parentInvoices.map((inv) => inv.invoiceNumber),
-          receiptAmount: session.amount,
-        },
-        parentInvoices.length === 1
-          ? 'Updated parent invoice payment tracking'
-          : 'Updated multiple parent invoices payment tracking'
-      );
-    } else if (session.relatedInvoiceNumber) {
-      // LEGACY: Old receipts with relatedInvoiceNumber (backward compatibility only)
-      await updateParentInvoicePayment(
-        chatId,
-        session.relatedInvoiceNumber,
-        invoiceNumber,
-        session.amount!
-      );
-      log.info(
-        { parentInvoice: session.relatedInvoiceNumber, receiptAmount: session.amount },
-        'Updated parent invoice payment tracking'
-      );
+    // Step 8: Log to Google Sheets before committing Firestore (same rule as OCR pipeline)
+    await appendGeneratedInvoiceRow(
+      chatId,
+      {
+        invoice_number: invoiceNumber,
+        document_type: getDocumentTypeLabel(invoiceData.documentType),
+        date: formatDateDisplay(invoiceData.date),
+        customer_name: invoiceData.customerName,
+        customer_tax_id: invoiceData.customerTaxId || '',
+        description: invoiceData.description,
+        amount: invoiceData.amount,
+        payment_method: invoiceData.paymentMethod || '',
+        generated_by: username,
+        generated_at: new Date().toISOString(),
+        pdf_link: pdfUrl,
+        currency: invoiceData.currency || 'ILS',
+        related_invoice: getRelatedInvoice(invoiceData.documentType, session),
+      },
+      config.business.sheetId
+    );
+    log.info('Invoice logged to customer Google Sheet');
+
+    // Step 9: Save to Firestore audit log
+    await saveInvoiceRecord(invoiceNumber, invoiceData, userId, username, chatId, pdfUrl, session);
+    firestoreSaved = true;
+    log.info('Invoice record saved to Firestore');
+
+    // Step 10: If receipt, update parent invoice payment tracking
+    if (session.documentType === 'receipt') {
+      if (parentInvoices.length > 0) {
+        await updateMultipleInvoicesPayment(chatId, parentInvoices, invoiceNumber, session.amount!);
+        parentPaymentUpdated = true;
+        log.info(
+          {
+            parentInvoiceCount: parentInvoices.length,
+            parentInvoiceNumbers: parentInvoices.map((inv) => inv.invoiceNumber),
+            receiptAmount: session.amount,
+          },
+          parentInvoices.length === 1
+            ? 'Updated parent invoice payment tracking'
+            : 'Updated multiple parent invoices payment tracking'
+        );
+      } else if (session.relatedInvoiceNumber) {
+        await updateParentInvoicePayment(
+          chatId,
+          session.relatedInvoiceNumber,
+          invoiceNumber,
+          session.amount!
+        );
+        parentPaymentUpdated = true;
+        log.info(
+          { parentInvoice: session.relatedInvoiceNumber, receiptAmount: session.amount },
+          'Updated parent invoice payment tracking'
+        );
+      }
     }
+
+    return {
+      invoiceNumber,
+      pdfUrl,
+      pdfBuffer,
+    };
+  } catch (error) {
+    log.error(
+      { error, storageUploaded, firestoreSaved, parentPaymentUpdated },
+      'Invoice generation failed, rolling back artifacts'
+    );
+
+    if (parentPaymentUpdated && session.documentType === 'receipt') {
+      try {
+        if (parentInvoices.length > 0) {
+          await reverseMultipleInvoicesPayment(
+            chatId,
+            parentInvoices,
+            invoiceNumber,
+            session.amount!
+          );
+        } else if (session.relatedInvoiceNumber) {
+          await reverseParentInvoicePayment(
+            chatId,
+            session.relatedInvoiceNumber,
+            invoiceNumber,
+            session.amount!
+          );
+        }
+      } catch (rollbackError) {
+        log.error(
+          { error: rollbackError },
+          'Failed to reverse parent invoice payment during rollback'
+        );
+      }
+    }
+
+    if (firestoreSaved) {
+      try {
+        await deleteGeneratedInvoiceRecord(chatId, invoiceNumber, invoiceData.documentType);
+      } catch (rollbackError) {
+        log.error({ error: rollbackError }, 'Failed to delete Firestore record during rollback');
+      }
+    }
+
+    if (storageUploaded) {
+      const deleted = await deleteGeneratedPdfFile(storagePath);
+      if (!deleted) {
+        log.error({ storagePath }, 'Failed to delete generated PDF during rollback');
+      }
+    }
+
+    throw error;
   }
-
-  // Step 10: Log to Google Sheets
-  await appendGeneratedInvoiceRow(
-    chatId,
-    {
-      invoice_number: invoiceNumber,
-      document_type: getDocumentTypeLabel(invoiceData.documentType),
-      date: formatDateDisplay(invoiceData.date),
-      customer_name: invoiceData.customerName,
-      customer_tax_id: invoiceData.customerTaxId || '',
-      description: invoiceData.description,
-      amount: invoiceData.amount,
-      payment_method: invoiceData.paymentMethod || '',
-      generated_by: username,
-      generated_at: new Date().toISOString(),
-      pdf_link: pdfUrl,
-      currency: invoiceData.currency || 'ILS',
-      related_invoice: getRelatedInvoice(invoiceData.documentType, session),
-    },
-    config.business.sheetId
-  );
-  log.info('Invoice logged to customer Google Sheet');
-
-  return {
-    invoiceNumber,
-    pdfUrl,
-    pdfBuffer,
-  };
 }
 
 /**
  * Upload PDF to Cloud Storage with per-customer path isolation
  * Path format: {chatId}/{year}/{invoiceNumber}.pdf
  */
+function buildGeneratedPdfPath(chatId: number, invoiceNumber: string): string {
+  const year = new Date().getFullYear();
+  return `${chatId}/${year}/${invoiceNumber}.pdf`;
+}
+
 async function uploadPDF(
   chatId: number,
   invoiceNumber: string,
@@ -211,9 +286,7 @@ async function uploadPDF(
   const bucketName = config.generatedInvoicesBucket;
   const gcs = getStorage();
   const bucket = gcs.bucket(bucketName);
-
-  const year = new Date().getFullYear();
-  const filePath = `${chatId}/${year}/${invoiceNumber}.pdf`;
+  const filePath = buildGeneratedPdfPath(chatId, invoiceNumber);
   const file = bucket.file(filePath);
 
   await file.save(pdfBuffer, {
