@@ -70,19 +70,27 @@ describe('ensureInvoicesTab metadata fallback', () => {
   });
 
   it('appendRow succeeds when values.get flakes but Invoices tab exists in metadata', async () => {
-    mockValuesGet.mockRejectedValue(streamError);
-    mockSpreadsheetsGet.mockResolvedValue({
-      data: {
-        sheets: [{ properties: { title: 'Invoices' } }, { properties: { title: 'Other' } }],
-      },
-    });
+    jest.useFakeTimers();
+    try {
+      mockValuesGet.mockRejectedValue(streamError);
+      mockSpreadsheetsGet.mockResolvedValue({
+        data: {
+          sheets: [{ properties: { title: 'Invoices' } }, { properties: { title: 'Other' } }],
+        },
+      });
 
-    const rowId = await appendRow(-1001234567, sampleRow);
+      const rowIdPromise = appendRow(-1001234567, sampleRow);
+      await jest.runAllTimersAsync();
+      const rowId = await rowIdPromise;
 
-    expect(rowId).toBe(2);
-    expect(mockSpreadsheetsGet).toHaveBeenCalled();
-    expect(mockBatchUpdate).not.toHaveBeenCalled();
-    expect(mockValuesAppend).toHaveBeenCalled();
+      expect(rowId).toBe(2);
+      expect(mockValuesGet).toHaveBeenCalledTimes(5);
+      expect(mockSpreadsheetsGet).toHaveBeenCalled();
+      expect(mockBatchUpdate).not.toHaveBeenCalled();
+      expect(mockValuesAppend).toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('appendRow tries to create tab when values.get fails and metadata has no Invoices tab', async () => {
