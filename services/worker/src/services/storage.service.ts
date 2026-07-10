@@ -89,25 +89,39 @@ export async function uploadInvoiceImage(
  * Delete a file from Cloud Storage (for rollback on failure).
  * Returns true when the object no longer exists.
  */
-export async function deleteFile(fileId: string): Promise<boolean> {
-  const config = getConfig();
+async function deleteBucketFile(bucketName: string, fileId: string): Promise<boolean> {
   const storage = getStorage();
-  const bucket = storage.bucket(config.storageBucket);
-  const file = bucket.file(fileId);
+  const file = storage.bucket(bucketName).file(fileId);
 
   try {
     await file.delete({ ignoreNotFound: true });
     const [exists] = await file.exists();
     if (exists) {
-      logger.error({ fileId }, 'File still exists after delete attempt');
+      logger.error({ bucketName, fileId }, 'File still exists after delete attempt');
       return false;
     }
-    logger.info({ fileId }, 'Deleted file from Cloud Storage (rollback)');
+    logger.info({ bucketName, fileId }, 'Deleted file from Cloud Storage (rollback)');
     return true;
   } catch (error) {
-    logger.error({ fileId, error }, 'Failed to delete file from Cloud Storage during rollback');
+    logger.error(
+      { bucketName, fileId, error },
+      'Failed to delete file from Cloud Storage during rollback'
+    );
     return false;
   }
+}
+
+export async function deleteFile(fileId: string): Promise<boolean> {
+  const config = getConfig();
+  return deleteBucketFile(config.storageBucket, fileId);
+}
+
+/**
+ * Delete a generated invoice PDF from Cloud Storage (for rollback on failure).
+ */
+export async function deleteGeneratedPdfFile(storagePath: string): Promise<boolean> {
+  const config = getConfig();
+  return deleteBucketFile(config.generatedInvoicesBucket, storagePath);
 }
 
 /**

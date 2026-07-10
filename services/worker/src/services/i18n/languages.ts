@@ -112,6 +112,8 @@ You're ready to go! Try these commands:
       created: '✅ {type} number {number} created successfully!',
       error: '❌ Error creating document!',
       errorDetails: '⚠️ Could not create document.\n\nPlease try again with /new',
+      errorTransientRetry:
+        '⚠️ Temporary error — nothing was saved.\n\nPress **Approve** again to retry.',
       cancelled: '❌ Document creation cancelled.',
       errorRetry: 'Error. Try again.',
       noAccess:
@@ -327,6 +329,7 @@ docs.google.com/spreadsheets/d/[זה_השדה]/edit`,
       created: '✅ {type} מספר {number} נוצרה בהצלחה!',
       error: '❌ שגיאה ביצירת המסמך!',
       errorDetails: '⚠️ לא הצלחנו ליצור את המסמך.\n\nאנא נסה שוב עם /new',
+      errorTransientRetry: '⚠️ שגיאה זמנית — לא נשמר כלום.\n\nלחץ שוב על **אישור** כדי לנסות מחדש.',
       cancelled: '❌ יצירת המסמך בוטלה.',
       errorRetry: 'שגיאה. נסה שוב.',
       noAccess: '❌ אין לך הרשאה ליצור מסמכים.\nשלח את הפקודה /new בקבוצה של העסק שלך.',

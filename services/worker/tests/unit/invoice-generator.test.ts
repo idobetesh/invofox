@@ -8,18 +8,26 @@ import type { InvoiceSession } from '../../../../shared/types';
 
 // Mock dependencies
 const mockSet = jest.fn();
+const mockDelete = jest.fn().mockResolvedValue(undefined);
 const mockGet = jest.fn();
 const mockDoc = jest.fn(() => ({
   set: mockSet,
   get: mockGet,
+  delete: mockDelete,
 }));
 const mockCollection = jest.fn(() => ({
   doc: mockDoc,
 }));
 
+const mockFileSave = jest.fn().mockResolvedValue(undefined);
+const mockFileDelete = jest.fn().mockResolvedValue(undefined);
+const mockFileExists = jest.fn().mockResolvedValue([false]);
+
 const mockBucket = jest.fn(() => ({
   file: jest.fn(() => ({
-    save: jest.fn().mockResolvedValue(undefined),
+    save: mockFileSave,
+    delete: mockFileDelete,
+    exists: mockFileExists,
     publicUrl: jest.fn(() => 'https://storage.googleapis.com/test-bucket/test.pdf'),
   })),
 }));
@@ -298,6 +306,33 @@ describe('Invoice Generator', () => {
       expect(mockDoc).toHaveBeenCalledTimes(2);
       expect(mockDoc).toHaveBeenNthCalledWith(1, 'chat_-1001111111_I-2026-10');
       expect(mockDoc).toHaveBeenNthCalledWith(2, 'chat_-1002222222_I-2026-10');
+    });
+
+    it('rolls back storage and skips Firestore when Google Sheets append fails', async () => {
+      mockAppendGeneratedInvoiceRow.mockRejectedValueOnce(new Error('Sheets API failed'));
+
+      await expect(generateInvoice(baseSession, userId, username, chatId)).rejects.toThrow(
+        'Sheets API failed'
+      );
+
+      expect(mockFileSave).toHaveBeenCalled();
+      expect(mockAppendGeneratedInvoiceRow).toHaveBeenCalled();
+      expect(mockSet).not.toHaveBeenCalled();
+      expect(mockFileDelete).toHaveBeenCalledWith({ ignoreNotFound: true });
+    });
+
+    it('reuses reserved invoice number on retry without calling counter again', async () => {
+      const session: InvoiceSession = {
+        ...baseSession,
+        reservedInvoiceNumber: 'I-2026-42',
+      };
+
+      const result = await generateInvoice(session, userId, username, chatId, {
+        reservedInvoiceNumber: 'I-2026-42',
+      });
+
+      expect(result.invoiceNumber).toBe('I-2026-42');
+      expect(mockGetNextDocumentNumber).not.toHaveBeenCalled();
     });
   });
 });
