@@ -9,7 +9,11 @@ import { generateInvoice, getGeneratedInvoice } from '.';
 import { getNextDocumentNumber } from './counter.service';
 import { isTransientGenerationError } from './generation-errors';
 import * as telegramService from '../telegram.service';
-import { buildConfirmationKeyboard, buildInvoiceSelectionKeyboard } from './keyboards.service';
+import {
+  buildConfirmationKeyboard,
+  buildInvoiceSelectionKeyboard,
+  buildRetryConfirmationKeyboard,
+} from './keyboards.service';
 import { getOpenInvoices, countOpenInvoices } from './open-invoices.service';
 import {
   buildConfirmationMessage,
@@ -432,7 +436,7 @@ export async function handleConfirm(
       await telegramService.editMessageText(chatId, messageId, t('he', 'invoice.error'));
       await telegramService.sendMessage(chatId, t('he', 'invoice.errorTransientRetry'), {
         parseMode: 'Markdown',
-        replyMarkup: buildConfirmationKeyboard(),
+        replyMarkup: buildRetryConfirmationKeyboard(),
       });
       return { action: 'generation_retryable', invoiceNumber: reservedInvoiceNumber };
     }

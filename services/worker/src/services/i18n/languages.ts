@@ -113,7 +113,7 @@ You're ready to go! Try these commands:
       error: '❌ Error creating document!',
       errorDetails: '⚠️ Could not create document.\n\nPlease try again with /new',
       errorTransientRetry:
-        '⚠️ Temporary error — nothing was saved.\n\nPress **Approve** again to retry.',
+        '⚠️ Temporary error — nothing was saved.\n\nTap **Try again** below to retry.',
       cancelled: '❌ Document creation cancelled.',
       errorRetry: 'Error. Try again.',
       noAccess:
@@ -154,7 +154,7 @@ You're ready to go! Try these commands:
 
     nl: {
       awaitingIntent:
-        '🎙️ Natural-language document creation\n\nDescribe the document in voice or text.\nExample: "Create an invoice-receipt for Moshe for a book, 300 ILS"',
+        '🎙️ *New document*\n\nYou can:\n• Send a *voice message* describing the document\n• *Type* a free-form request (e.g. "Invoice-receipt for Moshe, book, 300 ILS")\n• Use the *classic flow* — pick a document type below, then type:\n`Customer, amount, description`',
       parsing: '⏳ Analyzing your request...',
       parseError: '❌ Could not understand the request. Try again with clearer details.',
       emptyInput: '❌ Please send a voice message or text.',
@@ -329,7 +329,7 @@ docs.google.com/spreadsheets/d/[זה_השדה]/edit`,
       created: '✅ {type} מספר {number} נוצרה בהצלחה!',
       error: '❌ שגיאה ביצירת המסמך!',
       errorDetails: '⚠️ לא הצלחנו ליצור את המסמך.\n\nאנא נסה שוב עם /new',
-      errorTransientRetry: '⚠️ שגיאה זמנית — לא נשמר כלום.\n\nלחץ שוב על **אישור** כדי לנסות מחדש.',
+      errorTransientRetry: '⚠️ שגיאה זמנית — לא נשמר כלום.\n\nלחץ על **נסה שוב** למטה.',
       cancelled: '❌ יצירת המסמך בוטלה.',
       errorRetry: 'שגיאה. נסה שוב.',
       noAccess: '❌ אין לך הרשאה ליצור מסמכים.\nשלח את הפקודה /new בקבוצה של העסק שלך.',
@@ -371,7 +371,7 @@ docs.google.com/spreadsheets/d/[זה_השדה]/edit`,
 
     nl: {
       awaitingIntent:
-        '🎙️ יצירת מסמך בשפה טבעית\n\nתאר את המסמך בקול או בטקסט.\nלדוגמה: "תוציא לי חשבונית קבלה למשה על ספר בסכום של 300 שח"',
+        '🎙️ *יצירת מסמך חדש*\n\nאפשר:\n• לשלוח *הודעת קול* ולתאר את המסמך\n• *לכתוב בטקסט* חופשי (לדוגמה: "תוציא חשבונית-קבלה למשה על ספר ב-300 ש״ח")\n• להשתמש ב*זרימה הקלאסית* — בחר סוג מסמך למטה ואז שלח:\n`שם לקוח, סכום, תיאור`',
       parsing: '⏳ מנתח את הבקשה...',
       parseError: '❌ לא הצלחתי להבין את הבקשה. נסה שוב עם פרטים ברורים יותר.',
       emptyInput: '❌ שלח הודעת קול או טקסט.',

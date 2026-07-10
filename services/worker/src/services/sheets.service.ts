@@ -12,6 +12,9 @@ import { getBusinessConfig } from './business-config/config.service';
 import { getConfig } from '../config';
 import logger from '../logger';
 import { DEFAULT_CATEGORY } from './llms/utils';
+import { configureGoogleApiHttp } from './google-api-http';
+
+configureGoogleApiHttp();
 
 let sheetsClient: sheets_v4.Sheets | null = null;
 

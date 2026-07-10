@@ -181,9 +181,13 @@ export async function handleInvoiceMessage(req: Request, res: Response): Promise
         return;
       }
 
-      log.debug({ status: session.status }, 'Ignoring message for NL session status');
-      res.status(StatusCodes.OK).json({ ok: true, action: 'ignored_nl' });
-      return;
+      if (session.status === 'reviewing' || session.status === 'confirming') {
+        log.debug({ status: session.status }, 'Ignoring text for NL review/confirm (use buttons)');
+        res.status(StatusCodes.OK).json({ ok: true, action: 'ignored_nl' });
+        return;
+      }
+
+      // Legacy button flow after type selection: fall through to handlers below
     }
 
     if (session.status === 'awaiting_details') {

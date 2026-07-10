@@ -5,6 +5,9 @@
 
 import { google } from 'googleapis';
 import logger from '../../logger';
+import { configureGoogleApiHttp } from '../google-api-http';
+
+configureGoogleApiHttp();
 
 /**
  * Test if we can access the Google Sheet

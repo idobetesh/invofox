@@ -72,6 +72,23 @@ export function buildConfirmationKeyboard(): TelegramInlineKeyboardMarkup {
 }
 
 /**
+ * Same actions as confirmation keyboard, relabeled for transient-error retry.
+ */
+export function buildRetryConfirmationKeyboard(): TelegramInlineKeyboardMarkup {
+  const confirmData: InvoiceCallbackAction = { action: 'confirm' };
+  const cancelData: InvoiceCallbackAction = { action: 'cancel' };
+
+  return {
+    inline_keyboard: [
+      [
+        { text: '🔄 נסה שוב', callback_data: JSON.stringify(confirmData) },
+        { text: '❌ בטל', callback_data: JSON.stringify(cancelData) },
+      ],
+    ],
+  };
+}
+
+/**
  * Build invoice selection keyboard for receipt creation (multi-select)
  * Shows open invoices with checkbox selection, customer validation, and selection limits
  * @param openInvoices - List of open invoices to display (current page)
