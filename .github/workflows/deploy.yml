@@ -38,8 +38,10 @@ jobs:
         run: |
           npm ci
           cd services/webhook-handler && npm ci && npm run test:ci
-          cd ../worker && npm ci && npm run test:ci
-          bash .github/scripts/check-playwright-version-sync.sh
+          cd services/worker && npm ci && npm run test:ci
+
+      - name: Check Playwright version sync (worker)
+        run: bash .github/scripts/check-playwright-version-sync.sh
 
   # Build and push containers in parallel
   build:
