@@ -39,9 +39,10 @@ RUN npm run build
 # =============================================================================
 # Stage 2: Production — run worker + Playwright (invoice/receipt PDF generation)
 # =============================================================================
-# Tag must match playwright version in package.json (e.g. v1.58.2-noble ↔ ^1.58.2)
-# Includes: Node 24, Chromium, browser OS deps. Runs as pwuser by convention.
-FROM mcr.microsoft.com/playwright:v1.61.1-noble
+# PLAYWRIGHT_VERSION is injected at build time from package-lock.json (see deploy.yml).
+# Default below is for local `docker build` only — keep in sync with package-lock.
+ARG PLAYWRIGHT_VERSION=1.61.1
+FROM mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-noble
 
 ARG APP_VERSION=development
 

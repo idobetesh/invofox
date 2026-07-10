@@ -73,7 +73,11 @@ updates:
           - "minor"
           - "patch"
 
-  # Docker base images
+  # Docker base images (webhook-handler only)
+  # Worker Playwright image version is derived from services/worker/package-lock.json
+  # at build time (PLAYWRIGHT_VERSION build-arg). Do NOT add a docker ecosystem entry
+  # for /services/worker — dependabot #256/#258 bumped the base image without npm and
+  # broke PDF generation in production.
   - package-ecosystem: "docker"
     directory: "/services/webhook-handler"
     schedule:
@@ -86,17 +90,7 @@ updates:
       - "dependencies"
       - "docker"
 
-  - package-ecosystem: "docker"
-    directory: "/services/worker"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    commit-message:
-      prefix: "chore(docker)"
-    labels:
-      - "dependencies"
-      - "docker"
+  # NOTE: No docker ecosystem for /services/worker — see comment above.
 
   # Terraform providers
   - package-ecosystem: "terraform"

@@ -39,6 +39,7 @@ jobs:
           npm ci
           cd services/webhook-handler && npm ci && npm run test:ci
           cd ../worker && npm ci && npm run test:ci
+          bash .github/scripts/check-playwright-version-sync.sh
 
   # Build and push containers in parallel
   build:
@@ -65,6 +66,13 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Resolve Playwright version (worker)
+        if: matrix.service == 'worker'
+        id: playwright
+        run: |
+          VERSION=$(node -p "require('./services/worker/package-lock.json').packages['node_modules/playwright'].version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Build and push ${{ matrix.service }}
         uses: docker/build-push-action@v6
         with:
@@ -77,6 +85,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ matrix.service }}:latest
           build-args: |
             APP_VERSION=${{ github.sha }}
+            PLAYWRIGHT_VERSION=${{ steps.playwright.outputs.version }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=min,scope=${{ matrix.service }}
           provenance: false

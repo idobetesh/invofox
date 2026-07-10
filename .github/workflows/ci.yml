@@ -32,6 +32,9 @@ jobs:
       - name: Install worker dependencies
         run: cd services/worker && npm ci
 
+      - name: Check Playwright version sync (worker)
+        run: bash .github/scripts/check-playwright-version-sync.sh
+
       - name: Lint
         run: npm run lint
 
