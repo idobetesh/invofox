@@ -21,6 +21,7 @@ import {
   buildReviewKeyboard,
   buildConfirmationKeyboard,
   buildPaymentMethodKeyboard,
+  buildDocumentTypeKeyboard,
 } from './keyboards.service';
 import { buildConfirmationMessage, buildReviewMessage } from './messages.service';
 import { t } from '../i18n/languages';
@@ -73,7 +74,10 @@ function editFieldPrompt(field: NlDocumentEditField): string {
 
 export async function startNlSession(chatId: number, userId: number): Promise<void> {
   await sessionService.createNlSession(chatId, userId);
-  await telegramService.sendMessage(chatId, t('he', 'nl.awaitingIntent'));
+  await telegramService.sendMessage(chatId, t('he', 'nl.awaitingIntent'), {
+    parseMode: 'Markdown',
+    replyMarkup: buildDocumentTypeKeyboard(),
+  });
 }
 
 export async function handleIntentInput(
@@ -81,52 +85,64 @@ export async function handleIntentInput(
   userId: number,
   input: { text?: string; audioBuffer?: Buffer }
 ): Promise<string> {
-  await telegramService.sendMessage(chatId, t('he', 'nl.parsing'));
+  const parsingMessage = await telegramService.sendMessage(chatId, t('he', 'nl.parsing'));
+  const parsingMessageId = parsingMessage.message_id;
 
-  let parseResult;
   try {
-    if (input.audioBuffer) {
-      parseResult = await parseDocumentIntentFromAudio(input.audioBuffer);
-    } else if (input.text?.trim()) {
-      parseResult = await parseDocumentIntentFromText(input.text.trim());
-    } else {
-      await telegramService.sendMessage(chatId, t('he', 'nl.emptyInput'));
-      return 'empty_input';
+    let parseResult;
+    try {
+      if (input.audioBuffer) {
+        parseResult = await parseDocumentIntentFromAudio(input.audioBuffer);
+      } else if (input.text?.trim()) {
+        parseResult = await parseDocumentIntentFromText(input.text.trim());
+      } else {
+        await telegramService.sendMessage(chatId, t('he', 'nl.emptyInput'));
+        return 'empty_input';
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error({ chatId, error: message }, 'Document intent parse failed');
+      await telegramService.sendMessage(chatId, t('he', 'nl.parseError'));
+      return 'parse_error';
     }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    log.error({ chatId, error: message }, 'Document intent parse failed');
-    await telegramService.sendMessage(chatId, t('he', 'nl.parseError'));
-    return 'parse_error';
+
+    const { intent } = parseResult;
+
+    if (intent.missingFields.includes('unsupported_type_v1')) {
+      await sessionService.deleteSession(chatId, userId);
+      await telegramService.sendMessage(chatId, t('he', 'nl.unsupportedReceipt'));
+      return 'unsupported_receipt';
+    }
+
+    await sessionService.updateSession(chatId, userId, {
+      status: 'reviewing',
+      currency: intent.currency,
+      sourceTranscript: intent.transcript || input.text || t('he', 'nl.voiceTranscript'),
+      parseConfidence: intent.confidence,
+      ...(intent.documentType ? { documentType: intent.documentType } : {}),
+      ...(intent.customerName ? { customerName: intent.customerName } : {}),
+      ...(intent.description ? { description: intent.description } : {}),
+      ...(typeof intent.amount === 'number' ? { amount: intent.amount } : {}),
+      ...(intent.customerTaxId ? { customerTaxId: intent.customerTaxId } : {}),
+      ...(intent.paymentMethod ? { paymentMethod: intent.paymentMethod } : {}),
+    });
+
+    const session = await sessionService.getSession(chatId, userId);
+    if (!session) {
+      return 'session_lost';
+    }
+
+    return await routeAfterIntent(chatId, userId, session);
+  } finally {
+    try {
+      await telegramService.deleteMessage(chatId, parsingMessageId);
+    } catch (err) {
+      log.debug(
+        { err, parsingMessageId },
+        'Failed to delete parsing message (may already be deleted)'
+      );
+    }
   }
-
-  const { intent } = parseResult;
-
-  if (intent.missingFields.includes('unsupported_type_v1')) {
-    await sessionService.deleteSession(chatId, userId);
-    await telegramService.sendMessage(chatId, t('he', 'nl.unsupportedReceipt'));
-    return 'unsupported_receipt';
-  }
-
-  await sessionService.updateSession(chatId, userId, {
-    status: 'reviewing',
-    currency: intent.currency,
-    sourceTranscript: intent.transcript || input.text || t('he', 'nl.voiceTranscript'),
-    parseConfidence: intent.confidence,
-    ...(intent.documentType ? { documentType: intent.documentType } : {}),
-    ...(intent.customerName ? { customerName: intent.customerName } : {}),
-    ...(intent.description ? { description: intent.description } : {}),
-    ...(typeof intent.amount === 'number' ? { amount: intent.amount } : {}),
-    ...(intent.customerTaxId ? { customerTaxId: intent.customerTaxId } : {}),
-    ...(intent.paymentMethod ? { paymentMethod: intent.paymentMethod } : {}),
-  });
-
-  const session = await sessionService.getSession(chatId, userId);
-  if (!session) {
-    return 'session_lost';
-  }
-
-  return await routeAfterIntent(chatId, userId, session);
 }
 
 async function routeAfterIntent(

@@ -12,6 +12,9 @@
 #
 # PLAYWRIGHT_VERSION must be declared before the first FROM so BuildKit can use it
 # in the production stage FROM line (see deploy.yml build-arg).
+# Production image ships Node 24.x (Playwright base). If Sheets/Google API calls hit
+# ERR_STREAM_PREMATURE_CLOSE, worker also sets keepAlive:false on googleapis (see google-api-http.ts).
+# Long-term: prefer Playwright/Node images with Node >= 24.18.0 when available.
 ARG PLAYWRIGHT_VERSION=1.61.1
 
 # =============================================================================
