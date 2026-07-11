@@ -154,7 +154,7 @@ You're ready to go! Try these commands:
 
     nl: {
       awaitingIntent:
-        '📄 <b><i>New document</i></b>\n\nYou can:\n• Send a voice message describing the document\n• Type a free-form request, for example: <pre>Invoice-receipt for Moshe, book, 300 ILS</pre>\n• Choose a document type below and send:\n<code>customer name, amount, description</code>',
+        '<b><i>New document 📄</i></b>\n\nYou can:\n• Send a voice message describing the document\n• Type a free-form request, for example: "<code>Invoice-receipt for Moshe, book, 300 ILS</code>"\n• Choose a document type below and send: <code>customer name, amount, description</code>',
       parsing: '⏳ Analyzing your request...',
       parseError: '❌ Could not understand the request. Try again with clearer details.',
       emptyInput: '❌ Please send a voice message or text.',
@@ -372,7 +372,7 @@ docs.google.com/spreadsheets/d/[זה_השדה]/edit`,
 
     nl: {
       awaitingIntent:
-        '📄 <b><i>יצירת מסמך חדש</i></b>\n\nאפשר:\n• לשלוח הודעה קולית ולתאר את המסמך\n• לכתוב בטקסט חופשי לדוגמה: <pre>תוציא חשבונית-קבלה למשה על ספר ב-300 ש"ח</pre>\n• לבחור סוג מסמך למטה ולשלוח:\n<code>שם לקוח, סכום, תיאור</code>',
+        '<b><i>יצירת מסמך חדש 📄</i></b>\n\nאפשר:\n• לשלוח הודעת קול ולתאר את המסמך\n• לכתוב בטקסט חופשי לדוגמה: "<code>תוציא חשבונית-קבלה למשה על ספר ב-300 ש"ח</code>"\n• לבחור סוג מסמך למטה ולשלוח: <code>שם לקוח, סכום, תיאור</code>',
       parsing: '⏳ מנתח את הבקשה...',
       parseError: '❌ לא הצלחתי להבין את הבקשה. נסה שוב עם פרטים ברורים יותר.',
       emptyInput: '❌ שלח הודעת קול או טקסט.',
