@@ -1,8 +1,8 @@
+<h1 align="center">Invofox Invoice Bot</h1>
+
 <p align="center">
   <img src="docs/assets/logo.png" alt="Invofox" width="400">
 </p>
-
-<h1 align="center">Invofox Invoice Bot</h1>
 
 <p align="center">
   A serverless Telegram bot that automatically processes invoice images<br>
