@@ -198,6 +198,9 @@ function setupEventListeners() {
     .getElementById('refresh-bucket-btn')
     .addEventListener('click', Storage.loadBucketObjects);
   document
+    .getElementById('download-selected-storage')
+    .addEventListener('click', () => Storage.downloadSelectedStorage());
+  document
     .getElementById('delete-selected-storage')
     .addEventListener('click', () => Storage.deleteSelectedStorage());
   document

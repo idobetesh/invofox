@@ -1,4 +1,8 @@
 import { Storage } from '@google-cloud/storage';
+import type { Archiver } from 'archiver';
+import type { Readable } from 'stream';
+
+export const MAX_BULK_DOWNLOAD_OBJECTS = 100;
 
 export interface StorageBucket {
   name: string;
@@ -225,6 +229,68 @@ export class StorageService {
   async deleteObjects(bucketName: string, objectPaths: string[]): Promise<void> {
     const bucket = this.storage.bucket(bucketName);
     await Promise.all(objectPaths.map((path: string) => bucket.file(path).delete()));
+  }
+
+  /**
+   * Open a GCS object as a readable stream for download.
+   */
+  async openObjectDownloadStream(
+    bucketName: string,
+    objectPath: string
+  ): Promise<{
+    stream: Readable;
+    contentType: string;
+    size: number | undefined;
+    downloadName: string;
+  } | null> {
+    const bucket = this.storage.bucket(bucketName);
+    const file = bucket.file(objectPath);
+    const [exists] = await file.exists();
+    if (!exists) {
+      return null;
+    }
+
+    const [metadata] = await file.getMetadata();
+    const segments = objectPath.split('/');
+    const downloadName = segments[segments.length - 1] || 'download';
+    const sizeRaw = metadata.size;
+    const size =
+      typeof sizeRaw === 'string'
+        ? parseInt(sizeRaw, 10)
+        : typeof sizeRaw === 'number'
+          ? sizeRaw
+          : undefined;
+
+    return {
+      stream: file.createReadStream(),
+      contentType: metadata.contentType || 'application/octet-stream',
+      size: Number.isFinite(size) ? size : undefined,
+      downloadName,
+    };
+  }
+
+  /**
+   * Append selected bucket objects to a zip archive (paths preserved as entry names).
+   * Returns object paths that were missing in the bucket.
+   */
+  async appendObjectsToZip(
+    bucketName: string,
+    objectPaths: string[],
+    archive: Archiver
+  ): Promise<string[]> {
+    const skipped: string[] = [];
+
+    for (const objectPath of objectPaths) {
+      const opened = await this.openObjectDownloadStream(bucketName, objectPath);
+      if (!opened) {
+        skipped.push(objectPath);
+        continue;
+      }
+
+      archive.append(opened.stream, { name: objectPath });
+    }
+
+    return skipped;
   }
 
   /**

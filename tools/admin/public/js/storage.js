@@ -22,6 +22,132 @@ export let storagePageToken = null;
 let storageSortColumn = 'created'; // default sort
 let storageSortDirection = 'desc'; // newest first
 let currentStorageObjects = [];
+const storageObjectByPath = new Map();
+
+const HOVER_PREVIEW_SHOW_MS = 350;
+const HOVER_PREVIEW_HIDE_MS = 200;
+let hoverPreviewShowTimer = null;
+let hoverPreviewHideTimer = null;
+let storageHoverPreviewEl = null;
+
+function isPreviewableContentType(contentType) {
+  if (!contentType) return false;
+  return contentType.startsWith('image/') || contentType === 'application/pdf';
+}
+
+function getStorageHoverPreviewEl() {
+  if (storageHoverPreviewEl) return storageHoverPreviewEl;
+
+  storageHoverPreviewEl = document.createElement('div');
+  storageHoverPreviewEl.id = 'storage-hover-preview';
+  storageHoverPreviewEl.className = 'storage-hover-preview';
+  storageHoverPreviewEl.hidden = true;
+  storageHoverPreviewEl.innerHTML = `
+    <div class="storage-hover-preview-header"></div>
+    <div class="storage-hover-preview-body"></div>
+  `;
+
+  storageHoverPreviewEl.addEventListener('mouseenter', () => {
+    clearTimeout(hoverPreviewHideTimer);
+  });
+  storageHoverPreviewEl.addEventListener('mouseleave', () => {
+    scheduleHideStorageHoverPreview();
+  });
+
+  document.body.appendChild(storageHoverPreviewEl);
+  return storageHoverPreviewEl;
+}
+
+function positionStorageHoverPreview(anchor) {
+  const popover = getStorageHoverPreviewEl();
+  popover.hidden = false;
+  popover.style.visibility = 'hidden';
+  popover.style.left = '0';
+  popover.style.top = '0';
+
+  const margin = 12;
+  const rect = anchor.getBoundingClientRect();
+  const popoverWidth = popover.offsetWidth;
+  const popoverHeight = popover.offsetHeight;
+
+  let left = rect.right + margin;
+  if (left + popoverWidth > window.innerWidth - margin) {
+    left = rect.left - popoverWidth - margin;
+  }
+  if (left < margin) {
+    left = Math.min(margin, window.innerWidth - popoverWidth - margin);
+  }
+
+  let top = rect.top;
+  if (top + popoverHeight > window.innerHeight - margin) {
+    top = window.innerHeight - popoverHeight - margin;
+  }
+  if (top < margin) top = margin;
+
+  popover.style.left = `${left}px`;
+  popover.style.top = `${top}px`;
+  popover.style.visibility = '';
+}
+
+function hideStorageHoverPreview() {
+  clearTimeout(hoverPreviewShowTimer);
+  clearTimeout(hoverPreviewHideTimer);
+  if (storageHoverPreviewEl) {
+    storageHoverPreviewEl.hidden = true;
+    storageHoverPreviewEl.querySelector('.storage-hover-preview-body').replaceChildren();
+  }
+}
+
+function scheduleHideStorageHoverPreview() {
+  clearTimeout(hoverPreviewHideTimer);
+  hoverPreviewHideTimer = setTimeout(hideStorageHoverPreview, HOVER_PREVIEW_HIDE_MS);
+}
+
+function showStorageHoverPreview(anchor, obj) {
+  if (!obj?.publicUrl || !isPreviewableContentType(obj.contentType)) return;
+
+  const popover = getStorageHoverPreviewEl();
+  const header = popover.querySelector('.storage-hover-preview-header');
+  const body = popover.querySelector('.storage-hover-preview-body');
+
+  const fileName = obj.name.split('/').pop() || obj.name;
+  header.textContent = fileName;
+  body.replaceChildren();
+
+  if (obj.contentType.startsWith('image/')) {
+    const img = document.createElement('img');
+    img.src = obj.publicUrl;
+    img.alt = 'Document preview';
+    img.loading = 'lazy';
+    body.appendChild(img);
+  } else if (obj.contentType === 'application/pdf') {
+    const iframe = document.createElement('iframe');
+    iframe.src = obj.publicUrl;
+    iframe.title = 'PDF preview';
+    body.appendChild(iframe);
+  }
+
+  positionStorageHoverPreview(anchor);
+  popover.hidden = false;
+}
+
+function attachStorageNameHoverPreview(nameEl, objectPath) {
+  nameEl.addEventListener('mouseenter', () => {
+    const obj = storageObjectByPath.get(objectPath);
+    if (!obj || !isPreviewableContentType(obj.contentType)) return;
+
+    clearTimeout(hoverPreviewHideTimer);
+    clearTimeout(hoverPreviewShowTimer);
+    hoverPreviewShowTimer = setTimeout(() => {
+      showStorageHoverPreview(nameEl, obj);
+    }, HOVER_PREVIEW_SHOW_MS);
+  });
+
+  nameEl.addEventListener('mouseleave', () => {
+    clearTimeout(hoverPreviewShowTimer);
+    scheduleHideStorageHoverPreview();
+  });
+}
 
 /**
  * Load Cloud Storage buckets
@@ -88,6 +214,7 @@ export async function loadBucketObjects({ reset = true } = {}) {
     }
 
     currentStorageObjects = data.objects;
+    hideStorageHoverPreview();
     displayStorageObjects(currentStorageObjects);
     storagePageToken = data.nextPageToken || null;
     updateStoragePagination(data.hasMore || false);
@@ -125,6 +252,7 @@ function sortStorageObjects(objects) {
  */
 export function displayStorageObjects(objects) {
   const container = document.getElementById('objects-container');
+  hideStorageHoverPreview();
 
   if (objects.length === 0) {
     container.innerHTML = `
@@ -139,6 +267,8 @@ export function displayStorageObjects(objects) {
   }
 
   const sorted = sortStorageObjects(objects);
+  storageObjectByPath.clear();
+  sorted.forEach((obj) => storageObjectByPath.set(obj.name, obj));
 
   const sortIndicator = (col) => {
     if (storageSortColumn !== col) return ' <span style="color:#475569;font-size:11px;">⇅</span>';
@@ -170,11 +300,16 @@ export function displayStorageObjects(objects) {
     const size = formatBytes(obj.size);
     const created = formatDate(obj.timeCreated);
 
+    const previewable = isPreviewableContentType(obj.contentType);
+    const nameClasses = previewable
+      ? 'storage-object-name storage-object-name--previewable'
+      : 'storage-object-name';
+
     row.innerHTML = `
       <td class="checkbox-cell">
         <input type="checkbox" class="obj-checkbox" data-path="${obj.name}">
       </td>
-      <td><code>${obj.name}</code></td>
+      <td class="storage-name-cell"><code class="${nameClasses}" title="${previewable ? 'Hover to preview' : ''}">${obj.name}</code></td>
       <td>${size}</td>
       <td>${obj.contentType || '-'}</td>
       <td>${created}</td>
@@ -196,6 +331,11 @@ export function displayStorageObjects(objects) {
       </td>
     `;
     tbody.appendChild(row);
+
+    if (previewable) {
+      const nameEl = row.querySelector('.storage-object-name');
+      attachStorageNameHoverPreview(nameEl, obj.name);
+    }
   });
 
   container.innerHTML = '';
@@ -381,6 +521,90 @@ export function deleteStorageObject(bucketName, objectPath) {
       requireTyping: 'delete',
     }
   );
+}
+
+function extractDownloadFilename(contentDisposition, fallback) {
+  if (contentDisposition) {
+    const match = contentDisposition.match(/filename="?([^";]+)"?/i);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+  return fallback;
+}
+
+function triggerBrowserDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/**
+ * Download selected Storage objects (single file or zip).
+ */
+export async function downloadSelectedStorage() {
+  if (selectedStorageObjects.size === 0) {
+    showError('No objects selected');
+    return;
+  }
+
+  if (!currentBucket) {
+    showError('Please select a bucket');
+    return;
+  }
+
+  const objectPaths = Array.from(selectedStorageObjects);
+  const count = objectPaths.length;
+  const fallbackName =
+    count === 1
+      ? objectPaths[0].split('/').pop() || 'download'
+      : `${currentBucket}_${count}_objects.zip`;
+
+  showLoading();
+  try {
+    const response = await fetch(
+      `${API_BASE}/storage/buckets/${encodeURIComponent(currentBucket)}/download-multiple`,
+      {
+        method: 'POST',
+        headers: { ...getAuthHeaders().headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ objectPaths }),
+      }
+    );
+
+    if (!response.ok) {
+      let message = `HTTP ${response.status}`;
+      try {
+        const data = await response.json();
+        if (data?.error) message = data.error;
+        if (data?.message) message = `${data.error || message}: ${data.message}`;
+      } catch {
+        /* not JSON */
+      }
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    const filename = extractDownloadFilename(
+      response.headers.get('Content-Disposition'),
+      fallbackName
+    );
+    triggerBrowserDownload(blob, filename);
+
+    const summary =
+      count === 1
+        ? `Downloaded ${filename}`
+        : `Downloaded ${count} objects as ${filename}`;
+    showSuccess(summary);
+  } catch (error) {
+    showError('Failed to download objects: ' + error.message);
+  } finally {
+    hideLoading();
+  }
 }
 
 /**
