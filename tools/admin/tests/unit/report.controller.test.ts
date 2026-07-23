@@ -14,6 +14,7 @@
 
 import express from 'express';
 import request from 'supertest';
+import type { Response as SuperagentResponse } from 'superagent';
 import { ReportController } from '../../src/controllers/report.controller';
 import { ReportService } from '../../src/services/report.service';
 import { createReportRoutes } from '../../src/routes/report.routes';
@@ -38,9 +39,26 @@ function makeApp(generateReports: jest.Mock = jest.fn().mockResolvedValue([makeR
   Object.assign(svc, { generateReports });
   const controller = new ReportController(svc);
   const app = express();
+  app.use((_req, res, next) => {
+    res.setHeader('Connection', 'close');
+    next();
+  });
   app.use(express.json());
   app.use('/api', createReportRoutes(controller));
   return { app, svc };
+}
+
+/** Drain streamed zip bodies fully — avoids flaky HTTP parse errors in parallel Jest workers. */
+function postReportGenerateZip(app: express.Application, body: object) {
+  return request(app)
+    .post('/api/reports/generate')
+    .send(body)
+    .buffer(true)
+    .parse((res: SuperagentResponse, callback) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk: Buffer) => chunks.push(chunk));
+      res.on('end', () => callback(null, Buffer.concat(chunks)));
+    });
 }
 
 const VALID_BODY = {
@@ -75,13 +93,11 @@ describe('POST /api/reports/generate — validation', () => {
 
   it('returns 400 when reportTypes is missing', async () => {
     const { app } = makeApp();
-    const res = await request(app)
-      .post('/api/reports/generate')
-      .send({
-        chatId: VALID_BODY.chatId,
-        formats: VALID_BODY.formats,
-        datePreset: VALID_BODY.datePreset,
-      });
+    const res = await request(app).post('/api/reports/generate').send({
+      chatId: VALID_BODY.chatId,
+      formats: VALID_BODY.formats,
+      datePreset: VALID_BODY.datePreset,
+    });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/reportTypes/i);
   });
@@ -106,13 +122,11 @@ describe('POST /api/reports/generate — validation', () => {
 
   it('returns 400 when formats is missing', async () => {
     const { app } = makeApp();
-    const res = await request(app)
-      .post('/api/reports/generate')
-      .send({
-        chatId: VALID_BODY.chatId,
-        reportTypes: VALID_BODY.reportTypes,
-        datePreset: VALID_BODY.datePreset,
-      });
+    const res = await request(app).post('/api/reports/generate').send({
+      chatId: VALID_BODY.chatId,
+      reportTypes: VALID_BODY.reportTypes,
+      datePreset: VALID_BODY.datePreset,
+    });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/formats/i);
   });
@@ -137,13 +151,11 @@ describe('POST /api/reports/generate — validation', () => {
 
   it('returns 400 when no date spec is provided', async () => {
     const { app } = makeApp();
-    const res = await request(app)
-      .post('/api/reports/generate')
-      .send({
-        chatId: VALID_BODY.chatId,
-        reportTypes: VALID_BODY.reportTypes,
-        formats: VALID_BODY.formats,
-      });
+    const res = await request(app).post('/api/reports/generate').send({
+      chatId: VALID_BODY.chatId,
+      reportTypes: VALID_BODY.reportTypes,
+      formats: VALID_BODY.formats,
+    });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/datePreset|customStart/i);
   });
@@ -269,14 +281,16 @@ describe('POST /api/reports/generate — zip', () => {
     ];
     const { app } = makeApp(jest.fn().mockResolvedValue(results));
 
-    const res = await request(app)
-      .post('/api/reports/generate')
-      .send({ ...VALID_BODY, reportTypes: ['revenue', 'expenses'] });
+    const res = await postReportGenerateZip(app, {
+      ...VALID_BODY,
+      reportTypes: ['revenue', 'expenses'],
+    });
 
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/application\/zip/);
     expect(res.headers['content-disposition']).toMatch(/\.zip/);
-    expect(res.body).toBeTruthy();
+    expect(Buffer.isBuffer(res.body)).toBe(true);
+    expect((res.body as Buffer).length).toBeGreaterThan(0);
   });
 
   it('includes date range in the zip filename', async () => {
@@ -286,9 +300,10 @@ describe('POST /api/reports/generate — zip', () => {
     ];
     const { app } = makeApp(jest.fn().mockResolvedValue(results));
 
-    const res = await request(app)
-      .post('/api/reports/generate')
-      .send({ ...VALID_BODY, reportTypes: ['revenue', 'expenses'] });
+    const res = await postReportGenerateZip(app, {
+      ...VALID_BODY,
+      reportTypes: ['revenue', 'expenses'],
+    });
 
     expect(res.headers['content-disposition']).toContain('2026-04-01_2026-04-30');
   });

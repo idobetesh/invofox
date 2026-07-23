@@ -89,6 +89,10 @@ describe('AlertsService', () => {
   it('lists recent LLM fallbacks from Firestore jobs', async () => {
     process.env.WORKER_URL = '';
 
+    const fixedNow = new Date('2026-07-15T12:00:00.000Z').getTime();
+    const jobTime = fixedNow - 2 * 24 * 60 * 60 * 1000;
+    const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+
     const service = new AlertsService(
       mockFirestore([
         {
@@ -100,14 +104,15 @@ describe('AlertsService', () => {
             llmFallbackReason: '404 model not found',
             vendorName: 'Test Vendor',
             chatTitle: 'Papertrail',
-            receivedAt: '2026-06-17T13:17:12.000Z',
-            createdAt: { toMillis: () => new Date('2026-06-17T13:17:12.000Z').getTime() },
+            receivedAt: new Date(jobTime).toISOString(),
+            createdAt: { toMillis: () => jobTime },
           },
         },
       ]) as unknown as ConstructorParameters<typeof AlertsService>[0]
     );
 
     const result = await service.getAlerts();
+    dateNowSpy.mockRestore();
 
     expect(result.recentFallbacks).toHaveLength(1);
     expect(result.recentLlmJobs.length).toBeGreaterThanOrEqual(1);

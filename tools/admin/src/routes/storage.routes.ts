@@ -11,6 +11,10 @@ export function createStorageRoutes(storageController: StorageController): Route
   router.get(`${BASE_PATH}/:bucketName/objects/*`, storageController.getObject);
   router.delete(`${BASE_PATH}/:bucketName/objects/*`, storageController.deleteObject);
   router.post(`${BASE_PATH}/:bucketName/delete-multiple`, storageController.deleteMultipleObjects);
+  router.post(
+    `${BASE_PATH}/:bucketName/download-multiple`,
+    storageController.downloadMultipleObjects
+  );
 
   return router;
 }

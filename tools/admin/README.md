@@ -19,6 +19,7 @@ This is a powerful local-only admin tool for managing GCP resources. **Use with 
   - View object metadata
   - Delete individual objects
   - Bulk delete with selection
+  - Bulk download selected objects as zip (single file downloads directly)
 
 ## Security
 
@@ -160,6 +161,7 @@ npm run dev
 - `GET /api/storage/buckets/:name/objects/*` - Get object details
 - `DELETE /api/storage/buckets/:name/objects/*` - Delete object
 - `POST /api/storage/buckets/:name/delete-multiple` - Bulk delete
+- `POST /api/storage/buckets/:name/download-multiple` - Bulk download (zip, or single file)
 
 ## Known Collections
 

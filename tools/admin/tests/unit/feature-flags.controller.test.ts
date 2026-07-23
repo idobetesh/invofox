@@ -53,6 +53,10 @@ function makeApp(svcOverrides: Partial<FeatureFlagsService> = {}) {
 
   const controller = new FeatureFlagsController(svc);
   const app = express();
+  app.use((_req, res, next) => {
+    res.setHeader('Connection', 'close');
+    next();
+  });
   app.use(express.json());
   app.use('/api', createFeatureFlagsRoutes(controller));
   return { app, svc };
