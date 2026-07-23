@@ -4,8 +4,23 @@
  */
 
 import request from 'supertest';
+import type { Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { StatusCodes } from 'http-status-codes';
 import app from '../../src/app';
+
+let server: Server;
+let baseUrl: string;
+
+/** Avoid keep-alive socket pollution after malformed-body tests (supertest parse flakes). */
+function http() {
+  return {
+    post: (path: string) => request(baseUrl).post(path).set('Connection', 'close'),
+    get: (path: string) => request(baseUrl).get(path).set('Connection', 'close'),
+    put: (path: string) => request(baseUrl).put(path).set('Connection', 'close'),
+    delete: (path: string) => request(baseUrl).delete(path).set('Connection', 'close'),
+  };
+}
 
 // Mock external services for integration tests
 jest.mock('../../src/services/tasks.service');
@@ -39,9 +54,16 @@ jest.mock('../../src/logger', () => ({
 }));
 
 describe('Webhook Endpoint Integration Tests', () => {
+  beforeAll((done) => {
+    server = app.listen(0, () => {
+      const port = (server.address() as AddressInfo).port;
+      baseUrl = `http://127.0.0.1:${port}`;
+      done();
+    });
+  });
+
   afterAll((done) => {
-    // Force close any pending operations
-    done();
+    server.close(done);
   });
 
   const VALID_SECRET = 'test-secret-123';
@@ -99,7 +121,7 @@ describe('Webhook Endpoint Integration Tests', () => {
   describe('POST /webhook/:secretPath', () => {
     describe('Secret path validation', () => {
       it('should return 404 for invalid secret path', async () => {
-        const response = await request(app)
+        const response = await http()
           .post(`/webhook/${INVALID_SECRET}`)
           .send(createTextMessage('test'));
 
@@ -108,7 +130,7 @@ describe('Webhook Endpoint Integration Tests', () => {
       });
 
       it('should accept valid secret path', async () => {
-        const response = await request(app)
+        const response = await http()
           .post(`/webhook/${VALID_SECRET}`)
           .send(createTextMessage('test'));
 
@@ -116,7 +138,7 @@ describe('Webhook Endpoint Integration Tests', () => {
       });
 
       it('should return 404 for missing secret path', async () => {
-        const response = await request(app).post('/webhook/').send(createTextMessage('test'));
+        const response = await http().post('/webhook/').send(createTextMessage('test'));
 
         expect(response.status).toBe(StatusCodes.NOT_FOUND);
       });
@@ -124,18 +146,20 @@ describe('Webhook Endpoint Integration Tests', () => {
 
     describe('Request body validation', () => {
       it('should return 400 for empty body', async () => {
-        const response = await request(app).post(`/webhook/${VALID_SECRET}`).send({});
+        const response = await http().post(`/webhook/${VALID_SECRET}`).send({});
 
         expect(response.status).toBe(StatusCodes.BAD_REQUEST);
         expect(response.body.error).toMatch(/invalid update/i);
       });
 
       it('should return 400 for invalid JSON', async () => {
-        const response = await request(app)
-          .post(`/webhook/${VALID_SECRET}`)
-          .set('Content-Type', 'application/json')
-          .send('invalid json{');
-
+        // Do not use supertest here — malformed bodies can poison keep-alive sockets
+        // and cause flaky "Parse Error: Expected HTTP/" on following tests.
+        const response = await fetch(`${baseUrl}/webhook/${VALID_SECRET}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Connection: 'close' },
+          body: 'invalid json{',
+        });
         expect(response.status).toBe(StatusCodes.BAD_REQUEST);
       });
 
@@ -147,13 +171,13 @@ describe('Webhook Endpoint Integration Tests', () => {
           },
         };
 
-        const response = await request(app).post(`/webhook/${VALID_SECRET}`).send(invalidUpdate);
+        const response = await http().post(`/webhook/${VALID_SECRET}`).send(invalidUpdate);
 
         expect(response.status).toBe(StatusCodes.BAD_REQUEST);
       });
 
       it('should accept valid text message update', async () => {
-        const response = await request(app)
+        const response = await http()
           .post(`/webhook/${VALID_SECRET}`)
           .send(createTextMessage('Hello'));
 
@@ -161,9 +185,7 @@ describe('Webhook Endpoint Integration Tests', () => {
       });
 
       it('should accept valid photo message update', async () => {
-        const response = await request(app)
-          .post(`/webhook/${VALID_SECRET}`)
-          .send(createPhotoMessage());
+        const response = await http().post(`/webhook/${VALID_SECRET}`).send(createPhotoMessage());
 
         expect(response.status).toBe(StatusCodes.OK);
       });
@@ -171,7 +193,7 @@ describe('Webhook Endpoint Integration Tests', () => {
 
     describe('Content-Type handling', () => {
       it('should accept application/json', async () => {
-        const response = await request(app)
+        const response = await http()
           .post(`/webhook/${VALID_SECRET}`)
           .set('Content-Type', 'application/json')
           .send(createTextMessage('test'));
@@ -180,7 +202,7 @@ describe('Webhook Endpoint Integration Tests', () => {
       });
 
       it('should have application/json response', async () => {
-        const response = await request(app)
+        const response = await http()
           .post(`/webhook/${VALID_SECRET}`)
           .send(createTextMessage('test'));
 
@@ -190,7 +212,7 @@ describe('Webhook Endpoint Integration Tests', () => {
 
     describe('Message types handling', () => {
       it('should handle /new command', async () => {
-        const response = await request(app)
+        const response = await http()
           .post(`/webhook/${VALID_SECRET}`)
           .send(createTextMessage('/new'));
 
@@ -199,7 +221,7 @@ describe('Webhook Endpoint Integration Tests', () => {
       });
 
       it('should handle /onboard command', async () => {
-        const response = await request(app)
+        const response = await http()
           .post(`/webhook/${VALID_SECRET}`)
           .send(createTextMessage('/onboard'));
 
@@ -208,7 +230,7 @@ describe('Webhook Endpoint Integration Tests', () => {
       });
 
       it('should handle regular text messages', async () => {
-        const response = await request(app)
+        const response = await http()
           .post(`/webhook/${VALID_SECRET}`)
           .send(createTextMessage('Hello world'));
 
@@ -217,16 +239,14 @@ describe('Webhook Endpoint Integration Tests', () => {
       });
 
       it('should handle photo messages', async () => {
-        const response = await request(app)
-          .post(`/webhook/${VALID_SECRET}`)
-          .send(createPhotoMessage());
+        const response = await http().post(`/webhook/${VALID_SECRET}`).send(createPhotoMessage());
 
         expect(response.status).toBe(StatusCodes.OK);
         expect(response.body).toHaveProperty('ok', true);
       });
 
       it('should ignore unknown commands', async () => {
-        const response = await request(app)
+        const response = await http()
           .post(`/webhook/${VALID_SECRET}`)
           .send(createTextMessage('/unknowncommand'));
 
@@ -237,13 +257,13 @@ describe('Webhook Endpoint Integration Tests', () => {
 
     describe('HTTP method restrictions', () => {
       it('should not accept GET requests', async () => {
-        const response = await request(app).get(`/webhook/${VALID_SECRET}`);
+        const response = await http().get(`/webhook/${VALID_SECRET}`);
 
         expect(response.status).toBe(StatusCodes.NOT_FOUND);
       });
 
       it('should not accept PUT requests', async () => {
-        const response = await request(app)
+        const response = await http()
           .put(`/webhook/${VALID_SECRET}`)
           .send(createTextMessage('test'));
 
@@ -251,7 +271,7 @@ describe('Webhook Endpoint Integration Tests', () => {
       });
 
       it('should not accept DELETE requests', async () => {
-        const response = await request(app).delete(`/webhook/${VALID_SECRET}`);
+        const response = await http().delete(`/webhook/${VALID_SECRET}`);
 
         expect(response.status).toBe(StatusCodes.NOT_FOUND);
       });
@@ -259,7 +279,7 @@ describe('Webhook Endpoint Integration Tests', () => {
 
     describe('Response format', () => {
       it('should return ok: true for successful processing', async () => {
-        const response = await request(app)
+        const response = await http()
           .post(`/webhook/${VALID_SECRET}`)
           .send(createTextMessage('test'));
 
@@ -268,7 +288,7 @@ describe('Webhook Endpoint Integration Tests', () => {
       });
 
       it('should include action in response', async () => {
-        const response = await request(app)
+        const response = await http()
           .post(`/webhook/${VALID_SECRET}`)
           .send(createTextMessage('test'));
 
@@ -280,14 +300,14 @@ describe('Webhook Endpoint Integration Tests', () => {
 
     describe('Error responses', () => {
       it('should return error object for validation failures', async () => {
-        const response = await request(app).post(`/webhook/${VALID_SECRET}`).send({});
+        const response = await http().post(`/webhook/${VALID_SECRET}`).send({});
 
         expect(response.body).toHaveProperty('error');
         expect(typeof response.body.error).toBe('string');
       });
 
       it('should return error object for wrong secret', async () => {
-        const response = await request(app)
+        const response = await http()
           .post(`/webhook/${INVALID_SECRET}`)
           .send(createTextMessage('test'));
 
@@ -298,13 +318,13 @@ describe('Webhook Endpoint Integration Tests', () => {
 
   describe('Endpoint not found', () => {
     it('should return 404 for unknown routes', async () => {
-      const response = await request(app).get('/unknown');
+      const response = await http().get('/unknown');
 
       expect(response.status).toBe(StatusCodes.NOT_FOUND);
     });
 
     it('should return 404 for /webhook without secret', async () => {
-      const response = await request(app).post('/webhook').send(createTextMessage('test'));
+      const response = await http().post('/webhook').send(createTextMessage('test'));
 
       expect(response.status).toBe(StatusCodes.NOT_FOUND);
     });

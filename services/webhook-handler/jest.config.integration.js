@@ -14,6 +14,7 @@ module.exports = {
   verbose: true,
   testTimeout: 10000, // Integration tests may take longer
   forceExit: true, // Force exit after tests complete (integration tests may have open handles)
+  maxWorkers: 1,
   // Don't transform node_modules except for ES modules
   transformIgnorePatterns: ['node_modules/(?!(.*\\.mjs$))'],
 };
