@@ -89,6 +89,10 @@ describe('AlertsService', () => {
   it('lists recent LLM fallbacks from Firestore jobs', async () => {
     process.env.WORKER_URL = '';
 
+    const recent = new Date();
+    recent.setDate(recent.getDate() - 1);
+    const recentIso = recent.toISOString();
+
     const service = new AlertsService(
       mockFirestore([
         {
@@ -100,8 +104,8 @@ describe('AlertsService', () => {
             llmFallbackReason: '404 model not found',
             vendorName: 'Test Vendor',
             chatTitle: 'Papertrail',
-            receivedAt: '2026-06-17T13:17:12.000Z',
-            createdAt: { toMillis: () => new Date('2026-06-17T13:17:12.000Z').getTime() },
+            receivedAt: recentIso,
+            createdAt: { toMillis: () => recent.getTime() },
           },
         },
       ]) as unknown as ConstructorParameters<typeof AlertsService>[0]
