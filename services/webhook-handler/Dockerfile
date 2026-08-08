@@ -6,7 +6,7 @@
 # - BuildKit cache mounts for npm cache
 # - Multi-stage build to minimize final image size
 
-FROM node:24-slim AS builder
+FROM node:26-slim AS builder
 
 # Version passed at build time
 ARG APP_VERSION=development
@@ -39,7 +39,7 @@ RUN npm run build
 # ============================================================================
 # Production stage - minimal runtime image
 # ============================================================================
-FROM node:24-slim
+FROM node:26-slim
 
 ARG APP_VERSION=development
 
