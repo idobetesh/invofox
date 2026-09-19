@@ -9,7 +9,6 @@
 
 import { Firestore, FieldPath } from '@google-cloud/firestore';
 import { Storage } from '@google-cloud/storage';
-import { execSync } from 'child_process';
 import {
   BUSINESS_CONFIG_COLLECTION,
   INVOICE_COUNTERS_COLLECTION,
@@ -964,8 +963,8 @@ export class OffboardingService {
         }
       }
 
-      // Force cleanup using gsutil to clear console UI artifacts
-      this.forceRemoveFolderArtifact(this.generatedInvoicesBucket, `logos/${chatId}/`);
+      // Force cleanup to clear console UI artifacts
+      await this.forceRemoveFolderArtifact(this.generatedInvoicesBucket, `logos/${chatId}/`);
     } catch (error) {
       report.errors.push(`logos: ${error}`);
     }
@@ -998,8 +997,8 @@ export class OffboardingService {
         }
       }
 
-      // Force cleanup using gsutil to clear console UI artifacts
-      this.forceRemoveFolderArtifact(this.generatedInvoicesBucket, `${chatId}/`);
+      // Force cleanup to clear console UI artifacts
+      await this.forceRemoveFolderArtifact(this.generatedInvoicesBucket, `${chatId}/`);
     } catch (error) {
       report.errors.push(`generated_pdfs: ${error}`);
     }
@@ -1036,23 +1035,20 @@ export class OffboardingService {
         }
       }
 
-      // Force cleanup using gsutil to clear console UI artifacts
-      this.forceRemoveFolderArtifact(this.invoicesBucket, `invoices/${chatId}/`);
+      // Force cleanup to clear console UI artifacts
+      await this.forceRemoveFolderArtifact(this.invoicesBucket, `invoices/${chatId}/`);
     } catch (error) {
       report.errors.push(`received_invoices: ${error}`);
     }
   }
 
   /**
-   * Force cleanup of empty folder artifacts using gsutil
-   * This addresses GCP console UI caching issues
+   * Force cleanup of empty folder artifacts under a prefix.
+   * Best-effort sweep for anything missed above (e.g. console UI folder markers).
    */
-  private forceRemoveFolderArtifact(bucketName: string, prefix: string): void {
+  private async forceRemoveFolderArtifact(bucketName: string, prefix: string): Promise<void> {
     try {
-      // Try to force remove using gsutil - this might help clear console UI cache
-      execSync(`gsutil -m rm -r gs://${bucketName}/${prefix} 2>/dev/null || true`, {
-        stdio: 'ignore',
-      });
+      await this.storage.bucket(bucketName).deleteFiles({ prefix, force: true });
     } catch {
       // Ignore errors - this is a best-effort cleanup for UI artifacts
     }
