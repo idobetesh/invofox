@@ -157,25 +157,41 @@ function generateChartConfig(
 ): string {
   const title = REPORT_CHART_TITLES[reportType as ReportType] || 'מגמה';
   const currencySymbol = getCurrencySymbol(currency);
-  // Use nicer colors with gradients
-  const backgroundColor =
+
+  const revenueColors = {
+    backgroundColor: 'rgba(59, 130, 246, 0.8)',
+    borderColor: 'rgb(37, 99, 235)',
+    hoverBackgroundColor: 'rgba(37, 99, 235, 0.9)',
+  };
+  const balancePositiveColors = {
+    backgroundColor: 'rgba(16, 185, 129, 0.8)',
+    borderColor: 'rgb(5, 150, 105)',
+    hoverBackgroundColor: 'rgba(5, 150, 105, 0.9)',
+  };
+  const balanceNegativeColors = {
+    backgroundColor: 'rgba(239, 68, 68, 0.8)',
+    borderColor: 'rgb(220, 38, 38)',
+    hoverBackgroundColor: 'rgba(220, 38, 38, 0.9)',
+  };
+  const expenseColors = {
+    backgroundColor: 'rgba(239, 68, 68, 0.8)',
+    borderColor: 'rgb(220, 38, 38)',
+    hoverBackgroundColor: 'rgba(220, 38, 38, 0.9)',
+  };
+
+  const pickBarColors = (value: number) =>
+    value < 0 ? balanceNegativeColors : balancePositiveColors;
+
+  const barColors =
     reportType === 'revenue'
-      ? 'rgba(59, 130, 246, 0.8)'
+      ? revenueColors
       : reportType === 'balance'
-        ? 'rgba(16, 185, 129, 0.8)'
-        : 'rgba(239, 68, 68, 0.8)';
-  const borderColor =
-    reportType === 'revenue'
-      ? 'rgb(37, 99, 235)'
-      : reportType === 'balance'
-        ? 'rgb(5, 150, 105)'
-        : 'rgb(220, 38, 38)';
-  const hoverColor =
-    reportType === 'revenue'
-      ? 'rgba(37, 99, 235, 0.9)'
-      : reportType === 'balance'
-        ? 'rgba(5, 150, 105, 0.9)'
-        : 'rgba(220, 38, 38, 0.9)';
+        ? {
+            backgroundColor: data.map((v) => pickBarColors(v).backgroundColor),
+            borderColor: data.map((v) => pickBarColors(v).borderColor),
+            hoverBackgroundColor: data.map((v) => pickBarColors(v).hoverBackgroundColor),
+          }
+        : expenseColors;
 
   const config = {
     type: 'bar',
@@ -185,10 +201,10 @@ function generateChartConfig(
         {
           label: title,
           data,
-          backgroundColor: backgroundColor,
-          borderColor: borderColor,
+          backgroundColor: barColors.backgroundColor,
+          borderColor: barColors.borderColor,
           borderWidth: 2,
-          hoverBackgroundColor: hoverColor,
+          hoverBackgroundColor: barColors.hoverBackgroundColor,
           borderRadius: 6,
           borderSkipped: false,
         },
