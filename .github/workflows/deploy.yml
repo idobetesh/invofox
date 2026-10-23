@@ -15,7 +15,7 @@ on:
 env:
   PROJECT_ID: papertrail-invoice
   REGION: us-central1
-  REGISTRY: docker.io/idobet21
+  REGISTRY: ghcr.io/${{ github.repository_owner }}
 
 jobs:
   test:
@@ -64,9 +64,11 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 45
+
     permissions:
       contents: read
-      actions: write
+      packages: write
+
     strategy:
       matrix:
         service: [webhook-handler, worker]
@@ -77,21 +79,24 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Resolve Playwright version (worker only)
         if: matrix.service == 'worker'
         id: playwright
         run: |
           VERSION=$(node -p "require('./services/worker/package-lock.json').packages['node_modules/playwright'].version")
+
           if [ -z "$VERSION" ]; then
             echo "Could not resolve playwright version from package-lock.json"
             exit 1
           fi
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Resolved PLAYWRIGHT_VERSION=$VERSION"
 
@@ -130,15 +135,18 @@ jobs:
           cache-to: type=gha,mode=min,scope=worker
           provenance: false
           sbom: false
-          outputs: type=image,push=true,oci-mediatypes=false,compression=gzip,force-compression=true
+          outputs: type=registry,oci-mediatypes=false
 
       - name: Smoke test Playwright in worker image
         if: matrix.service == 'worker'
         run: |
           IMAGE="${{ env.REGISTRY }}/worker:${{ github.sha }}"
+
           docker pull "$IMAGE"
+
           docker run --rm --user pwuser "$IMAGE" node -e "
             const { chromium } = require('playwright');
+
             chromium.launch({
               headless: true,
               args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
@@ -149,9 +157,10 @@ jobs:
           "
 
   deploy:
-    name: Deploy
+    name: Validate GHCR
     needs: build
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
       id-token: write
@@ -168,28 +177,84 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Deploy webhook-handler
+      - name: Verify public GHCR images
         run: |
-          gcloud run services update webhook-handler \
-            --image ${{ env.REGISTRY }}/webhook-handler:${{ github.sha }} \
-            --region ${{ env.REGION }} \
-            --project ${{ env.PROJECT_ID }} \
-            --cpu-throttling \
-            --memory 512Mi \
-            --cpu 1
+          set -euo pipefail
 
-      - name: Deploy worker
-        run: |
-          gcloud run services update worker \
-            --image ${{ env.REGISTRY }}/worker:${{ github.sha }} \
-            --region ${{ env.REGION }} \
-            --project ${{ env.PROJECT_ID }} \
-            --cpu-throttling \
-            --memory 1Gi \
-            --cpu 2
+          docker logout ghcr.io || true
 
-      - name: Deployment complete
+          for SERVICE in webhook-handler worker; do
+            IMAGE="${{ env.REGISTRY }}/${SERVICE}:${{ github.sha }}"
+
+            echo "Checking anonymous access to $IMAGE"
+
+            docker manifest inspect "$IMAGE" > /dev/null
+
+            echo "Public image accessible: $IMAGE"
+          done
+
+      - name: Validate Cloud Run image imports
         run: |
-          echo "✅ Deployed successfully!"
-          echo "Webhook: https://webhook-handler-695175335266.${{ env.REGION }}.run.app"
-          echo "Worker: https://worker-695175335266.${{ env.REGION }}.run.app"
+          set -euo pipefail
+
+          for SERVICE in webhook-handler worker; do
+            IMAGE="${{ env.REGISTRY }}/${SERVICE}:${{ github.sha }}"
+            TEST_SERVICE="ghcr-import-${SERVICE}"
+
+            echo "Testing Cloud Run import: $IMAGE"
+
+            # A deployment can fail because the test service lacks production
+            # environment variables or secrets. That does not necessarily
+            # indicate an image import failure.
+            gcloud run deploy "$TEST_SERVICE" \
+              --image "$IMAGE" \
+              --region "${{ env.REGION }}" \
+              --project "${{ env.PROJECT_ID }}" \
+              --no-allow-unauthenticated \
+              --min-instances 0 \
+              --max-instances 1 \
+              --memory 1Gi \
+              --cpu 2 \
+              --quiet || true
+
+            REVISION=$(gcloud run services describe "$TEST_SERVICE" \
+              --region "${{ env.REGION }}" \
+              --project "${{ env.PROJECT_ID }}" \
+              --format='value(status.latestCreatedRevisionName)')
+
+            if [ -z "$REVISION" ]; then
+              echo "::error::No revision was created for $TEST_SERVICE"
+              exit 1
+            fi
+
+            echo "Created revision: $REVISION"
+
+            gcloud run revisions describe "$REVISION" \
+              --region "${{ env.REGION }}" \
+              --project "${{ env.PROJECT_ID }}" \
+              --format='yaml(status.conditions)'
+
+            REASON=$(gcloud run revisions describe "$REVISION" \
+              --region "${{ env.REGION }}" \
+              --project "${{ env.PROJECT_ID }}" \
+              --format='value(status.conditions[0].reason)')
+
+            echo "Revision reason: $REASON"
+
+            if [ "$REASON" = "ContainerImageImportFailed" ]; then
+              echo "::error::Cloud Run failed to import $IMAGE"
+              exit 1
+            fi
+
+            echo "No ContainerImageImportFailed reported for $SERVICE"
+          done
+
+      - name: Clean up test services
+        if: always()
+        run: |
+          for SERVICE in webhook-handler worker; do
+            gcloud run services delete "ghcr-import-${SERVICE}" \
+              --region "${{ env.REGION }}" \
+              --project "${{ env.PROJECT_ID }}" \
+              --quiet || true
+          done
