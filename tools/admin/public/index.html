@@ -261,7 +261,7 @@
             </div>
             <div class="input-group">
               <label for="prefix-filter">Prefix Filter</label>
-              <input type="text" id="prefix-filter" class="modern-input" placeholder="e.g., '2026/'">
+              <input type="text" id="prefix-filter" class="modern-input" placeholder="e.g. invoices/{chatId}/2026/10/">
             </div>
             <button id="load-bucket-btn" class="btn btn-primary">
               <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -310,6 +310,11 @@
           </div>
         </div>
         <div class="card-body">
+          <p
+            id="storage-list-hint"
+            hidden
+            style="font-size:0.8rem;color:var(--muted,#94a3b8);margin:0 0 12px;line-height:1.4;"
+          ></p>
           <div id="objects-container">
             <div class="empty-state">
               <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

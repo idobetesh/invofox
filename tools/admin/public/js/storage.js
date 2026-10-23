@@ -30,6 +30,10 @@ let hoverPreviewShowTimer = null;
 let hoverPreviewHideTimer = null;
 let storageHoverPreviewEl = null;
 
+/** GCS lists in name order, 100 keys per API page — load enough pages so Created sort is meaningful */
+const STORAGE_LIST_PAGE_SIZE = 100;
+const STORAGE_MAX_LIST_PAGES = 100;
+
 function isPreviewableContentType(contentType) {
   if (!contentType) return false;
   return contentType.startsWith('image/') || contentType === 'application/pdf';
@@ -171,9 +175,71 @@ export async function loadBuckets() {
 }
 
 /**
- * Load objects from a bucket (newest by create date first).
+ * Fetch all list pages for a bucket/prefix (GCS has no "sort by created" API).
+ */
+async function fetchAllStorageObjectPages(bucketName, prefix) {
+  const objects = [];
+  let pageToken = null;
+  let truncated = false;
+
+  for (let page = 0; page < STORAGE_MAX_LIST_PAGES; page++) {
+    let url = `${API_BASE}/storage/buckets/${encodeURIComponent(bucketName)}/objects?maxResults=${STORAGE_LIST_PAGE_SIZE}`;
+    if (prefix) {
+      url += `&prefix=${encodeURIComponent(prefix)}`;
+    }
+    if (pageToken) {
+      url += `&pageToken=${encodeURIComponent(pageToken)}`;
+    }
+
+    const response = await fetch(url, getAuthHeaders());
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    if (!data || !Array.isArray(data.objects)) {
+      throw new Error('Invalid response format: objects array not found');
+    }
+
+    objects.push(...data.objects);
+    pageToken = data.nextPageToken || null;
+    if (!pageToken) {
+      break;
+    }
+    if (page === STORAGE_MAX_LIST_PAGES - 1) {
+      truncated = true;
+    }
+  }
+
+  return { objects, truncated };
+}
+
+function updateStorageListHint({ count, truncated, prefix }) {
+  const el = document.getElementById('storage-list-hint');
+  if (!el) {
+    return;
+  }
+  if (count === 0) {
+    el.hidden = true;
+    el.textContent = '';
+    return;
+  }
+
+  el.hidden = false;
+  let text = `Loaded ${count} object${count === 1 ? '' : 's'}`;
+  text += prefix.trim() ? ' for this prefix' : ' from this bucket';
+  text += '. “Created” sort applies to this loaded set only.';
+  if (truncated) {
+    text += ` Showing first ${STORAGE_MAX_LIST_PAGES * STORAGE_LIST_PAGE_SIZE} — use a narrower prefix.`;
+  }
+  el.textContent = text;
+}
+
+/**
+ * Load objects from a bucket (fetches all list pages, then sort by Created in the table).
  * @param {object} options
- * @param {boolean} options.reset - When true, reload from the first page
+ * @param {boolean} options.reset - When true, clear selection and default sort to Created ↓
  */
 export async function loadBucketObjects({ reset = true } = {}) {
   const bucketName = document.getElementById('bucket-select').value;
@@ -192,32 +258,18 @@ export async function loadBucketObjects({ reset = true } = {}) {
     storageSortDirection = 'desc';
   }
 
-  const prefix = document.getElementById('prefix-filter').value;
+  const prefix = document.getElementById('prefix-filter').value.trim();
 
   showLoading();
   try {
-    let url = `${API_BASE}/storage/buckets/${bucketName}/objects?maxResults=100`;
-    if (prefix) url += `&prefix=${encodeURIComponent(prefix)}`;
-    if (storagePageToken) url += `&pageToken=${encodeURIComponent(storagePageToken)}`;
+    const { objects, truncated } = await fetchAllStorageObjectPages(bucketName, prefix);
 
-    const response = await fetch(url, getAuthHeaders());
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: response.statusText }));
-      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-
-    if (!data || !Array.isArray(data.objects)) {
-      throw new Error('Invalid response format: objects array not found');
-    }
-
-    currentStorageObjects = data.objects;
+    currentStorageObjects = objects;
     hideStorageHoverPreview();
     displayStorageObjects(currentStorageObjects);
-    storagePageToken = data.nextPageToken || null;
-    updateStoragePagination(data.hasMore || false);
+    storagePageToken = null;
+    updateStoragePagination(false);
+    updateStorageListHint({ count: objects.length, truncated, prefix });
 
     document.getElementById('refresh-bucket-btn').style.display = 'inline-block';
   } catch (error) {

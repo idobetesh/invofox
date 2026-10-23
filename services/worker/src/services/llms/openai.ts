@@ -10,6 +10,7 @@ import { INVOICE_EXTRACTION_PROMPT } from './prompts';
 import { getConfig } from '../../config';
 import logger from '../../logger';
 import { normalizeExtraction, getMimeType } from './utils';
+import { withOpenAiRetry } from './retry';
 
 // gpt-4o-mini pricing (as of 2024)
 const PRICE_PER_INPUT_TOKEN = 0.00000015; // $0.15 per 1M tokens
@@ -22,6 +23,8 @@ function getClient(): OpenAI {
     const config = getConfig();
     openaiClient = new OpenAI({
       apiKey: config.openaiApiKey,
+      maxRetries: 0,
+      timeout: 120_000,
     });
   }
   return openaiClient;
@@ -48,34 +51,38 @@ export async function extractInvoiceData(
   const startTime = Date.now();
 
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: INVOICE_EXTRACTION_PROMPT,
-        },
-        {
-          role: 'user',
-          content: [
+    const response = await withOpenAiRetry(
+      () =>
+        openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
             {
-              type: 'text',
-              text: 'Extract invoice data from this image:',
+              role: 'system',
+              content: INVOICE_EXTRACTION_PROMPT,
             },
             {
-              type: 'image_url',
-              image_url: {
-                url: imageUrl,
-                detail: 'high',
-              },
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Extract invoice data from this image:',
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: imageUrl,
+                    detail: 'high',
+                  },
+                },
+              ],
             },
           ],
-        },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.1,
-      max_tokens: 500,
-    });
+          response_format: { type: 'json_object' },
+          temperature: 0.1,
+          max_tokens: 500,
+        }),
+      'extractInvoiceData'
+    );
 
     const duration = Date.now() - startTime;
 
@@ -140,7 +147,10 @@ export async function extractInvoiceDataMulti(
   try {
     // Build message content with all images using proper OpenAI types
     type TextPart = { type: 'text'; text: string };
-    type ImagePart = { type: 'image_url'; image_url: { url: string; detail: 'high' | 'low' | 'auto' } };
+    type ImagePart = {
+      type: 'image_url';
+      image_url: { url: string; detail: 'high' | 'low' | 'auto' };
+    };
     type ContentPart = TextPart | ImagePart;
 
     const contentParts: ContentPart[] = [
@@ -162,22 +172,26 @@ export async function extractInvoiceDataMulti(
       });
     }
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: INVOICE_EXTRACTION_PROMPT,
-        },
-        {
-          role: 'user',
-          content: contentParts,
-        },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.1,
-      max_tokens: 500,
-    });
+    const response = await withOpenAiRetry(
+      () =>
+        openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: INVOICE_EXTRACTION_PROMPT,
+            },
+            {
+              role: 'user',
+              content: contentParts,
+            },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.1,
+          max_tokens: 500,
+        }),
+      'extractInvoiceDataMulti'
+    );
 
     const duration = Date.now() - startTime;
 
@@ -195,7 +209,13 @@ export async function extractInvoiceDataMulti(
     };
 
     logger.info(
-      { provider: 'openai', imageCount: imageBuffers.length, durationMs: duration, totalTokens, costUSD: costUSD.toFixed(6) },
+      {
+        provider: 'openai',
+        imageCount: imageBuffers.length,
+        durationMs: duration,
+        totalTokens,
+        costUSD: costUSD.toFixed(6),
+      },
       'OpenAI multi-image extraction completed'
     );
 
