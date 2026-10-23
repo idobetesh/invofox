@@ -15,12 +15,13 @@ on:
 env:
   PROJECT_ID: papertrail-invoice
   REGION: us-central1
-  REGISTRY: docker.io/idobet21
+  REGISTRY: ghcr.io/${{ github.repository_owner }}
 
 jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v6
 
@@ -64,9 +65,11 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 45
+
     permissions:
       contents: read
-      actions: write
+      packages: write
+
     strategy:
       matrix:
         service: [webhook-handler, worker]
@@ -77,21 +80,24 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Resolve Playwright version (worker only)
         if: matrix.service == 'worker'
         id: playwright
         run: |
           VERSION=$(node -p "require('./services/worker/package-lock.json').packages['node_modules/playwright'].version")
+
           if [ -z "$VERSION" ]; then
             echo "Could not resolve playwright version from package-lock.json"
             exit 1
           fi
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Resolved PLAYWRIGHT_VERSION=$VERSION"
 
@@ -130,15 +136,18 @@ jobs:
           cache-to: type=gha,mode=min,scope=worker
           provenance: false
           sbom: false
-          outputs: type=image,push=true,oci-mediatypes=false,compression=gzip,force-compression=true
+          outputs: type=registry,oci-mediatypes=false
 
       - name: Smoke test Playwright in worker image
         if: matrix.service == 'worker'
         run: |
           IMAGE="${{ env.REGISTRY }}/worker:${{ github.sha }}"
+
           docker pull "$IMAGE"
+
           docker run --rm --user pwuser "$IMAGE" node -e "
             const { chromium } = require('playwright');
+
             chromium.launch({
               headless: true,
               args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
@@ -149,9 +158,14 @@ jobs:
           "
 
   deploy:
-    name: Deploy
+    name: Deploy to Cloud Run
     needs: build
     runs-on: ubuntu-latest
+
+    concurrency:
+      group: cloud-run-production
+      cancel-in-progress: false
+
     permissions:
       contents: read
       id-token: write
@@ -168,12 +182,28 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Verify public GHCR images
+        run: |
+          set -euo pipefail
+
+          docker logout ghcr.io || true
+
+          for SERVICE in webhook-handler worker; do
+            IMAGE="${{ env.REGISTRY }}/${SERVICE}:${{ github.sha }}"
+
+            echo "Checking anonymous access to $IMAGE"
+
+            docker manifest inspect "$IMAGE" > /dev/null
+
+            echo "Public image accessible: $IMAGE"
+          done
+
       - name: Deploy webhook-handler
         run: |
           gcloud run services update webhook-handler \
-            --image ${{ env.REGISTRY }}/webhook-handler:${{ github.sha }} \
-            --region ${{ env.REGION }} \
-            --project ${{ env.PROJECT_ID }} \
+            --image "${{ env.REGISTRY }}/webhook-handler:${{ github.sha }}" \
+            --region "${{ env.REGION }}" \
+            --project "${{ env.PROJECT_ID }}" \
             --cpu-throttling \
             --memory 512Mi \
             --cpu 1
@@ -181,9 +211,9 @@ jobs:
       - name: Deploy worker
         run: |
           gcloud run services update worker \
-            --image ${{ env.REGISTRY }}/worker:${{ github.sha }} \
-            --region ${{ env.REGION }} \
-            --project ${{ env.PROJECT_ID }} \
+            --image "${{ env.REGISTRY }}/worker:${{ github.sha }}" \
+            --region "${{ env.REGION }}" \
+            --project "${{ env.PROJECT_ID }}" \
             --cpu-throttling \
             --memory 1Gi \
             --cpu 2
