@@ -129,6 +129,8 @@ jobs:
           cache-from: type=gha,scope=worker
           cache-to: type=gha,mode=min,scope=worker
           provenance: false
+          sbom: false
+          outputs: type=registry,oci-mediatypes=false
 
       - name: Smoke test Playwright in worker image
         if: matrix.service == 'worker'
@@ -165,8 +167,6 @@ jobs:
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
-        with:
-          use_existing_auth: true
 
       - name: Deploy webhook-handler
         run: |

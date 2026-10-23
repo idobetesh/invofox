@@ -2,142 +2,171 @@ name: Cleanup Docker Images
 
 on:
   schedule:
-    # Run every Sunday at 2 AM UTC
     - cron: '0 2 * * 0'
-  workflow_dispatch: # Allow manual trigger
+  workflow_dispatch:
 
 env:
   DOCKERHUB_USERNAME: idobet21
-  KEEP_IMAGES: 5  # Keep only the last 5 images per service
+  PROJECT_ID: papertrail-invoice
+  REGION: us-central1
+  KEEP_IMAGES: 12
 
 jobs:
   cleanup:
     name: Cleanup ${{ matrix.service }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       matrix:
         service: [webhook-handler, worker]
 
     steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Resolve protected tags
+        id: prod
+        run: |
+          set -euo pipefail
+          SERVICE='${{ matrix.service }}'
+          PROTECT=()
+
+          add_tag_from_image() {
+            local ref="$1"
+            if [[ "$ref" == *@sha256:* ]]; then
+              return 0
+            fi
+            local tag="${ref##*:}"
+            if [ -n "$tag" ] && [ "$tag" != "$ref" ]; then
+              PROTECT+=("$tag")
+            fi
+          }
+
+          REV="$(gcloud run services describe "$SERVICE" \
+            --region "${{ env.REGION }}" \
+            --project "${{ env.PROJECT_ID }}" \
+            --format='value(status.traffic[0].revisionName)')"
+          if [ -n "$REV" ]; then
+            IMG="$(gcloud run revisions describe "$REV" \
+              --region "${{ env.REGION }}" \
+              --project "${{ env.PROJECT_ID }}" \
+              --format='value(spec.containers[0].image)')"
+            add_tag_from_image "$IMG"
+          fi
+
+          TPL="$(gcloud run services describe "$SERVICE" \
+            --region "${{ env.REGION }}" \
+            --project "${{ env.PROJECT_ID }}" \
+            --format='value(spec.template.spec.containers[0].image)')"
+          add_tag_from_image "$TPL"
+
+          if [ "${#PROTECT[@]}" -eq 0 ]; then
+            echo "protected=" >> "$GITHUB_OUTPUT"
+            echo "Protected tags: (none with tag suffix; digest-only refs skipped)"
+            exit 0
+          fi
+
+          UNIQUE="$(printf '%s\n' "${PROTECT[@]}" | sort -u | paste -sd, -)"
+          echo "protected=$UNIQUE" >> "$GITHUB_OUTPUT"
+          echo "Protected tags: $UNIQUE"
+
       - name: Get Docker Hub JWT Token
         id: auth
         run: |
-          # Docker Hub API requires JWT token for delete operations
-          TOKEN=$(curl -s -X POST "https://hub.docker.com/v2/users/login" \
+          set -euo pipefail
+          TOKEN="$(curl -s -X POST "https://hub.docker.com/v2/users/login" \
             -H "Content-Type: application/json" \
-            -d '{"username": "${{ env.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' \
-            | jq -r '.token')
-          
-          if [ "$TOKEN" = "null" ] || [ -z "$TOKEN" ]; then
-            echo "❌ Failed to authenticate with Docker Hub"
+            -d "{\"username\": \"${{ env.DOCKERHUB_USERNAME }}\", \"password\": \"${{ secrets.DOCKERHUB_TOKEN }}\"}" \
+            | jq -r '.token')"
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "Failed to authenticate with Docker Hub"
             exit 1
           fi
-          echo "✅ Authenticated with Docker Hub"
-          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
-      - name: Get tag count for ${{ matrix.service }}
-        id: get-digests
-        run: |
-          NAMESPACE="${{ env.DOCKERHUB_USERNAME }}"
-          REPO="${{ matrix.service }}"
-          TOKEN="${{ steps.auth.outputs.token }}"
-          
-          # Get all tags using the correct v2/namespaces endpoint
-          TAGS=$(curl -s -H "Authorization: Bearer $TOKEN" \
-            "https://hub.docker.com/v2/namespaces/$NAMESPACE/repositories/$REPO/tags?page_size=100" \
-            | jq -r '.results | sort_by(.last_pushed) | reverse | .[].name')
-          
-          TOTAL=$(echo "$TAGS" | grep -c . || echo "0")
-          echo "total_images=$TOTAL" >> $GITHUB_OUTPUT
-          echo "Found $TOTAL total tags"
-          
-          # Calculate how many to delete (total - keep - 1 for latest)
-          KEEP=${{ env.KEEP_IMAGES }}
-          TO_DELETE_COUNT=$((TOTAL - KEEP))
-          if [ $TO_DELETE_COUNT -lt 0 ]; then
-            TO_DELETE_COUNT=0
-          fi
-          
-          # Check if latest is in the keep range, if not we need to account for it
-          LATEST_IN_TOP=$(echo "$TAGS" | head -n $KEEP | grep -c "^latest$" || echo "0")
-          
-          echo "Tags to keep: $KEEP (+ latest if not in top $KEEP)"
-          echo "Tags to delete: $TO_DELETE_COUNT"
-          
-          if [ $TO_DELETE_COUNT -gt 0 ]; then
-            echo "should_delete=true" >> $GITHUB_OUTPUT
-            echo "to_delete_count=$TO_DELETE_COUNT" >> $GITHUB_OUTPUT
-          else
-            echo "should_delete=false" >> $GITHUB_OUTPUT
-            echo "to_delete_count=0" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Delete old images for ${{ matrix.service }}
+      - name: Delete unneeded tags
         id: delete
-        if: steps.get-digests.outputs.should_delete == 'true'
+        env:
+          TOKEN: ${{ steps.auth.outputs.token }}
+          PROTECTED: ${{ steps.prod.outputs.protected }}
         run: |
+          set -euo pipefail
           NAMESPACE="${{ env.DOCKERHUB_USERNAME }}"
           REPO="${{ matrix.service }}"
-          TOKEN="${{ steps.auth.outputs.token }}"
-          DELETED=0
-          FAILED=0
-          
-          echo "Deleting old tags for $REPO..."
-          
-          # Get tags to delete (excluding latest and keeping most recent N)
-          # Using the correct v2/namespaces endpoint format
-          TAGS_TO_DELETE=$(curl -s -H "Authorization: Bearer $TOKEN" \
-            "https://hub.docker.com/v2/namespaces/$NAMESPACE/repositories/$REPO/tags?page_size=100" \
-            | jq -r '.results | sort_by(.last_pushed) | reverse | .[${{ env.KEEP_IMAGES }}:] | .[].name' \
-            | grep -v "^latest$" || true)
-          
-          if [ -z "$TAGS_TO_DELETE" ]; then
-            echo "No tags to delete"
-            echo "deleted_count=0" >> $GITHUB_OUTPUT
-            echo "failed_count=0" >> $GITHUB_OUTPUT
+          KEEP="${{ env.KEEP_IMAGES }}"
+
+          TAGS_JSON='[]'
+          URL="https://hub.docker.com/v2/namespaces/${NAMESPACE}/repositories/${REPO}/tags?page_size=100"
+          while [ -n "$URL" ]; do
+            RESP="$(curl -s -H "Authorization: Bearer $TOKEN" "$URL")"
+            TAGS_JSON="$(jq -n --argjson acc "$TAGS_JSON" --argjson resp "$RESP" \
+              '$acc + ($resp.results // [])')"
+            URL="$(echo "$RESP" | jq -r '.next // empty')"
+          done
+
+          TOTAL="$(echo "$TAGS_JSON" | jq 'length')"
+          echo "total_images=$TOTAL" >> "$GITHUB_OUTPUT"
+
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "deleted_count=0" >> "$GITHUB_OUTPUT"
+            echo "failed_count=0" >> "$GITHUB_OUTPUT"
+            echo "No tags found"
             exit 0
           fi
-          
-          TOTAL=$(echo "$TAGS_TO_DELETE" | grep -c . || echo "0")
-          echo "Found $TOTAL tags to delete"
-          
-          while read tag; do
-            if [ -z "$tag" ]; then continue; fi
-            
-            echo "Deleting tag: $tag..."
-            
-            # Use the correct v2/namespaces endpoint for deletion
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
+
+          mapfile -t TAGS_TO_DELETE < <(echo "$TAGS_JSON" | jq -r --argjson keep "$KEEP" --arg protected "$PROTECTED" '
+            ($protected | if length > 0 then split(",") else [] end) as $prot |
+            sort_by(.last_pushed) | reverse as $sorted |
+            ($sorted[0:$keep] | map(.name)) as $recent |
+            ((["latest"] + $prot + $recent) | unique) as $keep_set |
+            $sorted | map(.name) | .[] | select(. as $t | ($keep_set | index($t)) | not)
+          ')
+
+          if [ "${#TAGS_TO_DELETE[@]}" -eq 0 ]; then
+            echo "deleted_count=0" >> "$GITHUB_OUTPUT"
+            echo "failed_count=0" >> "$GITHUB_OUTPUT"
+            echo "Nothing to delete"
+            exit 0
+          fi
+
+          DELETED=0
+          FAILED=0
+          for tag in "${TAGS_TO_DELETE[@]}"; do
+            [ -z "$tag" ] && continue
+            HTTP_CODE="$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
               -H "Authorization: Bearer $TOKEN" \
-              "https://hub.docker.com/v2/namespaces/$NAMESPACE/repositories/$REPO/tags/$tag")
-            
+              "https://hub.docker.com/v2/namespaces/${NAMESPACE}/repositories/${REPO}/tags/${tag}")"
             if [ "$HTTP_CODE" = "202" ] || [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
-              echo "✅ Deleted tag: $tag"
+              echo "Deleted tag: $tag"
               DELETED=$((DELETED + 1))
             else
-              echo "❌ Failed to delete tag: $tag (HTTP $HTTP_CODE)"
+              echo "Failed to delete tag: $tag (HTTP $HTTP_CODE)"
               FAILED=$((FAILED + 1))
             fi
-            
             sleep 0.3
-          done <<< "$TAGS_TO_DELETE"
-          
-          echo "deleted_count=$DELETED" >> $GITHUB_OUTPUT
-          echo "failed_count=$FAILED" >> $GITHUB_OUTPUT
+          done
+
+          echo "deleted_count=$DELETED" >> "$GITHUB_OUTPUT"
+          echo "failed_count=$FAILED" >> "$GITHUB_OUTPUT"
 
       - name: Summary
         run: |
-          echo "### Cleanup Summary for ${{ matrix.service }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Total images found | ${{ steps.get-digests.outputs.total_images }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Images kept | ${{ env.KEEP_IMAGES }} + latest |" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.get-digests.outputs.should_delete }}" = "true" ]; then
-            echo "| Images deleted | ${{ steps.delete.outputs.deleted_count || '0' }} ✅ |" >> $GITHUB_STEP_SUMMARY
-            if [ "${{ steps.delete.outputs.failed_count }}" != "0" ] && [ -n "${{ steps.delete.outputs.failed_count }}" ]; then
-              echo "| Failed to delete | ${{ steps.delete.outputs.failed_count }} ❌ |" >> $GITHUB_STEP_SUMMARY
-            fi
-          else
-            echo "| Images deleted | 0 (no cleanup needed) |" >> $GITHUB_STEP_SUMMARY
-          fi
+          {
+            echo "### Cleanup Summary for ${{ matrix.service }}"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| Total tags | ${{ steps.delete.outputs.total_images }} |"
+            echo "| Keep (recent + latest + prod) | ${{ env.KEEP_IMAGES }} + protected |"
+            echo "| Protected prod tags | ${{ steps.prod.outputs.protected || '—' }} |"
+            echo "| Deleted | ${{ steps.delete.outputs.deleted_count || '0' }} |"
+            echo "| Failed | ${{ steps.delete.outputs.failed_count || '0' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
