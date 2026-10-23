@@ -130,7 +130,7 @@ jobs:
           cache-to: type=gha,mode=min,scope=worker
           provenance: false
           sbom: false
-          outputs: type=registry,oci-mediatypes=false
+          outputs: type=image,push=true,oci-mediatypes=false,compression=gzip,force-compression=true
 
       - name: Smoke test Playwright in worker image
         if: matrix.service == 'worker'
