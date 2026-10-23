@@ -1,98 +1,77 @@
 /**
- * LLM Service - Hybrid provider with fallback
+ * LLM Service — primary / fallback orchestration
  *
- * Strategy:
- * 1. Try Gemini (free tier)
- * 2. On any error → fallback to OpenAI (paid, reliable)
+ * Current: OpenAI only (invoice vision extraction).
+ * Future: pass a second provider to withExtractionFallback (e.g. alternate model/API).
  */
 
 import type { ExtractionResult, InvoiceExtraction } from './types';
 import { RateLimitError, AuthError } from './types';
-import * as gemini from './gemini';
 import * as openai from './openai';
-import { getConfig } from '../../config';
 import logger from '../../logger';
 
 export { RateLimitError, AuthError } from './types';
 export type { ExtractionResult, InvoiceExtraction } from './types';
 
-/**
- * Extract invoice data using hybrid LLM strategy
- * - Primary: Gemini (free)
- * - Fallback: OpenAI (paid, reliable)
- */
-export async function extractInvoiceData(
-  imageBuffer: Buffer,
-  fileExtension: string
-): Promise<ExtractionResult> {
-  const config = getConfig();
-
-  if (!config.geminiApiKey) {
-    logger.debug('No Gemini API key, using OpenAI directly');
-    return openai.extractInvoiceData(imageBuffer, fileExtension);
+function formatFallbackReason(error: unknown): string {
+  if (error instanceof RateLimitError || error instanceof AuthError) {
+    return `${error.constructor.name}: ${error.message}`;
   }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return 'Unknown error';
+}
 
+/**
+ * Run primary LLM; on failure optionally run fallback and attach fallback metadata.
+ */
+async function withExtractionFallback(
+  primary: () => Promise<ExtractionResult>,
+  fallback: (() => Promise<ExtractionResult>) | null,
+  fallbackFrom?: 'gemini'
+): Promise<ExtractionResult> {
   try {
-    logger.debug('Attempting Gemini extraction');
-    return await gemini.extractInvoiceData(imageBuffer, fileExtension);
+    return await primary();
   } catch (error) {
-    const fallbackReason =
-      error instanceof RateLimitError || error instanceof AuthError
-        ? `${error.constructor.name}: ${error.message}`
-        : error instanceof Error
-          ? error.message
-          : 'Unknown error';
+    if (!fallback) {
+      throw error;
+    }
 
-    logger.warn({ fallbackReason }, 'Gemini failed, falling back to OpenAI');
-    const result = await openai.extractInvoiceData(imageBuffer, fileExtension);
+    const fallbackReason = formatFallbackReason(error);
+    logger.warn({ fallbackReason }, 'Primary LLM failed, trying fallback provider');
+    const result = await fallback();
     return {
       ...result,
       usage: {
         ...result.usage,
-        fallbackFrom: 'gemini',
-        fallbackReason,
+        ...(fallbackFrom && { fallbackFrom, fallbackReason }),
       },
     };
   }
 }
 
 /**
- * Extract invoice data from multiple images (for multi-page PDFs)
- * Uses hybrid LLM strategy with fallback
+ * Extract invoice data from a single image
+ */
+export async function extractInvoiceData(
+  imageBuffer: Buffer,
+  fileExtension: string
+): Promise<ExtractionResult> {
+  return withExtractionFallback(() => openai.extractInvoiceData(imageBuffer, fileExtension), null);
+}
+
+/**
+ * Extract invoice data from multiple images (multi-page PDFs)
  */
 export async function extractInvoiceDataMulti(
   imageBuffers: Buffer[],
   fileExtension: string
 ): Promise<ExtractionResult> {
-  const config = getConfig();
-
-  if (!config.geminiApiKey) {
-    logger.debug('No Gemini API key, using OpenAI directly');
-    return openai.extractInvoiceDataMulti(imageBuffers, fileExtension);
-  }
-
-  try {
-    logger.debug('Attempting Gemini multi-image extraction');
-    return await gemini.extractInvoiceDataMulti(imageBuffers, fileExtension);
-  } catch (error) {
-    const fallbackReason =
-      error instanceof RateLimitError || error instanceof AuthError
-        ? `${error.constructor.name}: ${error.message}`
-        : error instanceof Error
-          ? error.message
-          : 'Unknown error';
-
-    logger.warn({ fallbackReason }, 'Gemini failed, falling back to OpenAI');
-    const result = await openai.extractInvoiceDataMulti(imageBuffers, fileExtension);
-    return {
-      ...result,
-      usage: {
-        ...result.usage,
-        fallbackFrom: 'gemini',
-        fallbackReason,
-      },
-    };
-  }
+  return withExtractionFallback(
+    () => openai.extractInvoiceDataMulti(imageBuffers, fileExtension),
+    null
+  );
 }
 
 /**
