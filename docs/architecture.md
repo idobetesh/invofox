@@ -46,6 +46,16 @@ New OCR uploads use `invoices/{chatId}/{year}/{month}/{uuid}.{extension}`. New g
 
 Generate each PDF path once and reuse it for upload, the saved `storagePath`/`storageUrl`, and rollback. Read existing documents through their stored paths and URLs; legacy invoice-number filenames are not renamed. Both document buckets allow public object reads for permanent links, but anonymous listing is disabled. Links still grant access to anyone they are shared with.
 
+### Document PDF rendering
+
+Invoice, receipt, and invoice-receipt templates escape text values and apply a document CSP. Worker and admin renderers disable JavaScript, service workers, and downloads, and permit only Google Fonts assets and the exact validated logo URL. Logos must be PNG/JPEG/WebP data URLs or HTTPS objects under `storage.googleapis.com/{bucket}/logos/`; unsupported sources use the placeholder. Chromium web security and site isolation remain enabled; the existing no-sandbox container launch setting is unchanged.
+
+### Upload authorization and webhook logging
+
+Photo and document updates require an active `approved_chats` record before the webhook queues work. Approved onboarding photos use the separate logo handler. The OCR worker rechecks approval without caching before any job writes, downloads, uploads, or LLM calls; rejected tasks are acknowledged without retries.
+
+Application HTTP logs contain route patterns instead of actual URLs/query strings. Startup logs omit the webhook secret, and update logs omit raw message text and request bodies. Makefile webhook helpers redact the URL. Cloud Run's platform request logs are independent of application logging and may still contain credential-bearing URLs; historical secrets require coordinated rotation, and separate Telegram header authentication is a follow-up deployment change.
+
 ---
 
 ## Persistence, rollback & retry

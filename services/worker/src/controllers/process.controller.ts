@@ -41,6 +41,12 @@ export async function processInvoice(req: Request, res: Response): Promise<void>
   try {
     const result = await invoiceService.processInvoice(payload);
 
+    if (result.rejectionReason === 'unapproved_chat') {
+      // Acknowledge stale/unauthorized tasks so Cloud Tasks does not retry paid work.
+      res.status(StatusCodes.OK).json({ ok: true, action: 'ignored_upload_unapproved' });
+      return;
+    }
+
     if (result.alreadyProcessed) {
       logger.info(
         { chatId: payload.chatId, messageId: payload.messageId },

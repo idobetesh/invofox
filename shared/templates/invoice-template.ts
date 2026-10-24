@@ -3,7 +3,13 @@
  * Used by both admin tool and worker service
  */
 
-import { getCurrencySymbol, escapeHtml, formatAmount } from './template-utils';
+import {
+  getCurrencySymbol,
+  escapeHtml,
+  formatAmount,
+  getSafeLogoUrl,
+  DOCUMENT_CSP,
+} from './template-utils';
 
 export { escapeHtml };
 
@@ -46,16 +52,18 @@ export function buildInvoiceHTML(params: InvoiceTemplateParams): string {
   } = params;
 
   const currencySymbol = getCurrencySymbol(currency);
-  const logoHTML = logoUrl
-    ? `<img src="${logoUrl}" class="logo" alt="לוגו העסק" />`
+  const safeLogoUrl = getSafeLogoUrl(logoUrl);
+  const logoHTML = safeLogoUrl
+    ? `<img src="${escapeHtml(safeLogoUrl)}" class="logo" alt="לוגו העסק" />`
     : '<div style="width: 100px; height: 100px; background: #e5e7eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #666;">📄</div>';
 
   return `<!DOCTYPE html>
 <html dir="rtl" lang="he">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="${DOCUMENT_CSP}">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>חשבונית / ${invoiceNumber}</title>
+  <title>חשבונית / ${escapeHtml(invoiceNumber)}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&display=swap');
 
@@ -245,11 +253,11 @@ export function buildInvoiceHTML(params: InvoiceTemplateParams): string {
   <!-- Header -->
   <div class="header">
     <div class="business-info">
-      <div class="business-name">${businessName}</div>
-      <p>${businessTaxStatus}: ${businessTaxId}</p>
-      <p>${businessEmail}</p>
-      <p>כתובת: ${businessAddress}</p>
-      <p>${businessPhone}</p>
+      <div class="business-name">${escapeHtml(businessName)}</div>
+      <p>${escapeHtml(businessTaxStatus)}: ${escapeHtml(businessTaxId)}</p>
+      <p>${escapeHtml(businessEmail)}</p>
+      <p>כתובת: ${escapeHtml(businessAddress)}</p>
+      <p>${escapeHtml(businessPhone)}</p>
     </div>
     <div class="logo-section">
       ${logoHTML}
@@ -258,7 +266,7 @@ export function buildInvoiceHTML(params: InvoiceTemplateParams): string {
 
   <!-- Invoice Title Bar -->
   <div class="invoice-title-bar">
-    חשבונית / ${invoiceNumber}
+    חשבונית / ${escapeHtml(invoiceNumber)}
   </div>
 
   <!-- Meta Section -->
@@ -268,15 +276,15 @@ export function buildInvoiceHTML(params: InvoiceTemplateParams): string {
     </div>
     <div class="meta-item">
       <span class="meta-label">תאריך מסמך: </span>
-      <span class="meta-value">${date}</span>
+      <span class="meta-value">${escapeHtml(date)}</span>
     </div>
   </div>
 
   <!-- Customer Section -->
   <div class="customer-section">
     <div class="customer-info">
-      <div class="customer-name">שם: ${customerName}</div>
-      <div class="customer-tax-id">עוסק מס׳: ${customerTaxId}</div>
+      <div class="customer-name">שם: ${escapeHtml(customerName)}</div>
+      <div class="customer-tax-id">עוסק מס׳: ${escapeHtml(customerTaxId)}</div>
     </div>
   </div>
 
@@ -287,19 +295,19 @@ export function buildInvoiceHTML(params: InvoiceTemplateParams): string {
         <th>תיאור</th>
         <th>כמות</th>
         <th>מחיר ליחידה</th>
-        <th>סה״כ (${currencySymbol})</th>
+        <th>סה״כ (${escapeHtml(currencySymbol)})</th>
       </tr>
     </thead>
     <tbody>
       <tr>
-        <td>${description}</td>
+        <td>${escapeHtml(description)}</td>
         <td>1</td>
-        <td class="amount">${currencySymbol}${formatAmount(amount)}</td>
-        <td class="amount">${currencySymbol}${formatAmount(amount)}</td>
+        <td class="amount">${escapeHtml(currencySymbol)}${escapeHtml(formatAmount(amount))}</td>
+        <td class="amount">${escapeHtml(currencySymbol)}${escapeHtml(formatAmount(amount))}</td>
       </tr>
       <tr class="total-row">
         <td colspan="3" class="total-label">סה״כ לתשלום</td>
-        <td class="amount">${currencySymbol}${formatAmount(amount)}</td>
+        <td class="amount">${escapeHtml(currencySymbol)}${escapeHtml(formatAmount(amount))}</td>
       </tr>
     </tbody>
   </table>
@@ -307,7 +315,7 @@ export function buildInvoiceHTML(params: InvoiceTemplateParams): string {
   <!-- Footer -->
   <div class="footer">
     <div class="generation-date">
-      תאריך הפקה: ${date}
+      תאריך הפקה: ${escapeHtml(date)}
     </div>
     <div class="digital-signature">
       <div class="signature-text">מסמך ממוחשב חתום דיגיטלית</div>

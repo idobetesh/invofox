@@ -21,6 +21,7 @@ import * as heicService from './heic.service';
 import logger from '../logger';
 import { featureFlags } from './feature-flags';
 import { t } from './i18n/languages';
+import { isChatApproved } from './approved-chats.service';
 
 /**
  * Escape Markdown special characters to prevent injection in Telegram messages
@@ -48,6 +49,7 @@ export interface ProcessingResult {
   error?: string;
   driveLink?: string;
   isDuplicate?: boolean;
+  rejectionReason?: 'unapproved_chat';
 }
 
 /**
@@ -61,6 +63,11 @@ export async function processInvoice(payload: TaskPayload): Promise<ProcessingRe
   let driveLink: string | undefined;
 
   const log = logger.child({ chatId, messageId });
+  // Recheck uncached approval before any job writes, downloads, storage, or paid extraction.
+  if (!(await isChatApproved(chatId))) {
+    log.info('Ignoring OCR task for unapproved or inactive chat');
+    return { success: false, alreadyProcessed: false, rejectionReason: 'unapproved_chat' };
+  }
   log.info('Starting invoice processing');
 
   try {

@@ -4,7 +4,13 @@
  * For standalone receipts linked to invoices
  */
 
-import { getCurrencySymbol, formatAmount } from './template-utils';
+import {
+  getCurrencySymbol,
+  formatAmount,
+  escapeHtml,
+  getSafeLogoUrl,
+  DOCUMENT_CSP,
+} from './template-utils';
 
 export interface ReceiptTemplateParams {
   receiptNumber: string;
@@ -57,16 +63,18 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
   } = params;
 
   const currencySymbol = getCurrencySymbol(currency);
-  const logoHTML = logoUrl
-    ? `<img src="${logoUrl}" class="logo" alt="לוגו העסק" />`
+  const safeLogoUrl = getSafeLogoUrl(logoUrl);
+  const logoHTML = safeLogoUrl
+    ? `<img src="${escapeHtml(safeLogoUrl)}" class="logo" alt="לוגו העסק" />`
     : '<div style="width: 100px; height: 100px; background: #e5e7eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #666;">📄</div>';
 
   return `<!DOCTYPE html>
 <html dir="rtl" lang="he">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="${DOCUMENT_CSP}">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>קבלה / ${receiptNumber}</title>
+  <title>קבלה / ${escapeHtml(receiptNumber)}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&display=swap');
 
@@ -309,11 +317,11 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
   <!-- Header -->
   <div class="header">
     <div class="business-info">
-      <div class="business-name">${businessName}</div>
-      <p>${businessTaxStatus}: ${businessTaxId}</p>
-      <p>${businessEmail}</p>
-      <p>כתובת: ${businessAddress}</p>
-      <p>${businessPhone}</p>
+      <div class="business-name">${escapeHtml(businessName)}</div>
+      <p>${escapeHtml(businessTaxStatus)}: ${escapeHtml(businessTaxId)}</p>
+      <p>${escapeHtml(businessEmail)}</p>
+      <p>כתובת: ${escapeHtml(businessAddress)}</p>
+      <p>${escapeHtml(businessPhone)}</p>
     </div>
     <div class="logo-section">
       ${logoHTML}
@@ -322,7 +330,7 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
 
   <!-- Invoice Title Bar -->
   <div class="invoice-title-bar">
-    קבלה / ${receiptNumber}
+    קבלה / ${escapeHtml(receiptNumber)}
   </div>
 
   <!-- Meta Section -->
@@ -332,7 +340,7 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
     </div>
     <div class="meta-item">
       <span class="meta-label">תאריך מסמך: </span>
-      <span class="meta-value">${receiptDate}</span>
+      <span class="meta-value">${escapeHtml(receiptDate)}</span>
     </div>
   </div>
 
@@ -352,7 +360,7 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
             dateParts.length === 3
               ? `${dateParts[0]}/${dateParts[1]}/${dateParts[2].slice(-2)}`
               : fullDate || 'N/A';
-          return `<div class="invoice-item">${num}${shortDate ? ` (${shortDate})` : ''}</div>`;
+          return `<div class="invoice-item">${escapeHtml(num)}${shortDate ? ` (${escapeHtml(shortDate)})` : ''}</div>`;
         })
         .join('')}
     </div>
@@ -361,7 +369,7 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
       : `
   <div class="related-invoice-info">
     <div class="text">מסמך זה מקושר לחשבונית</div>
-    <div class="text" style="font-size: 13px; color: #666; margin-top: 4px;">מספר חשבונית: ${invoiceNumber} | תאריך: ${invoiceDate}</div>
+    <div class="text" style="font-size: 13px; color: #666; margin-top: 4px;">מספר חשבונית: ${escapeHtml(invoiceNumber)} | תאריך: ${escapeHtml(invoiceDate)}</div>
   </div>
   `
   }
@@ -369,8 +377,8 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
   <!-- Customer Section -->
   <div class="customer-section">
     <div class="customer-info">
-      <div class="customer-name">שם: ${customerName}</div>
-      <div class="customer-tax-id">עוסק מס׳: ${customerTaxId}</div>
+      <div class="customer-name">שם: ${escapeHtml(customerName)}</div>
+      <div class="customer-tax-id">עוסק מס׳: ${escapeHtml(customerTaxId)}</div>
     </div>
   </div>
 
@@ -383,19 +391,19 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
           <th>סוג תשלום</th>
           <th>פרטים</th>
           <th>תאריך</th>
-          <th>סה״כ(${currencySymbol})</th>
+          <th>סה״כ(${escapeHtml(currencySymbol)})</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td>${paymentMethod}</td>
+          <td>${escapeHtml(paymentMethod)}</td>
           <td></td>
-          <td>${receiptDate}</td>
-          <td class="amount">${currencySymbol}${formatAmount(amount)}</td>
+          <td>${escapeHtml(receiptDate)}</td>
+          <td class="amount">${escapeHtml(currencySymbol)}${escapeHtml(formatAmount(amount))}</td>
         </tr>
         <tr class="total-row">
           <td colspan="3" class="total-label">סה״כ שולם</td>
-          <td class="amount">${currencySymbol}${formatAmount(amount)}</td>
+          <td class="amount">${escapeHtml(currencySymbol)}${escapeHtml(formatAmount(amount))}</td>
         </tr>
       </tbody>
     </table>
@@ -406,7 +414,7 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
       ? `
   <!-- Remaining Balance Info -->
   <div class="remaining-balance-info">
-    <div class="text">יתרה לתשלום: <span class="amount">${currencySymbol}${formatAmount(remainingBalance)}</span></div>
+    <div class="text">יתרה לתשלום: <span class="amount">${escapeHtml(currencySymbol)}${escapeHtml(formatAmount(remainingBalance))}</span></div>
   </div>
   `
       : `
@@ -420,7 +428,7 @@ export function buildReceiptHTML(params: ReceiptTemplateParams): string {
   <!-- Footer -->
   <div class="footer">
     <div class="generation-date">
-      תאריך הפקה: ${receiptDate}
+      תאריך הפקה: ${escapeHtml(receiptDate)}
     </div>
     <div class="digital-signature">
       <div class="signature-text">מסמך ממוחשב חתום דיגיטלית</div>

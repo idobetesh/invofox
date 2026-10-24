@@ -23,7 +23,8 @@ export function errorHandler(
 
   // Log server errors, warn on client errors
   if (isClientError) {
-    logger.warn({ err, status }, 'Client error');
+    // Parser errors can contain the raw body; do not copy user-supplied secrets into logs.
+    logger.warn({ errorType: err.name, status }, 'Client error');
   } else {
     logger.error({ err, status }, 'Server error');
   }

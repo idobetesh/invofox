@@ -13,6 +13,10 @@ import type {
 } from '../../../../../shared/types';
 import { buildInvoiceHTML } from './template';
 import logger from '../../logger';
+import {
+  DOCUMENT_PAGE_OPTIONS,
+  restrictDocumentRequests,
+} from '../../../../../shared/pdf-security';
 
 // Chromium launch arguments for Docker/headless environment
 // Playwright handles crashpad and browser setup internally, so we need fewer flags
@@ -24,11 +28,8 @@ const CHROMIUM_ARGS = [
   '--disable-crash-reporter',
   '--disable-component-update',
   '--disable-domain-reliability',
-  '--disable-features=AudioServiceOutOfProcess,IsolateOrigins,site-per-process',
   '--disable-print-preview',
-  '--disable-site-isolation-trials',
   '--disable-speech-api',
-  '--disable-web-security',
   '--hide-scrollbars',
   '--mute-audio',
   '--no-default-browser-check',
@@ -73,7 +74,8 @@ export async function generateInvoicePDFWithConfig(
     log.debug('Browser launched');
 
     // Create new page
-    const page = await browser.newPage();
+    const page = await browser.newPage(DOCUMENT_PAGE_OPTIONS);
+    await restrictDocumentRequests(page, logoBase64 || undefined);
 
     // Build HTML content with logo
     const html = buildInvoiceHTML(
