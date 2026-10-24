@@ -111,10 +111,10 @@ resource "google_storage_bucket" "invoices" {
   labels = local.labels
 }
 
-# Make bucket publicly readable
+# Preserve public document links without exposing the customer file listing.
 resource "google_storage_bucket_iam_member" "public_read" {
   bucket = google_storage_bucket.invoices.name
-  role   = "roles/storage.objectViewer"
+  role   = "roles/storage.legacyObjectReader"
   member = "allUsers"
 }
 
@@ -143,10 +143,10 @@ resource "google_storage_bucket" "generated_invoices" {
   labels = local.labels
 }
 
-# Make generated invoices bucket publicly readable
+# Preserve public report links without exposing the customer file listing.
 resource "google_storage_bucket_iam_member" "generated_invoices_public_read" {
   bucket = google_storage_bucket.generated_invoices.name
-  role   = "roles/storage.objectViewer"
+  role   = "roles/storage.legacyObjectReader"
   member = "allUsers"
 }
 
@@ -244,7 +244,7 @@ resource "google_secret_manager_secret" "sheet_id" {
 
 # Reference existing Gemini secret (created manually via gcloud)
 data "google_secret_manager_secret" "gemini_api_key" {
-  secret_id = "GEMINI_API_KEY"
+  secret_id  = "GEMINI_API_KEY"
   depends_on = [google_project_service.apis]
 }
 
@@ -675,7 +675,7 @@ resource "google_monitoring_dashboard" "papertrail" {
                       }
                     }
                   }
-                  plotType   = "LINE"
+                  plotType       = "LINE"
                   legendTemplate = "p50"
                 },
                 {
@@ -689,7 +689,7 @@ resource "google_monitoring_dashboard" "papertrail" {
                       }
                     }
                   }
-                  plotType   = "LINE"
+                  plotType       = "LINE"
                   legendTemplate = "p95"
                 },
                 {
@@ -703,7 +703,7 @@ resource "google_monitoring_dashboard" "papertrail" {
                       }
                     }
                   }
-                  plotType   = "LINE"
+                  plotType       = "LINE"
                   legendTemplate = "p99"
                 }
               ]

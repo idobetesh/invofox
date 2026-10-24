@@ -31,6 +31,7 @@ import {
 import logger from '../../logger';
 import { getConfig } from '../../config';
 import { deleteGeneratedPdfFile, getStorage } from '../storage.service';
+import { createGeneratedPdfPath } from '../../../../../shared/storage-paths';
 
 /**
  * Load business configuration from Firestore (by chat ID) or local file
@@ -145,14 +146,14 @@ export async function generateInvoice(
   );
   log.info({ pdfSize: pdfBuffer.length }, 'PDF generated');
 
-  const storagePath = buildGeneratedPdfPath(chatId, invoiceNumber);
+  const storagePath = createGeneratedPdfPath(chatId);
   let storageUploaded = false;
   let firestoreSaved = false;
   let parentPaymentUpdated = false;
 
   try {
     // Step 7: Upload to Cloud Storage (rolled back if later steps fail)
-    const pdfUrl = await uploadPDF(chatId, invoiceNumber, pdfBuffer);
+    const pdfUrl = await uploadPDF(chatId, invoiceNumber, pdfBuffer, storagePath);
     storageUploaded = true;
     log.info({ pdfUrl, storagePath }, 'PDF uploaded to storage');
 
@@ -180,7 +181,16 @@ export async function generateInvoice(
     log.info('Invoice logged to customer Google Sheet');
 
     // Step 9: Save to Firestore audit log
-    await saveInvoiceRecord(invoiceNumber, invoiceData, userId, username, chatId, pdfUrl, session);
+    await saveInvoiceRecord(
+      invoiceNumber,
+      invoiceData,
+      userId,
+      username,
+      chatId,
+      pdfUrl,
+      storagePath,
+      session
+    );
     firestoreSaved = true;
     log.info('Invoice record saved to Firestore');
 
@@ -271,23 +281,18 @@ export async function generateInvoice(
 
 /**
  * Upload PDF to Cloud Storage with per-customer path isolation
- * Path format: {chatId}/{year}/{invoiceNumber}.pdf
+ * The caller supplies the same UUID path used for persistence and rollback.
  */
-function buildGeneratedPdfPath(chatId: number, invoiceNumber: string): string {
-  const year = new Date().getFullYear();
-  return `${chatId}/${year}/${invoiceNumber}.pdf`;
-}
-
 async function uploadPDF(
   chatId: number,
   invoiceNumber: string,
-  pdfBuffer: Buffer
+  pdfBuffer: Buffer,
+  filePath: string
 ): Promise<string> {
   const config = getConfig();
   const bucketName = config.generatedInvoicesBucket;
   const gcs = getStorage();
   const bucket = gcs.bucket(bucketName);
-  const filePath = buildGeneratedPdfPath(chatId, invoiceNumber);
   const file = bucket.file(filePath);
 
   await file.save(pdfBuffer, {

@@ -4,6 +4,7 @@
  */
 
 import { Storage } from '@google-cloud/storage';
+import { randomUUID } from 'node:crypto';
 import { getConfig } from '../config';
 import logger from '../logger';
 
@@ -54,8 +55,8 @@ export async function uploadInvoiceImage(
   const year = date.getFullYear();
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
 
-  // Create path with per-customer isolation: invoices/{chatId}/2026/01/invoice_chatId_msgId_timestamp_page_1_of_3.jpg
-  const baseName = `invoice_${chatId}_${messageId}_${date.getTime()}`;
+  // Keep customer/date prefixes for administration, but make public object URLs unguessable.
+  const baseName = randomUUID();
   const fullName = filenameSuffix ? `${baseName}_${filenameSuffix}` : baseName;
   const fileName = `invoices/${chatId}/${year}/${month}/${fullName}.${fileExtension}`;
   const mimeType = getMimeType(fileExtension);

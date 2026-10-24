@@ -73,6 +73,7 @@ export async function saveInvoiceRecord(
   username: string,
   chatId: number,
   storageUrl: string,
+  storagePath: string,
   session?: InvoiceSession
 ): Promise<void> {
   const db = getFirestore();
@@ -109,7 +110,7 @@ export async function saveInvoiceRecord(
       username,
       chatId,
     },
-    storagePath: `${chatId}/${new Date().getFullYear()}/${invoiceNumber}.pdf`,
+    storagePath,
     storageUrl,
     ...(session?.inputMethod !== undefined && { inputMethod: session.inputMethod }),
     // Payment tracking fields (for invoices that can receive receipts later)
