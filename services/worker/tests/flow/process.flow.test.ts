@@ -34,6 +34,7 @@ import { appendRow } from '../../src/services/sheets.service';
 import { InMemoryFirestore } from './helpers/in-memory-firestore';
 import app from '../../src/app';
 import { CHAT_ID } from './helpers/test-data';
+import { APPROVED_CHATS_COLLECTION } from '../../../../shared/collections';
 
 jest.mock('../../src/middlewares/cloudTasks', () => ({
   validateCloudTasks: jest.fn((req: unknown, _res: unknown, next: () => void) => next()),
@@ -165,6 +166,7 @@ function getJobId(chatId: number, messageId: number): string {
 beforeEach(() => {
   jobStore = {};
   db = new InMemoryFirestore();
+  db.seed(APPROVED_CHATS_COLLECTION, String(CHAT_ID), { status: 'active' });
   (getFirestore as jest.Mock).mockReturnValue(db);
 
   // claimJob — atomic idempotency check
@@ -295,6 +297,27 @@ afterEach(() => {
 });
 
 // ─── Full OCR pipeline: image → ACK ──────────────────────────────────────────
+
+it.each(['missing', 'suspended', 'banned'])(
+  'process: %s approval — acknowledged before downloads, job writes, or paid calls',
+  async (status) => {
+    const approval = db.collection(APPROVED_CHATS_COLLECTION).doc(String(CHAT_ID));
+    if (status === 'missing') {
+      await approval.delete();
+    } else {
+      await approval.set({ status });
+    }
+    const res = await request(app).post('/process').send(TASK_PAYLOAD);
+    expect(res.status).toBe(200);
+    expect(res.body.action).toBe('ignored_upload_unapproved');
+    expect(claimJob).not.toHaveBeenCalled();
+    expect(telegramService.downloadFileById).not.toHaveBeenCalled();
+    expect(uploadInvoiceImage).not.toHaveBeenCalled();
+    expect(extractInvoiceData).not.toHaveBeenCalled();
+    expect(appendRow).not.toHaveBeenCalled();
+    expect(Object.keys(jobStore)).toHaveLength(0);
+  }
+);
 
 it('process: full pipeline — job claimed, LLM extracted, sheet appended, ACK sent', async () => {
   const res = await request(app)

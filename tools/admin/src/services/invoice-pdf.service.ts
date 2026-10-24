@@ -5,6 +5,7 @@
  */
 
 import { chromium } from 'playwright';
+import { DOCUMENT_PAGE_OPTIONS, restrictDocumentRequests } from '../../../../shared/pdf-security';
 import {
   buildInvoiceHTML,
   type InvoiceTemplateParams,
@@ -63,7 +64,8 @@ export class InvoicePDFService {
     });
 
     try {
-      const page = await browser.newPage();
+      const page = await browser.newPage(DOCUMENT_PAGE_OPTIONS);
+      await restrictDocumentRequests(page, params.logoUrl);
       await page.setContent(html, { waitUntil: 'networkidle' });
 
       const pdfBuffer = await page.pdf({

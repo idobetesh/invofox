@@ -22,7 +22,6 @@ async function main(): Promise<void> {
 
     app.listen(config.port, () => {
       logger.info({ port: config.port }, 'Webhook handler started');
-      logger.info({ path: `/webhook/${config.webhookSecretPath}` }, 'Webhook path');
     });
   } catch (error) {
     logger.fatal({ error }, 'Failed to start server');

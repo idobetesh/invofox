@@ -105,7 +105,7 @@ export async function isChatApproved(chatId: number): Promise<boolean> {
     const docRef = db.collection(APPROVED_CHATS_COLLECTION).doc(chatId.toString());
     const doc = await docRef.get();
 
-    const approved = doc.exists;
+    const approved = doc.exists && doc.data()?.status === 'active';
 
     // Cache the result
     approvedChatsCache.set(chatId, {

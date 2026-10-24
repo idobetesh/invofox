@@ -105,6 +105,18 @@ describe('Process Controller Integration Tests', () => {
     });
 
     describe('Processing flow', () => {
+      it('acknowledges rejected tasks without retrying or marking a job failed', async () => {
+        (invoiceService.processInvoice as jest.Mock).mockResolvedValue({
+          success: false,
+          alreadyProcessed: false,
+          rejectionReason: 'unapproved_chat',
+        });
+        const response = await request(app).post('/process').send(validPayload);
+        expect(response.status).toBe(StatusCodes.OK);
+        expect(response.body.action).toBe('ignored_upload_unapproved');
+        expect(storeService.markJobFailed).not.toHaveBeenCalled();
+        expect(telegramService.sendMessage).not.toHaveBeenCalled();
+      });
       it('should process new invoice successfully', async () => {
         (invoiceService.processInvoice as jest.Mock).mockResolvedValue({
           driveLink: 'https://drive.google.com/file/123',

@@ -38,7 +38,7 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
   // Validate and parse update with Zod
   const update = telegramService.parseUpdate(req.body);
   if (!update) {
-    logger.warn({ body: req.body }, 'Invalid Telegram update received');
+    logger.warn('Invalid Telegram update received');
     res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid update' });
     return;
   }
@@ -48,7 +48,6 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
       updateId: update.update_id,
       hasMessage: !!update.message,
       hasText: !!update.message?.text,
-      text: update.message?.text,
       hasDocument: !!update.message?.document,
       hasPhoto: !!update.message?.photo,
     },
@@ -103,6 +102,16 @@ export async function handleWebhook(req: Request, res: Response): Promise<void> 
     logger.debug('Ignoring unknown command message');
     res.status(StatusCodes.OK).json({ ok: true, action: 'ignored_command' });
     return;
+  }
+
+  // Reject uploads before queueing work; an invite must have activated this chat.
+  if (telegramService.isPhotoMessage(update) || telegramService.isDocumentMessage(update)) {
+    const message = update.message || update.channel_post;
+    if (!message || !(await approvedChatsService.isChatApproved(message.chat.id))) {
+      logger.info({ chatId: message?.chat.id }, 'Ignoring upload from unapproved chat');
+      res.status(StatusCodes.OK).json({ ok: true, action: 'ignored_upload_unapproved' });
+      return;
+    }
   }
 
   // Process photo messages

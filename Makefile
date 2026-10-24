@@ -241,7 +241,7 @@ set-webhook:
 		echo "Usage: make set-webhook TELEGRAM_BOT_TOKEN=your-token WEBHOOK_URL=https://webhook-handler-xxx.run.app/webhook/your-secret"; \
 		exit 1; \
 	fi
-	@echo "Setting Telegram webhook to: $(WEBHOOK_URL)"
+	@echo "Setting Telegram webhook (URL redacted)"
 	@curl -s -X POST "https://api.telegram.org/bot$(TELEGRAM_BOT_TOKEN)/setWebhook" \
 		-H "Content-Type: application/json" \
 		-d '{"url": "$(WEBHOOK_URL)"}' | jq .
@@ -251,7 +251,7 @@ get-webhook-info:
 		echo "Error: TELEGRAM_BOT_TOKEN not set"; \
 		exit 1; \
 	fi
-	@curl -s "https://api.telegram.org/bot$(TELEGRAM_BOT_TOKEN)/getWebhookInfo" | jq .
+	@curl -s "https://api.telegram.org/bot$(TELEGRAM_BOT_TOKEN)/getWebhookInfo" | jq 'if .result.url? then .result.url = "[redacted]" else . end'
 
 delete-webhook:
 	@if [ -z "$(TELEGRAM_BOT_TOKEN)" ]; then \

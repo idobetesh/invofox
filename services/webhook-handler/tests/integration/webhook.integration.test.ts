@@ -8,6 +8,9 @@ import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { StatusCodes } from 'http-status-codes';
 import app from '../../src/app';
+import * as approval from '../../src/services/approved-chats.service';
+import * as tasks from '../../src/services/tasks.service';
+import logger from '../../src/logger';
 
 let server: Server;
 let baseUrl: string;
@@ -54,6 +57,13 @@ jest.mock('../../src/logger', () => ({
 }));
 
 describe('Webhook Endpoint Integration Tests', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (approval.isChatApproved as jest.Mock).mockResolvedValue(true);
+    (approval.isInOnboarding as jest.Mock).mockResolvedValue(false);
+    (tasks.enqueueProcessingTask as jest.Mock).mockResolvedValue('test-task');
+    (tasks.enqueueOnboardingPhotoTask as jest.Mock).mockResolvedValue('test-onboarding-task');
+  });
   beforeAll((done) => {
     server = app.listen(0, () => {
       const port = (server.address() as AddressInfo).port;
@@ -313,6 +323,105 @@ describe('Webhook Endpoint Integration Tests', () => {
 
         expect(response.body).toHaveProperty('error');
       });
+    });
+  });
+
+  describe('Upload approval', () => {
+    const upload = (kind: 'photo' | 'document') => {
+      const update = createPhotoMessage();
+      return kind === 'photo'
+        ? update
+        : {
+            ...update,
+            message: {
+              ...update.message,
+              photo: undefined,
+              document: {
+                file_id: 'test-document',
+                file_unique_id: 'unique-document',
+                file_name: 'invoice.pdf',
+                mime_type: 'application/pdf',
+                file_size: 100,
+              },
+            },
+          };
+    };
+
+    it.each(['photo', 'document'] as const)(
+      'ignores %s from a chat that never redeemed an invite',
+      async (kind) => {
+        (approval.isChatApproved as jest.Mock).mockResolvedValue(false);
+        const response = await http().post(`/webhook/${VALID_SECRET}`).send(upload(kind));
+        expect(response.body).toEqual({ ok: true, action: 'ignored_upload_unapproved' });
+        expect(tasks.enqueueProcessingTask).not.toHaveBeenCalled();
+        expect(tasks.enqueueOnboardingPhotoTask).not.toHaveBeenCalled();
+      }
+    );
+
+    it.each(['photo', 'document'] as const)('queues %s for an approved chat', async (kind) => {
+      const response = await http().post(`/webhook/${VALID_SECRET}`).send(upload(kind));
+      expect(response.status).toBe(200);
+      expect(tasks.enqueueProcessingTask).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps approved onboarding logo uploads on their separate queue path', async () => {
+      (approval.isInOnboarding as jest.Mock).mockResolvedValue(true);
+      const response = await http().post(`/webhook/${VALID_SECRET}`).send(upload('photo'));
+      expect(response.body.action).toBe('onboarding_photo_enqueued');
+      expect(tasks.enqueueOnboardingPhotoTask).toHaveBeenCalledTimes(1);
+      expect(tasks.enqueueProcessingTask).not.toHaveBeenCalled();
+    });
+
+    it('does not bypass approval for a stale onboarding session', async () => {
+      (approval.isChatApproved as jest.Mock).mockResolvedValue(false);
+      (approval.isInOnboarding as jest.Mock).mockResolvedValue(true);
+      await http().post(`/webhook/${VALID_SECRET}`).send(upload('photo'));
+      expect(tasks.enqueueOnboardingPhotoTask).not.toHaveBeenCalled();
+    });
+
+    it('also rejects unapproved channel photo posts', async () => {
+      (approval.isChatApproved as jest.Mock).mockResolvedValue(false);
+      const { message, ...update } = createPhotoMessage();
+      const response = await http()
+        .post(`/webhook/${VALID_SECRET}`)
+        .send({ ...update, channel_post: message });
+      expect(response.body.action).toBe('ignored_upload_unapproved');
+      expect(tasks.enqueueProcessingTask).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Secret-safe logging', () => {
+    const logged = () =>
+      JSON.stringify([
+        (logger.info as jest.Mock).mock.calls,
+        (logger.warn as jest.Mock).mock.calls,
+        (logger.error as jest.Mock).mock.calls,
+        (logger.debug as jest.Mock).mock.calls,
+      ]);
+
+    it('logs the route pattern without the actual webhook secret or query string', async () => {
+      await http()
+        .post(`/webhook/${VALID_SECRET}?token=query-secret`)
+        .send(createTextMessage('message-secret'));
+      expect(logged()).toContain('/webhook/:secretPath');
+      expect(logged()).not.toContain(VALID_SECRET);
+      expect(logged()).not.toContain('query-secret');
+      expect(logged()).not.toContain('message-secret');
+    });
+
+    it('does not echo an unknown credential-bearing path into request logs', async () => {
+      await http().get('/webhook/unknown-secret/extra?token=query-secret');
+      expect(logged()).toContain('[unmatched]');
+      expect(logged()).not.toContain('unknown-secret');
+      expect(logged()).not.toContain('query-secret');
+    });
+
+    it('does not log malformed JSON bodies containing secrets', async () => {
+      await http()
+        .post(`/webhook/${VALID_SECRET}`)
+        .set('Content-Type', 'application/json')
+        .send('{"token":"body-secret",');
+      expect(logged()).not.toContain('body-secret');
     });
   });
 
