@@ -10,6 +10,7 @@ import { InvoicePDFService } from './invoice-pdf.service';
 import { getBusinessConfig, uploadPDFToStorage, formatDateDisplay } from './document-helpers';
 import { GENERATED_INVOICES_COLLECTION } from '../../../../shared/collections';
 import { getFirestoreClient, getStorageClient } from './gcp-clients.service';
+import { createGeneratedPdfPath } from '../../../../shared/storage-paths';
 
 interface GenerateInvoiceParams {
   chatId: number;
@@ -86,7 +87,7 @@ export class InvoiceService {
         username: 'admin-panel',
         chatId: params.chatId,
       },
-      storagePath: `${params.chatId}/${new Date().getFullYear()}/${invoiceNumber}.pdf`,
+      storagePath: createGeneratedPdfPath(params.chatId),
       storageUrl: '', // Will be updated after PDF generation
     };
 

@@ -40,6 +40,12 @@ Invofox has three main Telegram entry points. **Invoice upload** and **document 
 | Firestore | Job tracking (`invoice_jobs`), business config, generated documents, sessions |
 | Cloud Storage | Uploaded invoice images/PDFs; generated document PDFs |
 
+### Document storage paths
+
+New OCR uploads use `invoices/{chatId}/{year}/{month}/{uuid}.{extension}`. New generated PDFs, from both the worker and admin, use `{chatId}/{year}/{uuid}.pdf`. Customer/date prefixes support administration and offboarding; invoice numbers remain in document records, PDF contents, and user-facing download names.
+
+Generate each PDF path once and reuse it for upload, the saved `storagePath`/`storageUrl`, and rollback. Read existing documents through their stored paths and URLs; legacy invoice-number filenames are not renamed. Both document buckets allow public object reads for permanent links, but anonymous listing is disabled. Links still grant access to anyone they are shared with.
+
 ---
 
 ## Persistence, rollback & retry

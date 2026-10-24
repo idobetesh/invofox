@@ -79,7 +79,7 @@ describe('Storage Service', () => {
       // Verify file path includes chatId for customer isolation
       const actualPath = mockFile.mock.calls[0][0] as string;
       expect(actualPath).toMatch(
-        /^invoices\/-1001234567\/2026\/01\/invoice_-1001234567_12345_\d+\.jpg$/
+        /^invoices\/-1001234567\/2026\/01\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.jpg$/
       );
       expect(actualPath).toContain('invoices/-1001234567/');
       expect(actualPath).toContain('/2026/01/');
@@ -95,7 +95,7 @@ describe('Storage Service', () => {
 
       const actualPath = mockFile.mock.calls[0][0] as string;
       expect(actualPath).toMatch(
-        /^invoices\/-1001234567\/2026\/01\/invoice_-1001234567_12345_\d+_page_1_of_3\.jpg$/
+        /^invoices\/-1001234567\/2026\/01\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}_page_1_of_3\.jpg$/
       );
       expect(actualPath).toContain('_page_1_of_3');
     });
@@ -116,6 +116,13 @@ describe('Storage Service', () => {
       expect(pathA).toContain('invoices/-1001111111/');
       expect(pathB).toContain('invoices/-1002222222/');
       expect(pathA).not.toBe(pathB);
+    });
+
+    it('should create unpredictable distinct names even for identical upload metadata', async () => {
+      const first = await uploadInvoiceImage(buffer, 'jpg', chatId, messageId, receivedAt);
+      const second = await uploadInvoiceImage(buffer, 'jpg', chatId, messageId, receivedAt);
+
+      expect(first.fileId).not.toBe(second.fileId);
     });
 
     it('should handle PDF files correctly', async () => {

@@ -3,7 +3,7 @@
  * Tests for invoice generation and Firestore saving
  */
 
-import { generateInvoice } from '../../src/services/document-generator';
+import { generateInvoice, getGeneratedInvoice } from '../../src/services/document-generator';
 import { appendGeneratedInvoiceRow } from '../../src/services/sheets.service';
 import type { InvoiceSession } from '../../../../shared/types';
 
@@ -27,13 +27,14 @@ const mockFileSave = jest.fn().mockResolvedValue(undefined);
 const mockFileDelete = jest.fn().mockResolvedValue(undefined);
 const mockFileExists = jest.fn().mockResolvedValue([false]);
 
+const mockFile = jest.fn((_path: string) => ({
+  save: mockFileSave,
+  delete: mockFileDelete,
+  exists: mockFileExists,
+  publicUrl: jest.fn(() => 'https://storage.googleapis.com/test-bucket/test.pdf'),
+}));
 const mockBucket = jest.fn(() => ({
-  file: jest.fn(() => ({
-    save: mockFileSave,
-    delete: mockFileDelete,
-    exists: mockFileExists,
-    publicUrl: jest.fn(() => 'https://storage.googleapis.com/test-bucket/test.pdf'),
-  })),
+  file: mockFile,
 }));
 
 const mockStorage = jest.fn(() => ({
@@ -226,6 +227,10 @@ describe('Invoice Generator', () => {
       const firestoreRecord = mockSet.mock.calls[0][0];
       expect(firestoreRecord.documentType).toBe('invoice_receipt');
       expect(firestoreRecord.customerTaxId).toBe('987654321');
+      expect(mockFile).toHaveBeenCalledWith(firestoreRecord.storagePath);
+      expect(firestoreRecord.storageUrl).toBe(
+        `https://storage.googleapis.com/test-bucket/${firestoreRecord.storagePath}`
+      );
     });
 
     it('should handle receipt document type', async () => {
@@ -257,6 +262,10 @@ describe('Invoice Generator', () => {
       expect(firestoreRecord.paymentStatus).toBe('paid');
       expect(firestoreRecord.paidAmount).toBe(baseSession.amount);
       expect(firestoreRecord.remainingBalance).toBe(0);
+      expect(mockFile).toHaveBeenCalledWith(firestoreRecord.storagePath);
+      expect(firestoreRecord.storageUrl).toBe(
+        `https://storage.googleapis.com/test-bucket/${firestoreRecord.storagePath}`
+      );
     });
 
     it('should throw error when session is incomplete', async () => {
@@ -287,8 +296,16 @@ describe('Invoice Generator', () => {
 
       // Verify storage path includes chatId
       const firestoreRecord = mockSet.mock.calls[0][0];
-      expect(firestoreRecord.storagePath).toBe('789012/2026/I-2026-10.pdf');
-      expect(firestoreRecord.storageUrl).toContain('789012/2026/I-2026-10.pdf');
+      expect(firestoreRecord.storagePath).toMatch(
+        /^789012\/\d{4}\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.pdf$/
+      );
+      expect(mockFile).toHaveBeenCalledWith(firestoreRecord.storagePath);
+      expect(firestoreRecord.storageUrl).toBe(
+        `https://storage.googleapis.com/test-bucket/${firestoreRecord.storagePath}`
+      );
+      expect((appendGeneratedInvoiceRow as jest.Mock).mock.calls[0][1].pdf_link).toBe(
+        firestoreRecord.storageUrl
+      );
     });
 
     it('should allow different customers to have same invoice number without collision', async () => {
@@ -305,7 +322,7 @@ describe('Invoice Generator', () => {
       expect(mockDoc).toHaveBeenCalledWith('chat_-1001111111_I-2026-10');
       const recordA = mockSet.mock.calls[0][0];
       expect(recordA.invoiceNumber).toBe('I-2026-10');
-      expect(recordA.storagePath).toBe('-1001111111/2026/I-2026-10.pdf');
+      expect(recordA.storagePath).toMatch(/^-1001111111\/\d{4}\/[0-9a-f-]{36}\.pdf$/);
 
       // Customer B generates their first invoice (should ALSO get I-2026-10)
       const chatIdB = -1002222222;
@@ -315,7 +332,7 @@ describe('Invoice Generator', () => {
       expect(mockDoc).toHaveBeenCalledWith('chat_-1002222222_I-2026-10');
       const recordB = mockSet.mock.calls[1][0];
       expect(recordB.invoiceNumber).toBe('I-2026-10');
-      expect(recordB.storagePath).toBe('-1002222222/2026/I-2026-10.pdf');
+      expect(recordB.storagePath).toMatch(/^-1002222222\/\d{4}\/[0-9a-f-]{36}\.pdf$/);
 
       // Verify no collision - different document IDs and storage paths
       expect(recordA.storagePath).not.toBe(recordB.storagePath);
@@ -335,6 +352,9 @@ describe('Invoice Generator', () => {
       expect(mockAppendGeneratedInvoiceRow).toHaveBeenCalled();
       expect(mockSet).not.toHaveBeenCalled();
       expect(mockFileDelete).toHaveBeenCalledWith({ ignoreNotFound: true });
+      // Rollback must delete the uploaded UUID object, not reconstruct an invoice-number path.
+      expect(mockFile).toHaveBeenCalledTimes(2);
+      expect(mockFile.mock.calls[1][0]).toBe(mockFile.mock.calls[0][0]);
     });
 
     it('reuses reserved invoice number on retry without calling counter again', async () => {
@@ -349,6 +369,19 @@ describe('Invoice Generator', () => {
 
       expect(result.invoiceNumber).toBe('I-2026-42');
       expect(mockGetNextDocumentNumber).not.toHaveBeenCalled();
+    });
+
+    it('preserves legacy generated document paths and URLs when reading existing records', async () => {
+      const legacy = {
+        invoiceNumber: 'I-2025-1',
+        storagePath: '789012/2025/I-2025-1.pdf',
+        storageUrl: 'https://storage.googleapis.com/test-bucket/789012/2025/I-2025-1.pdf',
+      };
+      mockGet.mockResolvedValueOnce({ exists: true, data: () => legacy });
+
+      expect(await getGeneratedInvoice(chatId, legacy.invoiceNumber)).toEqual(legacy);
+      expect(mockFile).not.toHaveBeenCalled();
+      expect(mockSet).not.toHaveBeenCalled();
     });
   });
 });

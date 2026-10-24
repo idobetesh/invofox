@@ -14,6 +14,7 @@ import {
 } from '../../../../shared/collections';
 import type { PaymentStatus } from '../../../../shared/invoice.types';
 import { getFirestoreClient, getStorageClient } from './gcp-clients.service';
+import { createGeneratedPdfPath } from '../../../../shared/storage-paths';
 
 interface InvoiceDocument {
   id: string;
@@ -214,7 +215,7 @@ export class ReceiptService {
           username: 'admin-panel',
           chatId: invoice.chatId,
         },
-        storagePath: `${invoice.chatId}/${new Date().getFullYear()}/${receiptNumber}.pdf`,
+        storagePath: createGeneratedPdfPath(invoice.chatId),
         storageUrl: '', // Will be updated after PDF generation
       };
 
@@ -489,7 +490,7 @@ export class ReceiptService {
           username: 'admin-panel',
           chatId,
         },
-        storagePath: `${chatId}/${new Date().getFullYear()}/${receiptNumber}.pdf`,
+        storagePath: createGeneratedPdfPath(chatId),
         storageUrl: '', // Will be updated after PDF generation
       };
 
